@@ -367,7 +367,8 @@ fn hash_validation_blocks_path_tricks() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn thumbnails_are_made_on_demand_at_160_and_320() {
+fn thumbnails_are_made_on_demand_at_80_160_and_320() {
+    assert_eq!(THUMBNAIL_SIZES, [80, 160, 320]);
     let covers = tempfile::tempdir().unwrap();
     let cache = tempfile::tempdir().unwrap();
     let stored = import_cover_bytes(covers.path(), &png(1200, 1800)).unwrap();
@@ -414,6 +415,33 @@ fn thumbnails_are_not_enlarged() {
     // 大きさの範囲外
     assert!(ensure_thumbnail(covers.path(), cache.path(), &stored.hash, 5).is_err());
     assert!(ensure_thumbnail(covers.path(), cache.path(), &stored.hash, 5000).is_err());
+}
+
+#[test]
+fn the_list_thumbnail_is_80px_and_much_smaller_than_the_larger_ones() {
+    let covers = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let stored = import_cover_bytes(covers.path(), &png(1200, 1800)).unwrap();
+    let sizes: Vec<(u32, u32)> = [80, 160, 320]
+        .into_iter()
+        .map(|edge| {
+            let path = ensure_thumbnail(covers.path(), cache.path(), &stored.hash, edge).unwrap();
+            decode_jpeg(&std::fs::read(path).unwrap()).dimensions()
+        })
+        .collect();
+    // 長辺 80px。デコード済みの画像（幅 × 高さ × 4 バイト）は、160px の約 4 分の 1
+    assert_eq!(sizes[0], (53, 80));
+    assert_eq!(sizes[1], (107, 160));
+    assert_eq!(sizes[2], (213, 320));
+    let pixels = |(w, h): (u32, u32)| u64::from(w) * u64::from(h);
+    assert!(pixels(sizes[0]) * 3 < pixels(sizes[1]));
+    // 元が小さいときは、拡大しない
+    let small = import_cover_bytes(covers.path(), &png(50, 70)).unwrap();
+    let path = ensure_thumbnail(covers.path(), cache.path(), &small.hash, 80).unwrap();
+    assert_eq!(
+        decode_jpeg(&std::fs::read(path).unwrap()).dimensions(),
+        (50, 70)
+    );
 }
 
 // ---------------------------------------------------------------------------

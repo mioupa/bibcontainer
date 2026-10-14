@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coverUrl } from "@/lib/cover";
+import { DETAIL_COVER_SIZE, LIST_COVER_SIZE, coverUrl } from "@/lib/cover";
 import { COVER_ACCENTS, coverAccent, coverAccentVar, hashString } from "@/lib/coverColor";
 import { detectPlatform } from "@/lib/platform";
 
@@ -7,13 +7,20 @@ const HASH = "a1b2c3d4e5f60718293a4b5c6d7e8f901234567890abcdef1234567890abcdef";
 
 describe("coverUrl（0005 §7）", () => {
   it("macOS は cover://localhost/<hash>?size=…", () => {
+    expect(coverUrl(HASH, 80, "mac")).toBe(`cover://localhost/${HASH}?size=80`);
     expect(coverUrl(HASH, 160, "mac")).toBe(`cover://localhost/${HASH}?size=160`);
     expect(coverUrl(HASH, 320, "mac")).toBe(`cover://localhost/${HASH}?size=320`);
   });
 
   it("Windows は http://cover.localhost/<hash>?size=…", () => {
+    expect(coverUrl(HASH, 80, "windows")).toBe(`http://cover.localhost/${HASH}?size=80`);
     expect(coverUrl(HASH, 160, "windows")).toBe(`http://cover.localhost/${HASH}?size=160`);
     expect(coverUrl(HASH, 320, "windows")).toBe(`http://cover.localhost/${HASH}?size=320`);
+  });
+
+  it("一覧は長辺 80px、詳細ペインとフォームは 320px のサムネイル（0010 §14）", () => {
+    expect(LIST_COVER_SIZE).toBe(80);
+    expect(DETAIL_COVER_SIZE).toBe(320);
   });
 
   it("OS を省略すると、User-Agent から判定する", () => {

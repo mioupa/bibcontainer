@@ -7,7 +7,9 @@
 //!   EXIF の向きは先に画像へ反映する（向きの情報だけ消すと、スマホの写真が横倒しになるため）。
 //!   透過のある画像は白地に重ねる。ファイル名は変換後の JPEG の SHA-256。
 //! - 保存先: `<dir>/<先頭 2 文字>/<hash>.jpg`。同じハッシュのファイルがあれば書かない。一時ファイルに書いてから改名する。
-//! - サムネイル（長辺 160px・320px）: 端末のキャッシュに必要になったときに作る（`ensure_thumbnail`）。
+//! - サムネイル（長辺 80px・160px・320px）: 端末のキャッシュに必要になったときに作る（`ensure_thumbnail`）。
+//!   80px は一覧の書影の枠（幅 28px・高さ約 39px。2 倍の画面で 56×78px）用、320px は詳細ペインとフォーム用。
+//!   160px は今のところ使っていないが、受け付ける（作ったキャッシュと、これから使うかもしれない画面のため）。
 //! - 手動の差し替え: バイト列（ドロップ・貼り付け）と、ユーザーが入力した URL から、同じ変換で保存する。
 
 use std::io::Cursor;
@@ -34,8 +36,10 @@ use crate::types::{CandidateCover, ProviderId};
 pub const MAX_LONG_EDGE: u32 = 800;
 /// 保存する書影の JPEG の品質。
 pub const JPEG_QUALITY: u8 = 85;
-/// 一覧用のサムネイルの長辺（px）。
-pub const THUMBNAIL_SIZES: [u32; 2] = [160, 320];
+/// 一覧の書影に使うサムネイルの長辺（px）。
+pub const LIST_THUMBNAIL_SIZE: u32 = 80;
+/// サムネイルの長辺（px）。80 は一覧、320 は詳細ペインとフォーム（docs/decisions/0010 §12）。
+pub const THUMBNAIL_SIZES: [u32; 3] = [LIST_THUMBNAIL_SIZE, 160, 320];
 /// サムネイルの JPEG の品質。
 pub const THUMBNAIL_QUALITY: u8 = 80;
 /// 自動取得で、これより小さい画像（1px の追跡画像など）は書影として使わない。
@@ -352,7 +356,7 @@ pub fn make_thumbnail(source: &[u8], long_edge: u32) -> Result<Vec<u8>, CoverErr
 }
 
 /// サムネイルのファイルを返す。なければ、書影から作ってキャッシュに保存する。
-/// `long_edge` は 160 か 320 を使う（`THUMBNAIL_SIZES`）。
+/// `long_edge` は 80・160・320 のどれかを使う（`THUMBNAIL_SIZES`）。
 pub fn ensure_thumbnail(
     cover_dir: &Path,
     cache_dir: &Path,

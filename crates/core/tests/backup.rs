@@ -623,3 +623,122 @@ fn restoring_an_older_schema_migrates_it_and_keeps_unflushed_ops() {
         .unwrap();
     assert_eq!(moved, [(old_dev, 1)]);
 }
+
+// ---------- 別の読み取り専用の接続でのバックアップ（アプリの接続を塞がない） ----------
+
+/// `books` に、大きめの行を `rows` 行入れる（`VACUUM INTO` に時間がかかるようにする）。
+fn fill_books(conn: &Connection, rows: i64) {
+    conn.execute(
+        "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ?1)
+         INSERT INTO books(id, title, description)
+         SELECT printf('fill-%08d', i), 'タイトル ' || i, printf('%.*c', 400, 'x') FROM n",
+        [rows],
+    )
+    .unwrap();
+}
+
+#[test]
+fn a_reader_connection_makes_a_complete_backup_and_cannot_write() {
+    let d = Dirs::new();
+    let mut conn = d.open();
+    let clock = ManualClock::new(T0);
+    add_book(&mut conn, &clock, "A");
+    add_book(&mut conn, &clock, "B");
+
+    let reader = backup::open_reader(&d.db()).unwrap();
+    // WAL に書いたばかりで、本体にまだ反映していない内容も、読み取りの接続から見える
+    let info = create_backup(&reader, &d.backups(), BackupKind::Manual, &clock).unwrap();
+    let copy = Connection::open(&info.path).unwrap();
+    assert_eq!(integrity(&copy), "ok");
+    assert_eq!(count_books(&copy), 2);
+    assert_eq!(verify_backup(Path::new(&info.path)).unwrap().book_count, 2);
+    // 日次の自動実行も、読み取りの接続で動く
+    let daily = run_scheduled_backup(&reader, &d.backups(), &clock)
+        .unwrap()
+        .expect("日次を作る");
+    assert_eq!(daily.kind, BackupKind::Daily);
+
+    // 読み取り専用なので、書き込めない
+    assert!(
+        reader
+            .execute("INSERT INTO books(id, title) VALUES ('x', 'x')", [])
+            .is_err()
+    );
+    assert_eq!(count_books(&conn), 2);
+    // アプリの接続は、読み取りの接続を開いたまま書ける
+    add_book(&mut conn, &clock, "C");
+    assert_eq!(count_books(&conn), 3);
+}
+
+#[test]
+fn a_backup_taken_while_writes_continue_is_a_consistent_snapshot_and_does_not_block_them() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+    use std::time::{Duration, Instant};
+
+    let d = Dirs::new();
+    let mut conn = d.open();
+    fill_books(&conn, 40_000);
+    let initial = count_books(&conn);
+    let clock = ManualClock::new(T0);
+
+    // 書き込みの側: 1 回のトランザクションで 2 行ずつ足す（どの時点のスナップショットでも、行数は偶数ぶん増える）
+    let stop = Arc::new(AtomicBool::new(false));
+    let commits = Arc::new(AtomicU64::new(0));
+    let slowest_ms = Arc::new(AtomicU64::new(0));
+    let writer = {
+        let (stop, commits, slowest_ms) = (stop.clone(), commits.clone(), slowest_ms.clone());
+        std::thread::spawn(move || {
+            let mut n = 0_i64;
+            while !stop.load(Ordering::Relaxed) {
+                let t = Instant::now();
+                let tx = bibcontainer_core::write_tx(&mut conn).unwrap();
+                tx.execute(
+                    "INSERT INTO books(id, title) VALUES (?1, 'pair'), (?2, 'pair')",
+                    [format!("w-{n:08}-a"), format!("w-{n:08}-b")],
+                )
+                .unwrap();
+                tx.commit().unwrap();
+                let ms = u64::try_from(t.elapsed().as_millis()).unwrap();
+                slowest_ms.fetch_max(ms, Ordering::Relaxed);
+                commits.fetch_add(1, Ordering::Relaxed);
+                n += 1;
+            }
+            conn
+        })
+    };
+
+    // バックアップの側: 別の読み取りの接続で、何回か取る
+    let reader = backup::open_reader(&d.db()).unwrap();
+    let mut during = 0;
+    let mut paths = Vec::new();
+    for _ in 0..4 {
+        let before = commits.load(Ordering::Relaxed);
+        let info = create_backup(&reader, &d.backups(), BackupKind::Manual, &clock).unwrap();
+        during += commits.load(Ordering::Relaxed) - before;
+        paths.push(info.path);
+        std::thread::sleep(Duration::from_millis(30));
+    }
+    stop.store(true, Ordering::Relaxed);
+    let mut conn = writer.join().unwrap();
+
+    // どのバックアップも、ある時点のスナップショット: 完全な DB で、2 行ずつ足された状態（半端な行数にならない）
+    for path in &paths {
+        let copy = Connection::open(path).unwrap();
+        assert_eq!(integrity(&copy), "ok");
+        let n = count_books(&copy) - initial;
+        assert!(n >= 0 && n % 2 == 0, "{path}: 足された行数 {n}");
+    }
+    // バックアップ中も書き込みが進んだ（アプリの接続が待たされない）。待たされても、バックアップの
+    // 長さではなく、1 回の書き込みが数十ミリ秒の範囲。busy_timeout（5 秒）に達していない。
+    assert!(during > 0, "バックアップの間に 1 回も書き込めていない");
+    assert!(
+        slowest_ms.load(Ordering::Relaxed) < 2000,
+        "1 回の書き込みに {}ms かかった",
+        slowest_ms.load(Ordering::Relaxed)
+    );
+    // バックアップを取ったあとも、元の DB は無傷
+    assert_eq!(integrity(&conn), "ok");
+    assert!(count_books(&conn) > initial);
+    add_book(&mut conn, &clock, "最後の本");
+}

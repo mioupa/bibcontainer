@@ -1,10 +1,12 @@
 //! `cover` URI スキーム（0005 §7）。WebView に書影を渡す。
 //!
-//! - URL: `cover://localhost/<hash>?size=160`（macOS）、`http://cover.localhost/<hash>?size=160`（Windows）。
+//! - URL: `cover://localhost/<hash>?size=80`（macOS）、`http://cover.localhost/<hash>?size=80`（Windows）。
 //! - `<hash>`: 小文字の 16 進 64 桁だけを受け付ける（パスの組み立てに使うので、`..`・`/`・`%`・大文字などは弾く。
 //!   パストラバーサル対策）。
-//! - `size`: なし（原寸）、`160`、`320`（サムネイルをキャッシュに作る）。それ以外は 400。
-//! - 応答: 200（`Content-Type: image/jpeg`。内容は変わらないので長いキャッシュ期間を付ける）、
+//! - `size`: なし（原寸）、`80`（一覧）、`160`、`320`（詳細ペイン・フォーム）。サムネイルはキャッシュに作る。
+//!   それ以外は 400。
+//! - 応答: 200（`Content-Type: image/jpeg`。内容は変わらないので、160・320・原寸は長いキャッシュ期間を付ける。
+//!   一覧用の 80 は WebKit のメモリキャッシュに残さない `no-store`。理由は `CACHE_CONTROL_LIST`）、
 //!   400（ハッシュ・大きさが正しくない）、404（書影がない）、405（GET・HEAD 以外）、500・503（読めない・まだ使えない）。
 //!
 //! フェーズ 2 で同期フォルダの書影からも読めるようにするときは、`locate_original` に探す場所を足す。
@@ -12,7 +14,9 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use bibcontainer_metadata::cover::{THUMBNAIL_SIZES, cover_path, ensure_thumbnail, is_valid_hash};
+use bibcontainer_metadata::cover::{
+    LIST_THUMBNAIL_SIZE, THUMBNAIL_SIZES, cover_path, ensure_thumbnail, is_valid_hash,
+};
 use tauri::http::{self, HeaderValue, Method, Response, StatusCode};
 use tauri::{Manager, Runtime};
 
@@ -20,15 +24,32 @@ use super::state::{CoverDirs, MetadataState};
 
 /// スキームの名前。
 pub const SCHEME: &str = "cover";
-/// 書影は内容（ハッシュ）が決まれば変わらないので、1 年・変更なしとする。
+/// 書影は内容（ハッシュ）が決まれば変わらないので、1 年・変更なしとする（詳細ペイン・フォームの 320、原寸など）。
 const CACHE_CONTROL_OK: &str = "public, max-age=31536000, immutable";
+/// 一覧用のサムネイル（長辺 80px）は、WebKit のメモリキャッシュに残さない。
+///
+/// 一覧は仮想化していて、画面から出た行の `<img>` は外される。それでも WebKit は、読み込んだ画像を
+/// 使われなくなったあともメモリキャッシュに持ち続け、画像の大きさによらず 1 枚あたり約 11KB を使う
+/// （書影のある 2,823 冊を表示すると、WebContent のフットプリントが約 30MB 増える）。書影は端末内の
+/// ファイルで、読み込みは 1ms 未満なので、キャッシュさせずに、行が出るたびに読み直す
+/// （docs/decisions/0010 §14）。
+const CACHE_CONTROL_LIST: &str = "no-store";
+
+/// `size` に対する、200 の応答の `Cache-Control`。
+fn cache_control_for(size: Option<u32>) -> &'static str {
+    if size == Some(LIST_THUMBNAIL_SIZE) {
+        CACHE_CONTROL_LIST
+    } else {
+        CACHE_CONTROL_OK
+    }
+}
 
 /// 要求の URL が正しくないとき。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BadRequest {
     /// ハッシュが 64 桁の小文字の 16 進数でない（パスに余計なものがある場合を含む）
     Hash,
-    /// `size` が 160・320 以外
+    /// `size` が 80・160・320 以外
     Size,
 }
 
@@ -61,6 +82,8 @@ pub fn parse_request(path: &str, query: Option<&str>) -> Result<(String, Option<
 pub struct CoverReply {
     pub status: u16,
     pub body: Vec<u8>,
+    /// 200 のときの `Cache-Control`（エラーは常に `no-store`）。
+    pub cache_control: &'static str,
 }
 
 impl CoverReply {
@@ -68,6 +91,7 @@ impl CoverReply {
         CoverReply {
             status,
             body: Vec::new(),
+            cache_control: "no-store",
         }
     }
 
@@ -81,7 +105,7 @@ impl CoverReply {
             builder
                 .header(http::header::CONTENT_TYPE, "image/jpeg")
                 .header(http::header::CONTENT_LENGTH, self.body.len())
-                .header(http::header::CACHE_CONTROL, CACHE_CONTROL_OK)
+                .header(http::header::CACHE_CONTROL, self.cache_control)
         } else {
             builder
                 .header(http::header::CONTENT_TYPE, "text/plain; charset=utf-8")
@@ -130,7 +154,11 @@ pub fn respond(dirs: &CoverDirs, path: &str, query: Option<&str>) -> CoverReply 
         },
     };
     match std::fs::read(&file) {
-        Ok(body) => CoverReply { status: 200, body },
+        Ok(body) => CoverReply {
+            status: 200,
+            body,
+            cache_control: cache_control_for(size),
+        },
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => CoverReply::error(404),
         Err(err) => {
             tracing::warn!(hash, error = %err, "書影を読めませんでした");
@@ -231,8 +259,9 @@ mod tests {
     }
 
     #[test]
-    fn size_is_none_160_or_320() {
+    fn size_is_none_80_160_or_320() {
         let path = format!("/{}", hash64());
+        assert_eq!(parse_request(&path, Some("size=80")).unwrap().1, Some(80));
         assert_eq!(parse_request(&path, Some("size=160")).unwrap().1, Some(160));
         assert_eq!(parse_request(&path, Some("size=320")).unwrap().1, Some(320));
         assert_eq!(parse_request(&path, Some("")).unwrap().1, None);
@@ -242,7 +271,7 @@ mod tests {
             Some(320)
         );
         for q in [
-            "size=0", "size=100", "size=161", "size=800", "size=", "size=abc", "size=-1",
+            "size=0", "size=79", "size=100", "size=161", "size=800", "size=", "size=abc", "size=-1",
         ] {
             assert_eq!(parse_request(&path, Some(q)), Err(BadRequest::Size), "{q}");
         }
@@ -292,7 +321,7 @@ mod tests {
             std::fs::read(cover_path(&dirs.covers, &hash)).unwrap()
         );
 
-        for edge in [160u32, 320] {
+        for edge in [80u32, 160, 320] {
             let reply = respond(&dirs, &path, Some(&format!("size={edge}")));
             assert_eq!(reply.status, 200, "{edge}");
             let (w, h) = dimensions(&reply.body);
@@ -309,6 +338,38 @@ mod tests {
         // 2 回目はキャッシュから（同じ内容）
         let again = respond(&dirs, &path, Some("size=160"));
         assert_eq!(again, respond(&dirs, &path, Some("size=160")));
+    }
+
+    #[test]
+    fn list_thumbnails_are_not_kept_in_the_webview_memory_cache_but_the_others_are() {
+        let (_tmp, dirs, hash) = dirs_with_cover();
+        let path = format!("/{hash}");
+        // 一覧用（80）: WebKit のメモリキャッシュに残さない
+        let list = respond(&dirs, &path, Some("size=80"));
+        assert_eq!(list.status, 200);
+        assert_eq!(list.cache_control, "no-store");
+        assert_eq!(
+            list.clone().into_http(false).headers()["cache-control"],
+            "no-store"
+        );
+        assert_eq!(dimensions(&list.body).0.max(dimensions(&list.body).1), 80);
+        // 詳細ペイン・フォーム（320）、160、原寸: 内容は変わらないので長くキャッシュさせる
+        for query in [Some("size=160"), Some("size=320"), None] {
+            let reply = respond(&dirs, &path, query);
+            assert_eq!(reply.status, 200, "{query:?}");
+            assert_eq!(reply.cache_control, CACHE_CONTROL_OK, "{query:?}");
+            assert_eq!(
+                reply.into_http(false).headers()["cache-control"],
+                CACHE_CONTROL_OK
+            );
+        }
+        // HEAD でも同じヘッダー
+        assert_eq!(list.into_http(true).headers()["cache-control"], "no-store");
+        // 2 回目（サムネイルがキャッシュフォルダにあるとき）も同じ
+        assert_eq!(
+            respond(&dirs, &path, Some("size=80")).cache_control,
+            "no-store"
+        );
     }
 
     #[test]
@@ -341,6 +402,7 @@ mod tests {
         let reply = CoverReply {
             status: 200,
             body: vec![0xFF, 0xD8, 1, 2, 3],
+            cache_control: CACHE_CONTROL_OK,
         };
         let r = reply.clone().into_http(false);
         assert_eq!(r.status(), 200);

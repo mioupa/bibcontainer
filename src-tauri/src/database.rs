@@ -6,11 +6,16 @@
 //! 接続は 1 本を Mutex で共有する。バックアップからの復元（`restore`）は、その Mutex を持ったまま
 //! 接続を閉じ、DB のファイルを置き換えて開き直す。復元中の `run` は、終わるまで待ってから新しい
 //! 接続で実行される。
+//!
+//! バックアップ（`VACUUM INTO`。5,000 冊で 0.3 秒、2 万冊で 1.2 秒ほどかかる）は、この Mutex を持たず、
+//! 別に開いた読み取り専用の接続で行う（`run_backup`）。WAL なので、バックアップ中も検索・一覧・保存は
+//! 待たされない。バックアップの接続は DB のファイルを直接開くので、復元（ファイルの置き換え）とは
+//! `backup_gate` で重ならないようにする。
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use bibcontainer_core::backup::RestoreReport;
+use bibcontainer_core::backup::{self, RestoreReport};
 use rusqlite::Connection;
 
 use crate::error::AppError;
@@ -36,6 +41,9 @@ enum Slot {
 pub struct Database {
     paths: Option<Paths>,
     slot: Mutex<Slot>,
+    /// バックアップ（別の接続で DB のファイルを読む）と復元（ファイルを置き換える）、バックアップどうしが
+    /// 重ならないようにする。ふつうの `run` は取らない。取る順は、この門 → `slot`。
+    backup_gate: Mutex<()>,
 }
 
 impl Database {
@@ -48,6 +56,7 @@ impl Database {
                 migration_backups: backup_dir.to_owned(),
             }),
             slot: Mutex::new(open_slot(db_path, backup_dir)),
+            backup_gate: Mutex::new(()),
         }
     }
 
@@ -56,6 +65,7 @@ impl Database {
         Self {
             paths: None,
             slot: Mutex::new(Slot::Failed(error)),
+            backup_gate: Mutex::new(()),
         }
     }
 
@@ -113,6 +123,40 @@ impl Database {
         .map_err(|err| AppError::Internal(format!("バックグラウンド処理に失敗しました: {err}")))?
     }
 
+    /// バックアップを、アプリの接続とは別に開いた読み取り専用の接続で行う。
+    ///
+    /// `f` には、その読み取り専用の接続を渡す（`create_backup` などに渡す。設定の読み出しにも使える）。
+    /// 接続の Mutex は持たないので、`f` の間も `run` は待たされない（WAL。5,000 冊で約 0.3 秒、
+    /// 2 万冊で約 1.2 秒の `VACUUM INTO` が、検索や一覧の取り直しを止めない）。`VACUUM INTO` は 1 つの
+    /// 読み取りトランザクションなので、バックアップは始まった時点のスナップショットになる。
+    ///
+    /// 復元・ほかのバックアップとは重ならない（先に始まったほうが終わるまで待つ）。
+    /// DB を開けなかったときは、`run` と同じく保持しているエラーを返す。
+    pub async fn run_backup<T, F>(self: &Arc<Self>, f: F) -> Result<T, AppError>
+    where
+        F: FnOnce(&Connection) -> Result<T, AppError> + Send + 'static,
+        T: Send + 'static,
+    {
+        let this = Arc::clone(self);
+        tauri::async_runtime::spawn_blocking(move || {
+            let _gate = this
+                .backup_gate
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            // 開けているかだけを見る。接続の Mutex は、この確認の間しか持たない。
+            if let Slot::Failed(err) = &*this.lock() {
+                return Err(err.clone());
+            }
+            let paths = this.paths.as_ref().ok_or_else(|| AppError::DbUnavailable {
+                reason: "データベースの場所を決められないため、バックアップできません".to_owned(),
+            })?;
+            let reader = backup::open_reader(&paths.db)?;
+            f(&reader)
+        })
+        .await
+        .map_err(|err| AppError::Internal(format!("バックグラウンド処理に失敗しました: {err}")))?
+    }
+
     /// バックアップから復元する。接続を閉じ、DB のファイルを置き換え、開き直す。
     ///
     /// 復元の間は接続の Mutex を持ち続けるので、ほかの `run` は終わるまで待たされ、開き直した
@@ -131,6 +175,11 @@ impl Database {
             let paths = this.paths.as_ref().ok_or_else(|| AppError::DbUnavailable {
                 reason: "データベースの場所を決められないため、復元できません".to_owned(),
             })?;
+            // 実行中のバックアップが終わるのを待ち、復元の間はバックアップを始めさせない。
+            let _gate = this
+                .backup_gate
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
             let mut slot = this.lock();
             // 接続を閉じる。閉じている間に別の処理が来ても、ロックしているので入れない。
             let closing = std::mem::replace(
@@ -411,6 +460,216 @@ mod tests {
         block_on(db.restore(backup, dir.path().join("safety"))).unwrap();
         assert!(db.failure().is_none());
         assert_eq!(titles(&db), ["正常なデータ"]);
+    }
+
+    // ---------- バックアップは、アプリの接続とは別の接続で行う ----------
+
+    use std::sync::mpsc;
+    use std::time::{Duration, Instant};
+
+    const WAIT: Duration = Duration::from_secs(20);
+
+    fn sql<T>(result: rusqlite::Result<T>) -> Result<T, AppError> {
+        Ok(result.map_err(bibcontainer_core::Error::from)?)
+    }
+
+    /// `run_backup` の中の処理（`f`）を別のスレッドで走らせ、`f` が始まるまで待つ。
+    fn start_backup_thread(
+        db: &Arc<Database>,
+        f: impl FnOnce(&Connection) -> Result<(), AppError> + Send + 'static,
+    ) -> std::thread::JoinHandle<Result<(), AppError>> {
+        let (started_tx, started_rx) = mpsc::channel();
+        let db = Arc::clone(db);
+        let handle = std::thread::spawn(move || {
+            block_on(db.run_backup(move |conn| {
+                started_tx.send(()).unwrap();
+                f(conn)
+            }))
+        });
+        started_rx
+            .recv_timeout(WAIT)
+            .expect("バックアップの処理が始まらない");
+        handle
+    }
+
+    #[test]
+    fn work_on_the_app_connection_is_not_blocked_while_a_backup_is_running() {
+        let dir = tempfile::tempdir().unwrap();
+        let (db_path, backup_dir) = paths(dir.path());
+        let db = Arc::new(Database::open(&db_path, &backup_dir));
+        add_book(&db, "最初の本");
+
+        // バックアップの処理が動いている間に、アプリの接続での処理（読み取りも書き込みも）が終わる。
+        // 終わるまでバックアップの処理は待つので、もしバックアップが接続の Mutex を持っていると、
+        // `run` が終わらず、タイムアウトで失敗する。
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+        let (checked_tx, checked_rx) = mpsc::channel::<()>();
+        let backup = start_backup_thread(&db, move |conn| {
+            // バックアップの接続は、DB を読めるが、書けない
+            let n: i64 = sql(conn.query_row("SELECT count(*) FROM books", [], |r| r.get(0)))?;
+            assert_eq!(n, 1);
+            assert!(conn.execute("DELETE FROM books", []).is_err());
+            checked_tx.send(()).unwrap();
+            release_rx
+                .recv_timeout(WAIT)
+                .map_err(|_| AppError::Internal("アプリの接続の処理が待たされた".to_owned()))
+        });
+        // 上の数え上げより先に本を足すと 2 冊に見えるので、確認が済むまで待つ
+        // （読み取りの時点は接続を開いたときではなく、文ごとに決まる）
+        checked_rx
+            .recv_timeout(WAIT)
+            .expect("バックアップの接続での確認が終わらない");
+
+        let started = Instant::now();
+        assert_eq!(titles(&db), ["最初の本"]);
+        add_book(&db, "バックアップ中に足した本");
+        assert_eq!(titles(&db).len(), 2);
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "待たされている: {:?}",
+            started.elapsed()
+        );
+        release_tx.send(()).unwrap();
+        backup.join().unwrap().unwrap();
+    }
+
+    #[test]
+    fn a_backup_on_its_own_connection_is_a_complete_snapshot_and_other_work_keeps_running() {
+        let dir = tempfile::tempdir().unwrap();
+        let (db_path, backup_dir) = paths(dir.path());
+        let db = Arc::new(Database::open(&db_path, &backup_dir));
+        add_book(&db, "最初の本");
+        // `VACUUM INTO` に時間がかかるよう、大きめの行を足す
+        block_on(db.run(|conn, _| {
+            sql(conn.execute(
+                "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 40000)
+                 INSERT INTO books(id, title, description)
+                 SELECT printf('fill-%08d', i), 'タイトル ' || i, printf('%.*c', 400, 'x') FROM n",
+                [],
+            ))?;
+            Ok(())
+        }))
+        .unwrap();
+
+        let (done_tx, done_rx) = mpsc::channel();
+        let dir_for_backup = backup_dir.clone();
+        let started = Instant::now();
+        let backup = {
+            let db = Arc::clone(&db);
+            std::thread::spawn(move || {
+                let result = block_on(db.run_backup(move |conn| {
+                    Ok(backup::manual_backup(
+                        conn,
+                        &dir_for_backup,
+                        &bibcontainer_core::SystemClock,
+                    )?)
+                }));
+                done_tx.send(()).unwrap();
+                result
+            })
+        };
+
+        // バックアップが終わるまで、アプリの接続で保存を続ける（1 回の待ちの長さを測る）
+        let (mut writes, mut slowest) = (0_u32, Duration::ZERO);
+        while done_rx.try_recv().is_err() {
+            let t = Instant::now();
+            add_book(&db, "バックアップ中に足した本");
+            slowest = slowest.max(t.elapsed());
+            writes += 1;
+            assert!(started.elapsed() < WAIT, "バックアップが終わらない");
+        }
+        let backup_took = started.elapsed();
+        let info = backup.join().unwrap().unwrap();
+
+        assert!(writes > 0, "バックアップの間に 1 回も保存できなかった");
+        // 接続を塞ぐ実装だと、最初の 1 回がバックアップが終わるまで待たされ、バックアップの長さに近くなる
+        assert!(
+            slowest * 2 < backup_took,
+            "保存 1 回の最長 {slowest:?}、バックアップ全体 {backup_took:?}"
+        );
+        // バックアップは完全な DB（保存の途中で切れた状態ではない）
+        let check = bibcontainer_core::backup::verify_backup(Path::new(&info.path)).unwrap();
+        assert_eq!(check.schema_version, migrate::LATEST_VERSION);
+        // いつの時点のスナップショットでも、足した本（1 冊 1 トランザクション）が欠けず、本の行は整合する
+        let snapshot = rusqlite::Connection::open(&info.path).unwrap();
+        let (books, indexed): (i64, i64) = snapshot
+            .query_row(
+                "SELECT (SELECT count(*) FROM books), (SELECT count(*) FROM book_idx)",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert!(books >= 40_001, "{books}");
+        // 検索用の派生データは、本を作るのと同じトランザクションで書く。40,000 行はそれを通さず入れたので、その分だけ少ない
+        assert!(indexed <= books && indexed >= 1, "{indexed} / {books}");
+    }
+
+    #[test]
+    fn a_restore_waits_for_a_running_backup_and_a_backup_waits_for_a_restore() {
+        let dir = tempfile::tempdir().unwrap();
+        let (db_path, backup_dir) = paths(dir.path());
+        let db = Arc::new(Database::open(&db_path, &backup_dir));
+        add_book(&db, "いまの本");
+
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+        let backup = start_backup_thread(&db, move |_| {
+            release_rx
+                .recv_timeout(WAIT)
+                .map_err(|_| AppError::Internal("復元がバックアップを待たなかった".to_owned()))
+        });
+
+        // 復元は、実行中のバックアップが終わるまで始まらない
+        let restore = {
+            let db = Arc::clone(&db);
+            let garbage = dir.path().join("garbage.sqlite3");
+            std::fs::write(&garbage, "SQLite ではないファイル").unwrap();
+            let safety = dir.path().join("safety");
+            std::thread::spawn(move || block_on(db.restore(garbage, safety)))
+        };
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(!restore.is_finished(), "バックアップの途中で復元が進んだ");
+        // 復元が待っている間も、ふつうの処理は止まらない（復元は、門を取ってから接続の Mutex を取る）
+        assert_eq!(titles(&db), ["いまの本"]);
+
+        release_tx.send(()).unwrap();
+        backup.join().unwrap().unwrap();
+        let err = restore.join().unwrap().unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::InvalidBackup);
+        assert!(db.failure().is_none());
+
+        // 復元が終われば、バックアップはまた取れる
+        let info = block_on(db.run_backup(move |conn| {
+            Ok(backup::manual_backup(
+                conn,
+                &backup_dir,
+                &bibcontainer_core::SystemClock,
+            )?)
+        }))
+        .unwrap();
+        assert_eq!(
+            bibcontainer_core::backup::verify_backup(Path::new(&info.path))
+                .unwrap()
+                .book_count,
+            1
+        );
+    }
+
+    #[test]
+    fn a_backup_of_a_db_that_failed_to_open_returns_the_stored_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let (db_path, backup_dir) = paths(dir.path());
+        let (conn, _) = bibcontainer_core::open(&db_path, &backup_dir).unwrap();
+        conn.pragma_update(None, "user_version", 999).unwrap();
+        drop(conn);
+        let db = Arc::new(Database::open(&db_path, &backup_dir));
+
+        let err = block_on(db.run_backup(|_| Ok(()))).unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::SchemaTooNew);
+        let unknown = Arc::new(Database::failed(AppError::DbUnavailable {
+            reason: "場所がない".into(),
+        }));
+        let err = block_on(unknown.run_backup(|_| Ok(()))).unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::DbUnavailable);
     }
 
     #[test]

@@ -30,6 +30,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "local_settings_and_search",
         sql: include_str!("../migrations/0002_local_settings_and_search.sql"),
     },
+    Migration {
+        version: 3,
+        name: "field_clocks_without_rowid",
+        sql: include_str!("../migrations/0003_field_clocks_without_rowid.sql"),
+    },
 ];
 
 /// アプリが知る最新のスキーマ版。
@@ -60,6 +65,8 @@ pub fn user_version(conn: &Connection) -> Result<u32> {
 ///   `backup_dir/pre-migration-v{旧版}-{UTC時刻}.sqlite3` へ `VACUUM INTO` でバックアップする。
 /// - 各マイグレーションは 1 つのトランザクションで実行し、`user_version` の更新も同じ
 ///   トランザクションに入れる。失敗したらロールバックされ、版は変わらない。
+/// - テーブルを作り直すマイグレーションで空きページが増えたときは、適用のあとに `VACUUM` して
+///   ファイルを縮める（`reclaim_space`）。
 pub fn migrate(
     conn: &mut Connection,
     migrations: &[Migration],
@@ -130,7 +137,44 @@ fn run(
         report.applied.push(m.version);
         report.to_version = m.version;
     }
+    if !report.applied.is_empty() {
+        reclaim_space(conn);
+    }
     Ok(report)
+}
+
+/// 空きページがこの数以上あり、かつファイルの 2 割以上を占めるとき、`VACUUM` で縮める。
+const RECLAIM_MIN_FREE_PAGES: i64 = 1000;
+
+/// マイグレーションのあとに、空きページが多ければ `VACUUM` してファイルを縮める。
+///
+/// テーブルを作り直して古いものを消すマイグレーション（0003 など）は、古い領域を空きページとして
+/// ファイルに残す。そのままだと、DB のファイルは小さくならない。マイグレーションのトランザクションの
+/// 外で（`VACUUM` はトランザクションの中では動かない）、適用がすべて終わったあとに 1 回だけ行う。
+/// 失敗しても、マイグレーションは成功している。警告を出すだけにする（ファイルが大きいままになる）。
+fn reclaim_space(conn: &Connection) {
+    let pragma = |name: &str| conn.pragma_query_value(None, name, |r| r.get::<_, i64>(0));
+    let (Ok(free), Ok(total)) = (pragma("freelist_count"), pragma("page_count")) else {
+        return;
+    };
+    if free < RECLAIM_MIN_FREE_PAGES || free * 5 < total {
+        return;
+    }
+    let started = std::time::Instant::now();
+    match conn.execute_batch("VACUUM") {
+        Ok(()) => {
+            // WAL モードの VACUUM は、書き直した DB 全体をいったん WAL に書く。DB 本体へ書き戻して WAL を空にし、
+            // ファイルを縮めた分のディスクを、実際に返す。
+            let _ = conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()));
+            tracing::info!(
+                free_pages = free,
+                total_pages = total,
+                elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                "マイグレーションのあとに VACUUM して、空きページを返した"
+            );
+        }
+        Err(err) => tracing::warn!(error = %err, "マイグレーションのあとの VACUUM に失敗した"),
+    }
 }
 
 fn check_list(migrations: &[Migration]) -> Result<()> {

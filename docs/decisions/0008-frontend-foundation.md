@@ -134,7 +134,7 @@ src/
 
 ### 12. 書影（FR-COVER）
 
-- `coverUrl(hash, size)`（`lib/cover.ts`）が 0005 §7 のとおりに URL を作る。macOS（と Linux）は `cover://localhost/<hash>?size=160`、Windows は `http://cover.localhost/<hash>?size=160`。サイズは 160 と 320。OS は User-Agent で判定する。
+- `coverUrl(hash, size)`（`lib/cover.ts`）が 0005 §7 のとおりに URL を作る。macOS（と Linux）は `cover://localhost/<hash>?size=160`、Windows は `http://cover.localhost/<hash>?size=160`。サイズは 160 と 320。OS は User-Agent で判定する。→ 2026-10-15 に 80 を足し、一覧（`sm`）は 80、詳細ペインとフォーム（`lg`）は 320 にした（`LIST_COVER_SIZE`・`DETAIL_COVER_SIZE`。0010 §14）。
 - `BookCover` は、書影がない、または読み込めないとき、`PlaceholderCover`（書名と著者を描いた仮の表紙）にする。色は ID の FNV-1a ハッシュで Catppuccin のアクセント色 14 色から決め、背景に薄く混ぜて本文色の文字を載せる（ライト・ダークのどちらでも読める）。
 
 ### 13. モックデータ

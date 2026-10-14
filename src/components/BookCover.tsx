@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { coverAccentVar } from "@/lib/coverColor";
-import { coverUrl } from "@/lib/cover";
+import { DETAIL_COVER_SIZE, LIST_COVER_SIZE, coverUrl } from "@/lib/cover";
 import { cn } from "@/lib/utils";
 
 export type CoverVariant = "sm" | "lg";
@@ -44,7 +44,7 @@ export function BookCover({
     return (
       <div className={frameClass(variant, className)}>
         <img
-          src={coverUrl(coverHash, variant === "sm" ? 160 : 320)}
+          src={coverUrl(coverHash, variant === "sm" ? LIST_COVER_SIZE : DETAIL_COVER_SIZE)}
           alt=""
           loading="lazy"
           decoding="async"

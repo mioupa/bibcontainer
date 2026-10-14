@@ -3,6 +3,10 @@
 //! # ファイル名とローテーション
 //!
 //! バックアップは `VACUUM INTO` で作る（WAL でも一貫したスナップショットになる）。
+//! アプリは、バックアップ専用に別に開いた読み取り専用の接続（`open_reader`）で実行する。WAL では
+//! 読み取りと書き込みが並行できるので、バックアップ中も、アプリの接続は検索・一覧・保存を待たされない
+//! （`VACUUM INTO` は 1 つの読み取りトランザクションなので、ある時点のスナップショットになり、
+//! 実行中の保存は含まれない）。
 //! 保存先のフォルダ（`backup_dir`）に、次の名前で置く。時刻は UTC。
 //!
 //! | 種類 | 名前 | 世代 |
@@ -29,12 +33,14 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use chrono::{NaiveDateTime, TimeZone, Utc};
 use rusqlite::{Connection, OpenFlags, params};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::db::BUSY_TIMEOUT_MS;
 use crate::error::{Error, Result};
 use crate::hlc::Clock;
 use crate::ids::new_device_id;
@@ -223,9 +229,28 @@ pub fn list_backups(backup_dir: &Path) -> Result<Vec<BackupInfo>> {
     Ok(out.into_iter().map(|(_, i)| i).collect())
 }
 
+/// バックアップを取るための、読み取り専用の接続を開く。
+///
+/// アプリの接続（書き込みをする側）とは別の接続で、`VACUUM INTO` を実行するために使う
+/// （`create_backup` などの `conn` に渡す）。WAL モードの DB は、別の接続が書き込んでいる間も
+/// 読み取れる。`VACUUM INTO` は 1 つの読み取りトランザクションで、始まった時点のスナップショットになる。
+/// DB を書き換えられない接続なので、誤って DB を変えることもない。
+/// DB のファイルは、すでに別の接続で開いて WAL モードにしてあること（`open` が済んでいること）。
+pub fn open_reader(db_path: &Path) -> Result<Connection> {
+    let conn = Connection::open_with_flags(
+        db_path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )?;
+    // 書き込みの側がロックを持っている間（チェックポイントなど）は、待つ。
+    conn.busy_timeout(Duration::from_millis(BUSY_TIMEOUT_MS))?;
+    Ok(conn)
+}
+
 /// バックアップを 1 つ作る（`VACUUM INTO`）。種類に応じた名前で `backup_dir` に置く。
 ///
 /// 作成途中のファイルは `.` で始まる一時ファイルで、完成してから名前を付け替える。
+/// `conn` は、アプリの書き込みの接続ではなく `open_reader` で開いた読み取り専用の接続を渡すと、
+/// 作成中も書き込みを止めない。
 pub fn create_backup(
     conn: &Connection,
     backup_dir: &Path,

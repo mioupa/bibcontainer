@@ -3,6 +3,8 @@
 //! - 保存先と世代数は設定の `backup` セクション。保存先の既定は `app_local_data_dir/backups`。
 //! - 起動の数秒後と、そのあと 1 時間ごとに `run_scheduled_backup` を呼ぶ。実際に作るのは、最後の日次から
 //!   24 時間以上たっているときだけ（`run_scheduled_backup` が判断する）。
+//! - バックアップ（`VACUUM INTO`）は、アプリの接続（Mutex で共有している 1 本）ではなく、別に開いた
+//!   読み取り専用の接続で行う（`Database::run_backup`）。実行中も、検索・一覧・保存は待たされない。
 //! - 失敗してもアプリは止めず、ログに出す。
 
 use std::path::{Path, PathBuf};
@@ -21,8 +23,8 @@ use crate::settings::{self, BackupSettings};
 
 /// 定期実行の間隔。
 const TICK: Duration = Duration::from_secs(60 * 60);
-/// 起動してから最初の確認までの待ち。起動直後の一覧の読み込みと、バックアップ（DB 全体のコピー）が
-/// 接続を取り合わないようにする。
+/// 起動してから最初の確認までの待ち。起動直後の一覧の読み込みと、バックアップ（DB 全体のコピー）の
+/// ディスク・CPU が重ならないようにする（接続は別なので、待たされはしない）。
 const STARTUP_DELAY: Duration = Duration::from_secs(5);
 
 /// 既定のバックアップの保存先（`app_local_data_dir/backups`）。
@@ -44,6 +46,7 @@ pub fn configured(
 }
 
 /// 設定の保存先・世代数で、日次バックアップを（時期なら）取る。時期でなければ `None`。
+/// `conn` は、`Database::run_backup` が渡す読み取り専用の接続。
 pub fn scheduled_backup(
     conn: &Connection,
     default_dir: &Path,
@@ -72,8 +75,9 @@ pub fn start_scheduler<R: Runtime>(app: AppHandle<R>, db: Arc<Database>) {
         loop {
             ticker.tick().await;
             let default_dir = default_dir.clone();
+            // 別の読み取りの接続で行うので、実行中も検索・一覧・保存を待たせない。
             let result = db
-                .run(move |conn, _| {
+                .run_backup(move |conn| {
                     scheduled_backup(conn, &default_dir, &bibcontainer_core::SystemClock)
                 })
                 .await;

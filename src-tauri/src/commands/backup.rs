@@ -26,14 +26,15 @@ pub async fn list_backups<R: Runtime>(
     .await
 }
 
-/// 手動でバックアップを取る（世代の整理の対象外）。
+/// 手動でバックアップを取る（世代の整理の対象外）。アプリの接続とは別の読み取り専用の接続で取るので、
+/// 取っている間も、ほかの操作は待たされない。
 #[tauri::command]
 pub async fn manual_backup<R: Runtime>(
     app: AppHandle<R>,
     db: State<'_, Arc<Database>>,
 ) -> Result<BackupInfo, AppError> {
     let default_dir = default_backup_dir(&app)?;
-    db.run(move |conn, _| {
+    db.run_backup(move |conn| {
         let (dir, _) = configured(conn, &default_dir)?;
         Ok(backup::manual_backup(conn, &dir, &SystemClock)?)
     })

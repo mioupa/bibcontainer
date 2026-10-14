@@ -1,7 +1,7 @@
 # 蔵書管理アプリ「bibcontainer」要件定義書
 
 - 版: 0.2（2026-10-14）
-  - 0.2: 実装時の決定（`docs/decisions/0003`〜`0005`）に合わせて 8.1〜8.3、FR-SYNC-03 を修正。付録 A を原本と照合して修正。13 章の決まった項目を更新。外部 API の確認結果（`docs/decisions/0007`）とユーザーの判断に合わせて、2 章、FR-META-02／04、FR-COVER-02、11 章を修正（NDL の書影 API は使わない、Google Books は API キー必須）
+  - 0.2: 実装時の決定（`docs/decisions/0003`〜`0005`）に合わせて 8.1〜8.3、FR-SYNC-03 を修正。付録 A を原本と照合して修正。13 章の決まった項目を更新。外部 API の確認結果（`docs/decisions/0007`）とユーザーの判断に合わせて、2 章、FR-META-02／04、FR-COVER-02、11 章を修正（NDL の書影 API は使わない、Google Books は API キー必須）。性能の改善に合わせて FR-COVER-04 と 8.2 の `field_clocks` を修正
 - 作成: 三浦 大地（Claude と作成）
 - 想定読者: 実装を担当する Claude Code、および作成者本人
 - 名称: リポジトリ名・作業名は `bibcontainer`。正式なアプリ名は未定（13章）
@@ -314,7 +314,7 @@ NDLサーチの書影 API は使わない。公式の API 仕様書に記載が�
 - **FR-COVER-01 [MUST]** 書影は「7.3」の優先順位で取得する。取れなければ、書名と著者を描いた仮の表紙を表示する。
 - **FR-COVER-02 [MUST]** 「画像なし」のダミー画像を見分ける。画像でない応答は Content-Type で判定する。Google Books などが返す「No image」画像（Google は寸法の違う 3 種類がある）は、既知のハッシュ値と画像サイズで判定する。
 - **FR-COVER-03 [MUST]** 保存する書影は、長辺 800px 以下の JPEG（品質 85 程度）に変換し、EXIF を除く。ファイル名は SHA-256 ハッシュとする（同じ画像は 1 つだけ保存される）。
-- **FR-COVER-04 [MUST]** 一覧用のサムネイル（長辺 160px と 320px）は端末ごとに生成して、ローカルにキャッシュする（同期はしない）。
+- **FR-COVER-04 [MUST]** サムネイル（長辺 80px・160px・320px。一覧は 80px、詳細とフォームは 320px）は端末ごとに生成して、ローカルにキャッシュする（同期はしない）。一覧の書影は、WebView のメモリを抑えるため、画像のキャッシュをさせない（`docs/decisions/0010`）。
 - **FR-COVER-05 [MUST]** 書影を手動で差し替えられる（ファイルのドラッグ＆ドロップ、クリップボードからの貼り付け、画像 URL の入力、取得元の候補から選ぶ）。
 - **FR-COVER-06 [COULD]** 書影の回転と切り抜き。
 - Amazon 由来の書影を保存するかどうかは、規約を確認してから決める（13章）。
@@ -501,7 +501,7 @@ CREATE TABLE shelves   (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL DEFAULT
 CREATE TABLE field_clocks (                       -- 項目ごとの最終更新時刻（HLC）
   entity TEXT NOT NULL, entity_id TEXT NOT NULL, field TEXT NOT NULL, hlc TEXT NOT NULL,
   PRIMARY KEY (entity, entity_id, field)
-);
+) WITHOUT ROWID;                                  -- 行と主キーの索引を二重に持たない（DB が約 3 割小さくなる。docs/decisions/0006）
 CREATE TABLE outbox (                             -- 未書き出しの自分の変更
   seq INTEGER PRIMARY KEY, hlc TEXT NOT NULL, op_json TEXT NOT NULL, flushed INTEGER NOT NULL DEFAULT 0
 );
