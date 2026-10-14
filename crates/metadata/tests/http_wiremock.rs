@@ -206,8 +206,15 @@ async fn refused_connections_fail_at_once_without_retries() {
     let start = std::time::Instant::now();
     let err = t.get(&limit(), HttpRequest::get(url)).await.unwrap_err();
     assert!(matches!(err, FetchError::Network(_)), "{err:?}");
+    // Windows の TCP は、拒否されても数回やり直してから諦めるので、1 回の接続に約 2 秒かかる。
+    // リトライが効いていれば（接続 4 回 + 待ち 7 秒で）10 秒を超えるので、5 秒未満なら見分けられる。
+    let limit = if cfg!(windows) {
+        Duration::from_secs(5)
+    } else {
+        Duration::from_secs(1)
+    };
     assert!(
-        start.elapsed() < Duration::from_secs(1),
+        start.elapsed() < limit,
         "リトライを待たずに返る: {:?}",
         start.elapsed()
     );

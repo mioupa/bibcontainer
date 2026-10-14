@@ -3,7 +3,6 @@
 //! 確かめること: 引数のキー（camelCase）、省略できる引数、`FieldChange` の JSON、戻り値の形、
 //! エラーの `{ kind, message }`、変更後の `library-changed`。
 
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -634,7 +633,8 @@ fn every_database_command_reports_db_unavailable_when_the_db_could_not_be_opened
         ("get_scan_settings", json!({})),
         (
             "export_csv",
-            json!({ "path": Path::new("/tmp").join("x.csv").to_string_lossy() }),
+            // どの OS でも絶対パスで、親フォルダがある場所（パスの検証より先に DB の有無で失敗することを見る）
+            json!({ "path": std::env::temp_dir().join("x.csv").to_string_lossy() }),
         ),
     ] {
         assert_eq!(h.err_kind(cmd, body), "db_unavailable", "{cmd}");
