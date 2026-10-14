@@ -65,3 +65,9 @@
 - macOS 27 + Xcode beta では、リリースビルドで rustc の strip が proc-macro の dylib を壊す。ルートの `Cargo.toml` の `[profile.release.build-override] strip = "none"` が回避策なので、消さない（0001 参照）。
 - TypeScript は 6.0 系に固定している（typescript-eslint が 6.1 未満まで）。上げないこと。
 - Rust は `rust-toolchain.toml` で版を固定している（手元と CI で clippy の lint をそろえるため）。上げるときは `.github/workflows/ci.yml` の `dtolnay/rust-toolchain` の版も合わせる。
+
+## Windows で落ちやすいテスト（手元の Mac では気づけない。CI で確かめる）
+- 絶対パスを書くときは `/tmp/...` などではなく `std::env::temp_dir()` や `tempfile` を使う（Windows はドライブ名がないと絶対パスにならない）。
+- IPC のテストの呼び出し元 URL は、Windows では `http://tauri.localhost`（macOS は `tauri://localhost`）。
+- `src-tauri/build.rs` はマニフェストを全ターゲットに埋め込んでいる（ダイアログのプラグインのため。無いとテストの実行ファイルが `STATUS_ENTRYPOINT_NOT_FOUND` で起動しない）。消さない。
+- ネットワークの時間を測るテストは、Windows の TCP が接続拒否のあとも数回やり直す（約 2 秒）ことを考える。
