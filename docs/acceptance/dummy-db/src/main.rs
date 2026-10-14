@@ -1,7 +1,7 @@
 //! 受け入れ確認（AT-14）用に、ダミーの蔵書を入れた DB と書影を作る。
 //!
 //! ```text
-//! dummy-db <アプリのデータフォルダ> [冊数（既定 5000）] [乱数の種（既定 1）]
+//! dummy-db <アプリのデータフォルダ> [冊数（既定 5000）] [書影の種類の数（既定 500）] [乱数の種（既定 1）]
 //! ```
 //!
 //! `<アプリのデータフォルダ>` に `library.sqlite3` と `covers/` を作る（macOS の本物は
@@ -245,9 +245,6 @@ const LOCATIONS: &[(&str, Option<&str>)] = &[
     ("貸出中", None),
 ];
 
-/// 書影のダミー画像の数。
-const COVER_VARIANTS: usize = 60;
-
 fn isbn(i: usize) -> String {
     let first12 = format!("9784{i:08}");
     let check = isbn13_check_digit(&first12).unwrap();
@@ -337,7 +334,10 @@ fn dummy_book(rng: &mut Rng, i: usize, cat: &Catalog) -> Vec<FieldChange> {
             format!("{}の{}", a.0, b.0),
             Some(format!("{}の{}", a.1, b.1)),
         ),
-        4 => (format!("{}と{}", a.0, b.0), Some(format!("{}と{}", a.1, b.1))),
+        4 => (
+            format!("{}と{}", a.0, b.0),
+            Some(format!("{}と{}", a.1, b.1)),
+        ),
         5 => (
             format!("{}ハンドブック", a.0),
             Some(format!("{}はんどぶっく", a.1)),
@@ -347,11 +347,11 @@ fn dummy_book(rng: &mut Rng, i: usize, cat: &Catalog) -> Vec<FieldChange> {
             Some(format!("{}のきょうかしょ", a.1)),
         ),
         7 => (format!("図解 {}", a.0), Some(format!("ずかい{}", a.1))),
-        8 => (
-            format!("{} {}", rng.pick(ENGLISH), 1 + rng.below(4)),
-            None,
+        8 => (format!("{} {}", rng.pick(ENGLISH), 1 + rng.below(4)), None),
+        _ => (
+            format!("{}の{}", a.0, b.0),
+            Some(format!("{}の{}", a.1, b.1)),
         ),
-        _ => (format!("{}の{}", a.0, b.0), Some(format!("{}の{}", a.1, b.1))),
     };
     let mut c = vec![
         FieldChange::barcode("isbn13", json!(isbn(i))),
@@ -427,8 +427,14 @@ fn dummy_book(rng: &mut Rng, i: usize, cat: &Catalog) -> Vec<FieldChange> {
                 json!(cat.locations[rng.below(cat.locations.len())]),
             ));
         }
-        c.push(FieldChange::manual("purchased_on", json!(date(rng, 2005, 2026))));
-        c.push(FieldChange::manual("purchase_store", json!(*rng.pick(STORES))));
+        c.push(FieldChange::manual(
+            "purchased_on",
+            json!(date(rng, 2005, 2026)),
+        ));
+        c.push(FieldChange::manual(
+            "purchase_store",
+            json!(*rng.pick(STORES)),
+        ));
         c.push(FieldChange::manual(
             "purchase_price",
             json!(400 + 10 * rng.below(300)),
@@ -444,13 +450,22 @@ fn dummy_book(rng: &mut Rng, i: usize, cat: &Catalog) -> Vec<FieldChange> {
     match rng.below(100) {
         0..=34 => {
             c.push(FieldChange::manual("read_status", json!("read")));
-            c.push(FieldChange::manual("read_started_on", json!(date(rng, 2005, 2025))));
-            c.push(FieldChange::manual("read_finished_on", json!(date(rng, 2005, 2026))));
+            c.push(FieldChange::manual(
+                "read_started_on",
+                json!(date(rng, 2005, 2025)),
+            ));
+            c.push(FieldChange::manual(
+                "read_finished_on",
+                json!(date(rng, 2005, 2026)),
+            ));
             if rng.chance(70) {
                 c.push(FieldChange::manual("rating", json!(1 + rng.below(5))));
             }
             if rng.chance(20) {
-                c.push(FieldChange::manual("review", json!("再読したい。図が多くて分かりやすい。")));
+                c.push(FieldChange::manual(
+                    "review",
+                    json!("再読したい。図が多くて分かりやすい。"),
+                ));
             }
         }
         35..=40 => c.push(FieldChange::manual("read_status", json!("reading"))),
@@ -481,7 +496,7 @@ fn dummy_book(rng: &mut Rng, i: usize, cat: &Catalog) -> Vec<FieldChange> {
     c
 }
 
-fn run(data_dir: &Path, count: usize, seed: u64) -> Result<(), String> {
+fn run(data_dir: &Path, count: usize, cover_variants: usize, seed: u64) -> Result<(), String> {
     let db_path = data_dir.join("library.sqlite3");
     if db_path.exists() {
         return Err(format!(
@@ -525,7 +540,7 @@ fn run(data_dir: &Path, count: usize, seed: u64) -> Result<(), String> {
 
     // 書影
     let covers_dir = data_dir.join("covers");
-    let covers: Vec<String> = (0..COVER_VARIANTS)
+    let covers: Vec<String> = (0..cover_variants)
         .map(|_| {
             let jpeg = make_cover(&mut rng);
             write_cover(&covers_dir, &jpeg)
@@ -542,29 +557,27 @@ fn run(data_dir: &Path, count: usize, seed: u64) -> Result<(), String> {
     let mut all_ids = Vec::with_capacity(count);
     for start in (0..count).step_by(500) {
         let end = (start + 500).min(count);
-        let batch: Vec<Vec<FieldChange>> =
-            (start..end).map(|i| dummy_book(&mut rng, i, &cat)).collect();
+        let batch: Vec<Vec<FieldChange>> = (start..end)
+            .map(|i| dummy_book(&mut rng, i, &cat))
+            .collect();
         let ids = library::create_books(&mut conn, &env, &batch).map_err(|e| e.to_string())?;
         all_ids.extend(ids);
     }
 
     // 1% をゴミ箱へ
-    let trashed: Vec<String> = all_ids
-        .iter()
-        .filter(|_| rng.chance(1))
-        .cloned()
-        .collect();
+    let trashed: Vec<String> = all_ids.iter().filter(|_| rng.chance(1)).cloned().collect();
     library::trash_books(&mut conn, &env, &trashed).map_err(|e| e.to_string())?;
 
     // タグの色（2 つ）
     library::set_tag_color(&mut conn, &env, "小説", Some("blue")).map_err(|e| e.to_string())?;
-    library::set_tag_color(&mut conn, &env, "研究/SiC", Some("green")).map_err(|e| e.to_string())?;
+    library::set_tag_color(&mut conn, &env, "研究/SiC", Some("green"))
+        .map_err(|e| e.to_string())?;
 
     println!(
         "作成しました: {count} 冊（ゴミ箱 {} 冊）、保管場所 {}、書影 {} 枚。{:.1?}\n  DB: {}",
         trashed.len(),
         LOCATIONS.len(),
-        COVER_VARIANTS,
+        cover_variants,
         started.elapsed(),
         db_path.display()
     );
@@ -574,12 +587,19 @@ fn run(data_dir: &Path, count: usize, seed: u64) -> Result<(), String> {
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(dir) = args.first() else {
-        eprintln!("使い方: dummy-db <アプリのデータフォルダ> [冊数（既定 5000）] [乱数の種（既定 1）]");
+        eprintln!(
+            "使い方: dummy-db <アプリのデータフォルダ> [冊数（既定 5000）] [書影の種類の数（既定 500）] [乱数の種（既定 1）]"
+        );
         return ExitCode::from(2);
     };
     let count = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(5000);
-    let seed = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
-    match run(&PathBuf::from(dir), count, seed) {
+    let cover_variants = args
+        .get(2)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(500)
+        .max(1);
+    let seed = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
+    match run(&PathBuf::from(dir), count, cover_variants, seed) {
         Ok(()) => ExitCode::SUCCESS,
         Err(msg) => {
             eprintln!("{msg}");

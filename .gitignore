@@ -34,3 +34,6 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Claude Code の一時的な作業ツリー
+.claude/worktrees/
