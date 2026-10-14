@@ -1,0 +1,19 @@
+# 改行は LF に統一する（Windows の CI で rustfmt / Prettier が CRLF で落ちないようにする）
+* text=auto eol=lf
+
+# バイナリ
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.sqlite3 binary
+
+# 自動生成ファイル（GitHub の差分表示で畳まれる）
+pnpm-lock.yaml linguist-generated
+Cargo.lock linguist-generated
+src/bindings/** linguist-generated

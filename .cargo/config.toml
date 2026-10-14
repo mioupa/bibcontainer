@@ -1,0 +1,6 @@
+[env]
+# ts-rs の出力先。`cargo test` で、#[ts(export)] を付けた型がここに TypeScript として書き出される。
+# relative = true なので、この .cargo の親（リポジトリのルート）からの相対パスになる。
+TS_RS_EXPORT_DIR = { value = "src/bindings", relative = true }
+# i64 / u64 は JSON では number で届くため、bigint ではなく number として出力する。
+TS_RS_LARGE_INT = "number"

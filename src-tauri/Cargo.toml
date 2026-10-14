@@ -1,0 +1,34 @@
+[package]
+name = "bibcontainer-app"
+description = "蔵書管理アプリ bibcontainer（Tauri の殻）"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+# Windows では lib と bin の名前が同じだと出力ファイルが衝突するため、lib 名を分ける
+[lib]
+name = "bibcontainer_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "bibcontainer"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+bibcontainer-core = { path = "../crates/core" }
+tauri = { version = "2", features = [] }
+# core が返す Connection と同じ型を名前で書くために必要（バージョンは core に合わせる）
+rusqlite = "0.40"
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+ts-rs = "12"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+
+[dev-dependencies]
+serde_json = "1"
+tempfile = "3"

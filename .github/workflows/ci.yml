@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# 同じブランチ（PR）の古い実行は、新しい実行が始まったらキャンセルする
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-and-build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (arm64)
+            os: macos-latest
+            bundles: app
+          - name: Windows (x64)
+            os: windows-latest
+            bundles: nsis
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (ESLint)
+        run: pnpm lint
+
+      - name: Format check (Prettier)
+        run: pnpm format:check
+
+      - name: Typecheck (tsc)
+        run: pnpm typecheck
+
+      - name: Frontend tests (Vitest)
+        run: pnpm test
+
+      - name: Format check (rustfmt)
+        run: cargo fmt --all --check
+
+      - name: Lint (clippy)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      # 生成物が古いまま残っていても気づけるよう、いったん消してから cargo test で作り直す
+      - name: Remove generated bindings
+        shell: bash
+        run: rm -f src/bindings/*.ts
+
+      - name: Rust tests
+        run: cargo test --workspace
+
+      # ts-rs が書き出した src/bindings/ が、コミット済みの内容と一致することを確かめる
+      - name: Check generated bindings are committed
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain -- src/bindings)" ]; then
+            echo "::error::src/bindings/ が最新ではありません。ローカルで cargo test を実行し、生成されたファイルをコミットしてください。"
+            git status --porcelain -- src/bindings
+            git --no-pager diff -- src/bindings
+            exit 1
+          fi
+
+      - name: Build app (Tauri)
+        run: pnpm tauri build --bundles ${{ matrix.bundles }}
+
+      # actions/upload-artifact はファイルの実行権限を保てないため、.app は zip にまとめてから上げる
+      - name: Package macOS app
+        if: runner.os == 'macOS'
+        run: ditto -c -k --keepParent target/release/bundle/macos/bibcontainer.app bibcontainer-macos-arm64.zip
+
+      - name: Upload macOS app
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v7
+        with:
+          name: bibcontainer-macos-arm64
+          path: bibcontainer-macos-arm64.zip
+          if-no-files-found: error
+
+      - name: Upload Windows installer
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: bibcontainer-windows-x64
+          path: target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error

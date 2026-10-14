@@ -1,0 +1,19 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# リリースビルド（配布サイズを抑えるため LTO を使う）
+[profile.release]
+codegen-units = 1
+lto = true
+
+# proc-macro とビルドスクリプトは strip しない。
+# macOS 27 + Xcode 26 beta のツールチェーンでは、rustc の strip 後処理が proc-macro の dylib を
+# 壊し（dyld: mis-aligned LINKEDIT）、リリースビルドが E0463 で失敗するため。
+[profile.release.build-override]
+strip = "none"

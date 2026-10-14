@@ -1,0 +1,25 @@
+[package]
+name = "bibcontainer-core"
+version = "0.1.0"
+edition = "2024"
+description = "bibcontainer のコアライブラリ（ローカル DB、マイグレーション、HLC、変更ログ）。Tauri には依存しない。"
+publish = false
+
+[lib]
+name = "bibcontainer_core"
+
+[dependencies]
+rusqlite = { version = "0.40", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "v7"] }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+thiserror = "2"
+tracing = "0.1"
+
+[dev-dependencies]
+proptest = "1"
+tempfile = "3"
+
+[lints.rust]
+unsafe_code = "forbid"

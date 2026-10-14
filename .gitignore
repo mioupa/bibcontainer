@@ -1,0 +1,36 @@
+# Node / フロントエンド
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+coverage/
+
+# Rust
+target/
+**/*.rs.bk
+
+# Tauri が生成するもの
+src-tauri/gen/
+
+# ローカル DB（同期フォルダにもリポジトリにも置かない）
+*.sqlite3
+*.sqlite3-*
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+
+# OS・エディタ
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# 環境変数・秘密情報
+.env
+.env.*
+!.env.example

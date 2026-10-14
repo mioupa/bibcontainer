@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/* macOS と Windows で日本語の見た目をそろえるため、システムフォントを明示する */
+@theme {
+  --font-sans:
+    system-ui, -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI",
+    "Meiryo UI", "Segoe UI", sans-serif;
+}
