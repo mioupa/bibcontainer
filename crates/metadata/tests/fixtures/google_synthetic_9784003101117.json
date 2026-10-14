@@ -1,0 +1,51 @@
+{
+  "kind": "books#volumes",
+  "totalItems": 2,
+  "items": [
+    {
+      "kind": "books#volume",
+      "id": "SYNTHETIC0001",
+      "etag": "synthetic",
+      "selfLink": "https://www.googleapis.com/books/v1/volumes/SYNTHETIC0001",
+      "volumeInfo": {
+        "title": "こころ",
+        "authors": ["夏目 漱石"],
+        "publisher": "岩波書店",
+        "publishedDate": "1989-05-16",
+        "description": "先生と私の物語。<br><br><b>改版</b>。&quot;K&quot;の死と&amp;遺書。",
+        "industryIdentifiers": [
+          {"type": "ISBN_10", "identifier": "4003101111"},
+          {"type": "ISBN_13", "identifier": "9784003101117"}
+        ],
+        "readingModes": {"text": false, "image": false},
+        "pageCount": 300,
+        "printType": "BOOK",
+        "categories": ["Fiction"],
+        "maturityRating": "NOT_MATURE",
+        "allowAnonLogging": false,
+        "contentVersion": "preview-1.0.0",
+        "imageLinks": {
+          "smallThumbnail": "http://books.google.com/books/content?id=SYNTHETIC0001&printsec=frontcover&img=1&zoom=5&edge=curl&source=gbs_api",
+          "thumbnail": "http://books.google.com/books/content?id=SYNTHETIC0001&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"
+        },
+        "language": "ja",
+        "previewLink": "http://books.google.com/books?id=SYNTHETIC0001&dq=isbn:9784003101117&hl=&cd=1&source=gbs_api",
+        "infoLink": "http://books.google.com/books?id=SYNTHETIC0001&dq=isbn:9784003101117&hl=&source=gbs_api",
+        "canonicalVolumeLink": "https://books.google.com/books/about/%E3%81%93%E3%81%93%E3%82%8D.html?hl=&id=SYNTHETIC0001"
+      },
+      "saleInfo": {"country": "JP", "saleability": "NOT_FOR_SALE", "isEbook": false},
+      "accessInfo": {"country": "JP", "viewability": "NO_PAGES"},
+      "searchInfo": {"textSnippet": "synthetic"}
+    },
+    {
+      "kind": "books#volume",
+      "id": "SYNTHETIC0002",
+      "volumeInfo": {
+        "title": "こころ (別の本)",
+        "authors": ["別の著者"],
+        "industryIdentifiers": [{"type": "ISBN_13", "identifier": "9784000000000"}],
+        "language": "ja"
+      }
+    }
+  ]
+}

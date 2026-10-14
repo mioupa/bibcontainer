@@ -1,0 +1,220 @@
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+  <version>1.2</version>
+  <numberOfRecords>2</numberOfRecords>
+  <extraResponseData>
+    <facets>
+      <lst name="REPOSITORY_NO">
+        <int name="R100000002">1</int>
+        <int name="R100000136">1</int>
+      </lst>
+      <lst name="NDC">
+        <int name="5">2</int>
+      </lst>
+      <lst name="ISSUED_DATE">
+        <int name="2014">2</int>
+      </lst>
+      <lst name="LIBRARY">
+        <int name="さいたま市立中央図書館">1</int>
+        <int name="千葉市中央図書館">1</int>
+        <int name="和歌山県立図書館">1</int>
+        <int name="国立国会図書館">1</int>
+        <int name="堺市立中央図書館">1</int>
+        <int name="大阪市立図書館">1</int>
+        <int name="奈良県立図書情報館">1</int>
+        <int name="山梨県立図書館">1</int>
+        <int name="岐阜県図書館">1</int>
+        <int name="岡山県立図書館">1</int>
+        <int name="徳島県立図書館">1</int>
+        <int name="札幌市中央図書館">1</int>
+        <int name="東京都立中央図書館">1</int>
+        <int name="横浜市立図書館">1</int>
+        <int name="沖縄県立図書館">1</int>
+        <int name="滋賀県立図書館">1</int>
+        <int name="熊本県立図書館">1</int>
+        <int name="相模原市立図書館">1</int>
+        <int name="石川県立図書館">1</int>
+        <int name="長崎県立長崎図書館">1</int>
+        <int name="青森県立図書館">1</int>
+        <int name="静岡市立中央図書館">1</int>
+        <int name="香川県立図書館">1</int>
+        <int name="鳥取県立図書館">1</int>
+        <int name="鹿児島県立図書館">1</int>
+      </lst>
+    </facets>
+  </extraResponseData>
+  <records>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I025359164">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/1987</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I025359164#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I025359164#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/22387477"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/025359164"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">22387477</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">025359164</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/TOHANMARCNO">33076555</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784780802047"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-7808-0204-7</dcterms:identifier>
+            <dcterms:title>おにぎりレシピ101 = 101 Healthy,Easy Japanese Riceball Recipes : EVERYDAY ONIGIRI</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>おにぎりレシピ101 : EVERYDAY ONIGIRI</rdf:value>
+                <dcndl:transcription>オニギリ レシピ ヒャクイチ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:alternative>
+              <rdf:Description>
+                <rdf:value>101 Healthy,Easy Japanese Riceball Recipes</rdf:value>
+                <dcndl:transcription>エブリデイ オニギリ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:alternative>
+            <dcndl:alternative>
+              <rdf:Description>
+                <rdf:value>101 Healthy,Easy Japanese Riceball Recipes</rdf:value>
+              </rdf:Description>
+            </dcndl:alternative>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/001166676">
+                <foaf:name>山田, 玲子, 料理</foaf:name>
+                <dcndl:transcription>ヤマダ, レイコ, リョウリ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>山田玲子 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>ポット出版</foaf:name>
+                <dcndl:transcription>ポットシュッパン</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2014.4</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2014</dcterms:issued>
+            <dcterms:description>英語併記</dcterms:description>
+            <dcterms:description>訳: 水野菜生</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y73"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc9/596.3"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">eng</dcterms:language>
+            <dcndl:price>1300円</dcndl:price>
+            <dcterms:extent>123p ; 21cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I025359164"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I025359164#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I01211008000806312#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I02111103580531#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I1121427500#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I12211000801065038#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I13111152432403#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I14211113150253#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I14231784402#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I17111000000748846#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I19111009951249292#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I21111102818969#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I22211001103122358#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I22211001103122358#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I22211001103122358#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I25114258104#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000012948702#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000012948702#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000012948702#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000012948702#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27221007000408384#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I2911111298784#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I30111102647406#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I31111102010171#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I33111009811776190#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I36111103678110#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I37111110203938#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I42111000002249486#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I43111102243107#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I46111111344252#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I47111101122597#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I025359164#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784780802047#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>1</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959855496971">
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000136</dcndl:bibRecordCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959855496971#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959855496971#material">
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NIIBibID">BB15448702</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784780802047"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784780802047</dcterms:identifier>
+            <dcterms:title>おにぎりレシピ101 = Eveyday onigiri : 101 Healthy, easy Japanese riceball recipes</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>おにぎりレシピ101 = Eveyday onigiri : 101 Healthy, easy Japanese riceball recipes</rdf:value>
+                <dcndl:transcription>オニギリ レシピ 101</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:alternative>
+              <rdf:Description>
+                <rdf:value>101 Healthy, easy Japanese riceball recipes</rdf:value>
+              </rdf:Description>
+            </dcndl:alternative>
+            <dcndl:alternative>
+              <rdf:Description>
+                <rdf:value>おにぎりレシピ101 = Eveyday onigiri</rdf:value>
+              </rdf:Description>
+            </dcndl:alternative>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>山田, 玲子 (料理)</foaf:name>
+                <dcndl:transcription>ヤマダ, レイコ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>山田玲子著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>ポット出版</foaf:name>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2014.4</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2014</dcterms:issued>
+            <dcterms:description>英語併記</dcterms:description>
+            <dcterms:description>訳: 水野菜生</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>米飯</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y73"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc9/596.3"/>
+            <dcterms:extent>21cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://cir.nii.ac.jp/crid/1970304959855496971"/>
+            <dcterms:relation rdf:resource="https://ci.nii.ac.jp/ncid/BB15448702#entity"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959855496971#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959855496971#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>2</recordPosition>
+    </record>
+  </records>
+</searchRetrieveResponse>

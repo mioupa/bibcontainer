@@ -1,0 +1,316 @@
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+  <version>1.2</version>
+  <numberOfRecords>3</numberOfRecords>
+  <extraResponseData>
+    <facets>
+      <lst name="REPOSITORY_NO">
+        <int name="R100000002">3</int>
+      </lst>
+      <lst name="NDC">
+        <int name="4">1</int>
+        <int name="6">1</int>
+        <int name="7">1</int>
+      </lst>
+      <lst name="ISSUED_DATE">
+        <int name="2005">1</int>
+        <int name="2008">1</int>
+        <int name="2022">1</int>
+      </lst>
+      <lst name="LIBRARY">
+        <int name="国立国会図書館">3</int>
+        <int name="大阪市立図書館">2</int>
+        <int name="札幌市中央図書館">2</int>
+        <int name="東京都立中央図書館">2</int>
+        <int name="静岡県立中央図書館">2</int>
+        <int name="千葉市中央図書館">1</int>
+        <int name="大阪府立中央図書館">1</int>
+        <int name="奈良県立図書情報館">1</int>
+        <int name="岐阜県図書館">1</int>
+        <int name="岡山県立図書館">1</int>
+        <int name="広島市立中央図書館">1</int>
+        <int name="福井県立図書館">1</int>
+        <int name="福岡県立図書館">1</int>
+        <int name="長崎県立長崎図書館">1</int>
+        <int name="静岡市立中央図書館">1</int>
+        <int name="鹿児島県立奄美図書館">1</int>
+      </lst>
+    </facets>
+  </extraResponseData>
+  <records>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000007813340">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/1987</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000007813340#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000007813340#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/20814231"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000007813340"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">20814231</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000007813340</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4938853043"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4-938853-04-3</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ErrorISBN">4-000000-00-0</dcterms:identifier>
+            <dcterms:title>薬になる野山の草・花・木. 上巻</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>薬になる野山の草・花・木</rdf:value>
+                <dcndl:transcription>クスリ ニ ナル ノヤマ ノ クサ ハナ キ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>上巻</rdf:value>
+                <dcndl:transcription>ジョウカン</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/01002628">
+                <foaf:name>崔, 鎭圭</foaf:name>
+                <dcndl:transcription>チェ, ジンギュ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/01002622">
+                <foaf:name>フィールド出版</foaf:name>
+                <dcndl:transcription>フィールド シュッパン</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>崔鎭圭 著</dc:creator>
+            <dc:creator>フィールド出版編集部 訳</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>インターサービス</foaf:name>
+                <dcndl:transcription>インター サービス</dcndl:transcription>
+                <dcndl:location>[東京]</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>フィールド出版 </foaf:name>
+                <dcndl:transcription>フィールド シュッパン</dcndl:transcription>
+                <dcterms:description>発売</dcterms:description>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2005.2</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2005</dcterms:issued>
+            <dcterms:description>ISBN（エラーコード） : 4-000000-00-0</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlsh/01003747">
+                <rdf:value>薬用植物--朝鮮</rdf:value>
+                <dcndl:transcription>ヤクヨウショクブツ チョウセン</dcndl:transcription>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/SD121"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc9/499.87"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:originalLanguage rdf:datatype="http://purl.org/dc/terms/ISO639-2">kor</dcndl:originalLanguage>
+            <dcndl:price>2000円</dcndl:price>
+            <dcterms:extent>270p ; 23cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000007813340"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000007813340#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I01211006500208937#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I12211000510021502#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I13111106474458#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I18111104495801#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I22111000510120936#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I22211001100452257#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000010941349#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I33111009810725725#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I34211102666008#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I40111106171600#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I42111009810782958#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I46111105013312#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000007813340#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000111-I000019146#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1971430859728207875#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>1</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034149602">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/2018</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034149602#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034149602#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/24151939"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/034149602"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">24151939</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">034149602</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ErrorISBN">978-4-00-000000-0</dcterms:identifier>
+            <dcterms:title>天丼100軒食べてみる. 総集編 その1 (1-31軒目)</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>天丼100軒食べてみる</rdf:value>
+                <dcndl:transcription>テンドン 100ケン タベテミル</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>総集編 その1 (1-31軒目)</rdf:value>
+                <dcndl:transcription>ソウシュウヘン ソノ 1 (1 - 31ケンメ)</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/034246311">
+                <foaf:name>でぃぷろえんじにあ</foaf:name>
+                <dcndl:transcription>ディプロ エンジニア</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>でぃぷろ・えんじにあ</foaf:name>
+                <dcndl:transcription>ディプロ ・ エンジニア</dcndl:transcription>
+                <dcndl:location>[出版地不明]</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2022.8</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2022</dcterms:issued>
+            <dcterms:description>表現種別 : テキスト</dcterms:description>
+            <dcterms:description>機器種別 : 機器不用</dcterms:description>
+            <dcterms:description>キャリア種別 : 冊子</dcterms:description>
+            <dcterms:description>ISBN（エラーコード） : 978-4-00-000000-0</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlsh/01160935">
+                <rdf:value>日本料理店--日本</rdf:value>
+                <dcndl:transcription>ニホンリョウリテン ニホン</dcndl:transcription>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlsh/00560576">
+                <rdf:value>米飯</rdf:value>
+                <dcndl:transcription>ベイハン</dcndl:transcription>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlsh/00572855">
+                <rdf:value>てんぷら</rdf:value>
+                <dcndl:transcription>テンプラ</dcndl:transcription>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/DH475"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/673.971"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>158 p ; 26 cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034149602"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034149602#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034149602#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>2</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000010061586">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/1987</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>112</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000010061586#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000010061586#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/21591646"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000010061586"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">21591646</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NSMARCNO">105946000</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000010061586</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784931078031"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-931078-03-1</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ErrorISBN">978-4-00000-000-0</dcterms:identifier>
+            <dcterms:title>伝承真桑文楽 : 写真集</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>伝承真桑文楽 : 写真集</rdf:value>
+                <dcndl:transcription>デンショウ マクワ ブンラク : シャシンシュウ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/01162027">
+                <foaf:name>八木, 正司</foaf:name>
+                <dcndl:transcription>ヤギ, ショウジ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>八木正司 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>八木正司</foaf:name>
+                <dcndl:transcription>ヤギショウジ</dcndl:transcription>
+                <dcndl:location>岐阜</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>JRP出版局 </foaf:name>
+                <dcndl:transcription>JRP シュッパンキョク</dcndl:transcription>
+                <dcterms:description>発売</dcterms:description>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2008.12</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2008</dcterms:issued>
+            <dcterms:description>ISBN（エラーコード） : 978-4-00000-000-0</dcterms:description>
+            <dcterms:description>文献あり</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlsh/01162138">
+                <rdf:value>人形浄瑠璃--岐阜県--本巣市--写真集</rdf:value>
+                <dcndl:transcription>ニンギョウジョウルリ ギフケン モトスシ シャシンシュウ</dcndl:transcription>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/KD475"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc9/777.19"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>2850円</dcndl:price>
+            <dcterms:extent>126p ; 26cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000010061586"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000010061586#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I01211008000121716#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I13111107719125#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I21111101519718#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I22111000910521392#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I2711B12418647#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000011800519#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I2911111217714#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000010061586#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970867909798297641#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>3</recordPosition>
+    </record>
+  </records>
+</searchRetrieveResponse>

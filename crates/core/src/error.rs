@@ -42,6 +42,22 @@ pub enum Error {
     #[error("Op が不正: {0}")]
     InvalidOp(String),
 
+    /// ローカルの変更の入力が不正（項目の値、列挙値の範囲、書式など）。`field` は項目名（なければ空）。
+    #[error("入力が不正です（{field}）: {message}")]
+    Validation { field: String, message: String },
+
+    /// 対象のエンティティが見つからない。
+    #[error("{what}が見つかりません: {id}")]
+    NotFound { what: &'static str, id: String },
+
+    /// 今の状態ではできない操作（保管場所に本が残っている、循環する移動など）。
+    #[error("{0}")]
+    Conflict(String),
+
+    /// バックアップとして使えないファイル。
+    #[error("バックアップとして使えません: {0}")]
+    InvalidBackup(String),
+
     #[error("local_meta に {0} がない")]
     MissingMeta(&'static str),
 
@@ -58,4 +74,14 @@ pub enum Error {
         entity: &'static str,
         id: String,
     },
+}
+
+impl Error {
+    /// 項目の値が不正なときのエラー。
+    pub fn validation(field: impl Into<String>, message: impl Into<String>) -> Self {
+        Error::Validation {
+            field: field.into(),
+            message: message.into(),
+        }
+    }
 }

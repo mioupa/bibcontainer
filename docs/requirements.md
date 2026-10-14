@@ -1,6 +1,7 @@
 # 蔵書管理アプリ「bibcontainer」要件定義書
 
-- 版: 0.1（2026-10-14）
+- 版: 0.2（2026-10-14）
+  - 0.2: 実装時の決定（`docs/decisions/0003`〜`0005`）に合わせて 8.1〜8.3、FR-SYNC-03 を修正。付録 A を原本と照合して修正。13 章の決まった項目を更新。外部 API の確認結果（`docs/decisions/0007`）とユーザーの判断に合わせて、2 章、FR-META-02／04、FR-COVER-02、11 章を修正（NDL の書影 API は使わない、Google Books は API キー必須）
 - 作成: 三浦 大地（Claude と作成）
 - 想定読者: 実装を担当する Claude Code、および作成者本人
 - 名称: リポジトリ名・作業名は `bibcontainer`。正式なアプリ名は未定（13章）
@@ -68,7 +69,7 @@
 | スマホ | 初版は対象外。将来の iOS／Android 版を見越した設計にする |
 | 管理項目 | 基本項目 + 読書記録 + 購入情報 + 欲しい本リスト・重複チェック（貸出管理は不要） |
 | バーコード入力 | USB／Bluetooth のバーコードリーダー（必須）、PC カメラ（任意） |
-| 書誌取得元 | 標準: NDLサーチ、openBD、Google Books／任意: 楽天ブックス（要キー）、Amazon Creators API（要資格） |
+| 書誌取得元 | 標準: NDLサーチ、openBD、Google Books（要キー、無料）／任意: 楽天ブックス（要キー）、Amazon Creators API（要資格） |
 | 対象メディア | 書籍のみ（雑誌、CD・DVD・ゲームは対象外） |
 | 規模 | 1,000〜5,000 冊。2 万冊まで快適に動く設計にする |
 | 公開 | 未定。公開しても問題ない作りにする |
@@ -263,10 +264,11 @@ ISBN 保留（タイムアウト T 秒）
 
 | 取得元 | 優先度 | 認証 | 主に取れる情報 |
 |---|---|---|---|
-| openBD | [MUST] | 不要 | 書名、著者、出版社、発行日、価格、**Cコード**、内容紹介、書影 |
+| openBD | [MUST] | 不要 | 書名、著者、出版社、発行日、価格、**Cコード**、内容紹介、書影（Cコード・内容紹介・書影は版元ドットコム会員社の本のみ。それ以外は NDL 由来の簡易な書誌） |
 | NDLサーチ（SRU） | [MUST] | 不要（継続利用は届出を推奨） | 書名とヨミ、著者、出版社、発行年、価格、ページ数・大きさ、**NDC**、シリーズ、巻次 |
-| NDLサーチ（書影 API） | [MUST] | 不要 | 書影 |
-| Google Books | [MUST] | 任意（API キーがあれば使う） | 書名、著者、内容紹介、ページ数、書影、言語 |
+| Google Books | [MUST] | API キー（ユーザーが入力。キーなしでは使えない） | 書名、著者、内容紹介、ページ数、書影、言語 |
+
+NDLサーチの書影 API は使わない。公式の API 仕様書に記載がなく、NDL サーチ自身のページ以外からの参照（Referer）は 403 で拒否されるため（2026-10 確認、ユーザー判断）。
 | 楽天ブックス | [SHOULD] | アプリ ID とアクセスキー（ユーザーが入力） | 書名・著者のヨミ、判型、税込価格、内容紹介、大きい書影 |
 | Amazon Creators API | [COULD] | 認証情報（ユーザーが入力）と利用資格 | 書名、著者、書影など。規約上の保存制限に従う（13章） |
 
@@ -289,7 +291,7 @@ ISBN 保留（タイムアウト T 秒）
 | ページ数・大きさ | NDL > openBD > Google |
 | シリーズ・巻次 | openBD > NDL > 楽天 |
 | 内容紹介 | openBD > 楽天 > Google |
-| 書影 | openBD > NDL > 楽天 > Google > Amazon |
+| 書影 | openBD > 楽天 > Google > Amazon |
 
 - **FR-META-05 [MUST]** 編集フォームでは、各項目に「他の取得元の値」を候補として表示し、選び直せる。
 - **FR-META-06 [MUST]** 取得した値を正規化する。
@@ -310,7 +312,7 @@ ISBN 保留（タイムアウト T 秒）
 ### 7.4 書影（FR-COVER）
 
 - **FR-COVER-01 [MUST]** 書影は「7.3」の優先順位で取得する。取れなければ、書名と著者を描いた仮の表紙を表示する。
-- **FR-COVER-02 [MUST]** 「画像なし」のダミー画像を見分ける。NDL の書影 API は画像がないときに XML を返すので、Content-Type で判定する。Google Books などが返す「No image」画像は、既知のハッシュ値と画像サイズで判定する。
+- **FR-COVER-02 [MUST]** 「画像なし」のダミー画像を見分ける。画像でない応答は Content-Type で判定する。Google Books などが返す「No image」画像（Google は寸法の違う 3 種類がある）は、既知のハッシュ値と画像サイズで判定する。
 - **FR-COVER-03 [MUST]** 保存する書影は、長辺 800px 以下の JPEG（品質 85 程度）に変換し、EXIF を除く。ファイル名は SHA-256 ハッシュとする（同じ画像は 1 つだけ保存される）。
 - **FR-COVER-04 [MUST]** 一覧用のサムネイル（長辺 160px と 320px）は端末ごとに生成して、ローカルにキャッシュする（同期はしない）。
 - **FR-COVER-05 [MUST]** 書影を手動で差し替えられる（ファイルのドラッグ＆ドロップ、クリップボードからの貼り付け、画像 URL の入力、取得元の候補から選ぶ）。
@@ -361,7 +363,7 @@ ISBN 保留（タイムアウト T 秒）
 
 - **FR-SYNC-01 [MUST]** 設定画面で同期フォルダを選ぶと同期が始まる。同期フォルダを設定しなくても、単体で全機能が使える。
 - **FR-SYNC-02 [MUST]** アプリは Google Drive などの API を直接呼ばず、ローカルのフォルダとして読み書きするだけにする。同期はクラウドサービスのクライアントに任せる。
-- **FR-SYNC-03 [MUST]** SQLite データベースは端末ローカル（アプリのデータフォルダ）に置き、同期フォルダには変更ログと書影だけを置く。
+- **FR-SYNC-03 [MUST]** SQLite データベースは端末ローカル（アプリのデータフォルダ）に置き、同期フォルダには変更ログと書影だけを置く。データフォルダは、macOS では `~/Library/Application Support/<バンドル ID>/`、Windows では `%LOCALAPPDATA%\<バンドル ID>\` とする（Windows の Roaming（`%APPDATA%`）は、プロファイルと一緒に他の PC へ移動しうるため使わない）。
 - **FR-SYNC-04 [MUST]** 各端末は、同期フォルダ内の自分専用のサブフォルダにだけ書き込む。他の端末のファイルは読むだけにする（同じファイルを 2 台が書き換える状況を作らない）。
 - **FR-SYNC-05 [MUST]** 複数の端末を同時に起動しても、オフラインで編集しても、最終的に全端末が同じ状態になる。衝突は項目単位の Last-Writer-Wins（ハイブリッド論理時計の新しい方が勝つ）で解決する。別々の端末で同じ本の別の項目を変えた場合は、両方の変更が残る。
 - **FR-SYNC-06 [MUST]** 他の端末の変更は、起動時、ウィンドウが前面に来たとき、ファイル監視の通知、60 秒ごとのポーリングで取り込む。
@@ -414,18 +416,29 @@ ISBN 保留（タイムアウト T 秒）
 
 - ID はすべて UUIDv7。
 - 同期の単位は「エンティティ＋ID＋項目」。配列の項目（著者、タグ）は配列全体を 1 つの値として扱う。
+- 書籍の取得元の記録と手修正の記録は、項目ごとに別の同期キー（`field_sources.<項目名>`、`manual_fields.<項目名>`）として扱う。1 つの値にまとめると、別々の端末で別の項目を手で直したときに、片方の記録が LWW で消えるため（`docs/decisions/0005`）。
 - 削除は `deleted` 項目の変更として扱う（削除の記録＝トゥームストーン）。ほかの項目を編集しても削除は取り消されない。復元は `deleted=false` を新しい時刻で書き込む。
 
 ### 8.2 SQLite スキーマ案
 
-叩き台であり、実装で調整してよい。ただし「項目単位で時計を持つ」「変更は outbox に記録する」の 2 点は守る。
+叩き台であり、実装で調整してよい。ただし「項目単位で時計を持つ」「変更は outbox に記録する」の 2 点は守る。実際のスキーマは `crates/core/migrations/` を正とする。
+
+次の点は実装時に決めた（`docs/decisions/0003`、`0004`、`0005`）。下の SQL にも反映してある。
+
+- 同期対象テーブルの `id` 以外の NOT NULL 列には、すべて既定値を付ける。他端末の Op は順不同・欠番ありで届くので、作成 Op より先に部分的な更新が届いても、`id` だけで行を作れるようにするため。
+- 未知の項目を保持する `extra_json` は、books 以外の同期対象テーブルにも付ける。
+- `tags.name` は UNIQUE にしない。2 台が同じ名前のタグを別の ID で作ると、取り込み時に制約違反で適用できなくなるため。同じ名前が複数あるときは、ID が最小（最古）のものを使う。
+- `field_sources_json` と `manual_fields_json` は保存形式で、Op では項目ごとのキー（8.1）で同期する。
+- `updated_at` は端末ローカルの派生値で、同期しない。
+- 同期対象テーブル間に外部キー制約は作らない（参照先がまだ届いていないことがあるため）。
+- 検索と並べ替えのための派生データ（`books_fts`、`book_tags` など）は端末ローカルに持ち、Op を適用したときに更新する。
 
 ```sql
 -- ===== 同期対象 =====
 CREATE TABLE books (
-  id                 TEXT PRIMARY KEY,               -- UUIDv7
+  id                 TEXT NOT NULL PRIMARY KEY,      -- UUIDv7
   isbn13             TEXT,                           -- ISBN のない本は NULL
-  title              TEXT NOT NULL,
+  title              TEXT NOT NULL DEFAULT '',
   title_kana         TEXT,
   subtitle           TEXT,
   series_id          TEXT,
@@ -458,25 +471,31 @@ CREATE TABLE books (
   purchase_cond      TEXT,                           -- new / used
   purchase_memo      TEXT,
   memo               TEXT,
-  field_sources_json TEXT NOT NULL DEFAULT '{}',     -- {"title":"openbd","list_price":"barcode"}
-  manual_fields_json TEXT NOT NULL DEFAULT '[]',     -- 手で直した項目名
+  field_sources_json TEXT NOT NULL DEFAULT '{}',     -- {"title":"openbd","list_price":"barcode"}。Op では field_sources.<項目名>
+  manual_fields_json TEXT NOT NULL DEFAULT '[]',     -- 手で直した項目名（辞書順）。Op では manual_fields.<項目名>
   meta_status        TEXT NOT NULL DEFAULT 'ok',     -- ok / pending / partial / failed
   extra_json         TEXT NOT NULL DEFAULT '{}',     -- 新しい版の端末から届いた未知の項目を保持
   deleted            INTEGER NOT NULL DEFAULT 0,     -- ゴミ箱
   purged             INTEGER NOT NULL DEFAULT 0,     -- 完全削除（行は残す）
-  created_at         TEXT NOT NULL,
-  updated_at         TEXT NOT NULL
+  created_at         TEXT NOT NULL DEFAULT '',
+  updated_at         TEXT NOT NULL DEFAULT ''        -- 端末ローカルの派生値（同期しない）
 );
 CREATE INDEX books_isbn13 ON books(isbn13);
 
-CREATE TABLE series    (id TEXT PRIMARY KEY, name TEXT NOT NULL, name_kana TEXT, memo TEXT,
-                        deleted INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
-CREATE TABLE locations (id TEXT PRIMARY KEY, name TEXT NOT NULL, parent_id TEXT, sort_order REAL,
-                        deleted INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
-CREATE TABLE tags      (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, color TEXT,
-                        deleted INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
-CREATE TABLE shelves   (id TEXT PRIMARY KEY, name TEXT NOT NULL, query_json TEXT NOT NULL, sort_order REAL,
-                        deleted INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+-- 以下の 4 テーブルも、id 以外の NOT NULL 列に既定値を付け、extra_json を持つ
+CREATE TABLE series    (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL DEFAULT '', name_kana TEXT, memo TEXT,
+                        extra_json TEXT NOT NULL DEFAULT '{}', deleted INTEGER NOT NULL DEFAULT 0,
+                        created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '');
+CREATE TABLE locations (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL DEFAULT '', parent_id TEXT, sort_order REAL,
+                        extra_json TEXT NOT NULL DEFAULT '{}', deleted INTEGER NOT NULL DEFAULT 0,
+                        created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '');
+CREATE TABLE tags      (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL DEFAULT '', color TEXT,  -- name は UNIQUE にしない
+                        extra_json TEXT NOT NULL DEFAULT '{}', deleted INTEGER NOT NULL DEFAULT 0,
+                        created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '');
+CREATE INDEX tags_name ON tags(name);
+CREATE TABLE shelves   (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL DEFAULT '', query_json TEXT NOT NULL DEFAULT '{}',
+                        sort_order REAL, extra_json TEXT NOT NULL DEFAULT '{}', deleted INTEGER NOT NULL DEFAULT 0,
+                        created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '');
 
 -- ===== 同期の管理（端末ローカル） =====
 CREATE TABLE field_clocks (                       -- 項目ごとの最終更新時刻（HLC）
@@ -528,7 +547,7 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 {"end":true,"count":2,"sha256":"<上の行すべての SHA-256>"}
 ```
 
-- `v`: 形式のバージョン。`dev`: 端末 ID。`seq`: 端末内の通し番号。`hlc`: ハイブリッド論理時計。`ent`／`id`: 対象。`set`: 変更した項目と新しい値。
+- `v`: 形式のバージョン。`dev`: 端末 ID。`seq`: 端末内の通し番号。`hlc`: ハイブリッド論理時計。`ent`／`id`: 対象。`set`: 変更した項目と新しい値。書籍の取得元と手修正の記録は、`"field_sources.title":"openbd"`、`"manual_fields.title":true` のように項目ごとのキーで書く（null で消す）。
 - 新規作成は、全項目を `set` に入れた Op として書く。
 - 最終行は終端レコード。件数とハッシュが合わないファイルは書き込み途中か同期途中とみなし、読まずに後で再試行する。
 
@@ -677,6 +696,7 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
   - 書影: `summary.cover`（例: `https://cover.openbd.jp/9784780802047.jpg`）
 - 確認結果: 9784780802047 で、書名「おにぎりレシピ101」、出版社「ポット出版」、Cコード `0077`、価格 1300 円、書影 URL が返った。
 - 状況: 2023年7月に「v1 の提供終了」が告知されたが、2026年10月時点でも応答がある。いつ止まってもよいように、ほかの取得元だけでも動く作りにする。
+- 中身は 2 種類ある（2026-10 確認）。版元ドットコム会員社の本は上記の項目がそろう。それ以外は NDL の書誌の簡易な変換で、Cコード・内容紹介・書影・ページ数がなく、著者が `夏目,漱石,1867-1916`、価格が `310 (税込)` のような形になり、書名に巻次や副書名が混ざることがある。詳細は `docs/decisions/0007`。
 - 規約: 本の紹介・宣伝のために利用できる。データの改変はしない、削除依頼に応じる、などの条件がある（https://openbd.jp/terms/）。
 
 ### 11.2 NDLサーチ
@@ -684,8 +704,8 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 - 書誌（SRU）: `GET https://ndlsearch.ndl.go.jp/api/sru?operation=searchRetrieve&recordSchema=dcndl&maximumRecords=5&query=isbn%3D9784003101117`
   - 応答は XML（DC-NDL 形式）。同じ ISBN で複数のレコードが返ることがあるので、図書のレコードを選ぶ。
   - 使う要素（実装時に実際の応答で確認）: 書名、書名のヨミ（`dcndl:transcription`）、著者、出版社、出版年、価格（`dcndl:price`）、数量（`dcterms:extent`。例: `218p ; 15cm`）、NDC（`dcterms:subject` の NDC9／NDC10）、シリーズ（`dcndl:seriesTitle`）、巻次（`dcndl:volume`）
-- 書影: `GET https://ndlsearch.ndl.go.jp/thumbnail/{ISBN13}.jpg`
-  - 画像がなければ XML のエラーが返る。Content-Type で判定する。
+  - 実際の応答で確認した点（2026-10）: `recordPacking=xml` と `onlyBib=true` を付ける。書名・巻次・シリーズは `rdf:Description/rdf:value` の入れ子、NDC は `dcterms:subject` の `rdf:resource` の URL に入る。シリーズ全体を 1 件にまとめたレコードや、誤登録の ISBN（型が `ErrorISBN`）のレコードも返るので、型が `ISBN` の識別子で一致するものだけを使う。該当なしは HTTP 200 で `Record does not exist`。詳細は `docs/decisions/0007`。
+- 書影: `https://ndlsearch.ndl.go.jp/thumbnail/{ISBN13}.jpg` は使わない（公式の仕様書に記載がなく、NDL サーチ以外からの参照は 403 になる。FR-META-02 の注記）。
 - 利用条件:
   - 個人や非営利団体で収益がなければ、利用申請は不要。
   - 継続的にアクセスする場合は、申請フォームで連絡先と用途を伝えるよう求められている（13章）。
@@ -694,9 +714,10 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 
 ### 11.3 Google Books
 
-- `GET https://www.googleapis.com/books/v1/volumes?q=isbn:9784003101117`（API キーがあれば `&key=…` を付ける）
+- `GET https://www.googleapis.com/books/v1/volumes?q=isbn:9784003101117&key=…`
+- API キーが必要。キーなしでは常に 429（`Queries per day`、割り当て 0）になる（2026-10 確認）。キーは Google Cloud Console で Books API を有効にして作り、アプリの設定画面で入力する。
 - 使う項目: `items[0].volumeInfo` の `title` / `subtitle` / `authors[]` / `publisher` / `publishedDate` / `description` / `pageCount` / `imageLinks.thumbnail` / `language`
-- 書影 URL が `http://` の場合は `https://` に置き換える。
+- 書影 URL が `http://` の場合は `https://` に置き換える。`edge=curl` を外し、`zoom=0` にすると大きい画像が取れる。
 - 和書は収録が不揃いで、出版社が空のことが多い。補完用として使う。
 
 ### 11.4 楽天ブックス書籍検索 API（任意）
@@ -783,22 +804,22 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 
 | # | 項目 | 内容 | 決める人・時期 |
 |---|---|---|---|
-| 1 | 正式なアプリ名とバンドル ID | 作業名は `bibcontainer`。バンドル ID は例えば `com.<自分のドメイン>.bibcontainer` | ユーザー・フェーズ 0 |
+| 1 | 正式なアプリ名とバンドル ID | バンドル ID は `io.github.mioupa.bibcontainer` に決定（フェーズ 0）。アプリ名は未定で、作業名 `bibcontainer` を使う | ユーザー・公開を決めたとき |
 | 2 | Amazon の利用資格 | 直近 30 日で 10 件の紹介販売が必要。満たせなければ実装しない | ユーザー・フェーズ 3 |
 | 3 | Amazon データの保存可否 | 取得データや書影を蔵書 DB に保存してよいか、Creators API の規約で確認する。保存できなければ、リンクと一時表示だけにする | 実装時に確認 |
 | 4 | 楽天 API の Referer 要件 | デスクトップアプリから呼べるか、どのアプリ種別で登録すべきか | 実装時に確認 |
 | 5 | openBD の継続性 | v1 は終了告知済み。止まった場合は NDL と Google Books で補う | 監視 |
 | 6 | NDLサーチへの届出 | 継続アクセスにあたり、申請フォームで連絡先と用途を伝える | ユーザー・フェーズ 1 |
-| 7 | バーコードリーダーの設定 | 使う機種の末尾キーや送信速度を確認し、既定値を調整する | ユーザー・フェーズ 1 |
+| 7 | バーコードリーダーの設定 | 末尾キーは Enter（ユーザー確認済み）。送信速度は実機で確認し、キー間隔の閾値を調整する | ユーザー・フェーズ 1 |
 | 8 | Google Drive のモード | ストリーミングかミラーリングか。ストリーミングならライブラリのフォルダをオフライン利用可にする | ユーザー・フェーズ 2 |
 | 9 | 公開とライセンス | 公開する場合のライセンス、署名・公証の費用 | ユーザー・公開を決めたとき |
-| 10 | Cコード表の正確性 | 付録 A を公式資料の原本と照合する | 実装時に確認 |
+| 10 | Cコード表の正確性 | 2025.04.01 版の原本と照合し、付録 A の名称を修正済み（2026-10-14） | 済み |
 
 ---
 
 ## 付録 A: Cコード表
 
-出典: 日本図書コード管理センター「分類記号・各コードの内容解説・注意事項」（2025.04.01 版）ほか。名称は実装時に原本と照合すること。
+出典: 日本図書コード管理センター「分類記号・各コードの内容解説・注意事項」（2025.04.01 版）。2026-10-14 に原本と照合し、名称を原本に合わせた（括弧は全角）。原本でセル内改行になっている名称（内容 92・93・95・97・98）は、読点でつないだ。実装は `crates/core/src/barcode/c_code.rs`。
 
 ### 第 1 桁: 販売対象
 
@@ -808,12 +829,12 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 | 1 | 教養 |
 | 2 | 実用 |
 | 3 | 専門 |
-| 4 | 検定教科書・消耗教材・その他 |
-| 5 | 婦人 |
-| 6 | 学参 I（小・中学生対象） |
-| 7 | 学参 II（高校生対象） |
+| 4 | 検定教科書・消費税非課税品 |
+| 5 | 女性 |
+| 6 | 学参I（小中） |
+| 7 | 学参II（高校） |
 | 8 | 児童 |
-| 9 | 雑誌扱い |
+| 9 | 雑誌扱いコミックスおよびムック |
 
 ### 第 2 桁: 発行形態
 
@@ -824,26 +845,26 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 | 2 | 新書 |
 | 3 | 全集・双書 |
 | 4 | ムック・その他 |
-| 5 | 事・辞典 |
+| 5 | 辞典・事典 |
 | 6 | 図鑑 |
 | 7 | 絵本 |
-| 8 | 磁性媒体など |
-| 9 | コミック |
+| 8 | 電磁的記録媒体など |
+| 9 | コミックス |
 
 ### 第 3・4 桁: 内容
 
 | 大分類 | コードと名称 |
 |---|---|
 | 0 総記 | 00 総記／01 百科事典／02 年鑑・雑誌／04 情報科学 |
-| 1 哲学・宗教・心理学 | 10 哲学／11 心理（学）／12 倫理（学）／14 宗教／15 仏教／16 キリスト教 |
-| 2 歴史・地理 | 20 歴史総記／21 日本歴史／22 外国歴史／23 伝記／25 地理／26 旅行 |
-| 3 社会科学 | 30 社会科学総記／31 政治（含む国防軍事）／32 法律／33 経済・財政・統計／34 経営／36 社会／37 教育／39 民族・風習 |
+| 1 哲学・宗教・心理 | 10 哲学／11 心理（学）／12 倫理（学）／14 宗教／15 仏教／16 キリスト教 |
+| 2 歴史・地理 | 20 歴史総記／21 日本歴史／22 外国歴史／23 伝記・系譜／25 地理／26 旅行 |
+| 3 社会科学 | 30 社会科学総記／31 政治（国防・軍事含む）／32 法律／33 経済・財政・統計／34 経営／36 社会／37 教育／39 民族・風習 |
 | 4 自然科学 | 40 自然科学総記／41 数学／42 物理学／43 化学／44 天文・地学／45 生物学／47 医学・歯学・薬学 |
-| 5 工学・工業 | 50 工学・工業総記／51 土木／52 建築／53 機械／54 電気／55 電子通信／56 海事／57 採鉱・冶金／58 その他の工業 |
+| 5 工学・工業 | 50 工学・工業総記／51 土木／52 建築／53 機械／54 電気／55 電子通信／56 海事・兵器／57 採鉱・冶金／58 各種工業 |
 | 6 産業 | 60 産業総記／61 農林業／62 水産業／63 商業／65 交通・通信 |
-| 7 芸術・生活 | 70 芸術総記／71 絵画・彫刻／72 写真・工芸／73 音楽・舞踊／74 演劇・映画／75 体育・スポーツ／76 諸芸・娯楽／77 家事／78 日記・手帳／79 コミックス・劇画 |
+| 7 芸術・生活 | 70 芸術総記／71 絵画・彫刻／72 写真・工芸／73 音楽・舞踊／74 演劇・映画／75 体育・スポーツ／76 諸芸・娯楽／77 家事／78 生活／79 コミックス・劇画 |
 | 8 語学 | 80 語学総記／81 日本語／82 英米語／84 ドイツ語／85 フランス語／87 各国語 |
-| 9 文学 | 90 文学総記／91 日本文学総記／92 日本文学詩歌／93 日本文学、小説・物語／95 日本文学、評論、随筆、その他／97 外国文学小説／98 外国文学、その他 |
+| 9 文学 | 90 文学総記／91 日本文学総記／92 日本文学、詩歌／93 日本文学、小説・物語／95 日本文学、評論・随筆・その他／97 外国文学、小説／98 外国文学、その他 |
 
 ---
 

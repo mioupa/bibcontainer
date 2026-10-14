@@ -32,6 +32,14 @@ export default defineConfig([
   },
 
   {
+    // shadcn/ui の部品は、部品とそのバリアント定義（buttonVariants など）を同じファイルから export する
+    files: ["src/components/ui/**/*.tsx"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
+
+  {
     // 設定ファイルは Node で動く
     files: ["vite.config.ts"],
     languageOptions: { globals: globals.node },

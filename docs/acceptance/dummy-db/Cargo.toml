@@ -1,0 +1,17 @@
+# 受け入れ確認用のダミー蔵書 DB を作る小さなプログラム。アプリのビルドとは無関係（ワークスペースの外）。
+# 使い方は docs/acceptance/phase1.md の末尾を参照。
+[package]
+name = "dummy-db"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# ルートのワークスペースに入れない（空の [workspace] を置くと、独立したワークスペースになる）。
+[workspace]
+
+[dependencies]
+bibcontainer-core = { path = "../../../crates/core" }
+# 書影のダミー画像（JPEG）を作る
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
+serde_json = "1"
+sha2 = "0.10"

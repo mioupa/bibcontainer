@@ -19,11 +19,18 @@ pub struct Migration {
 }
 
 /// アプリが知るマイグレーションの一覧。
-pub const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    name: "init",
-    sql: include_str!("../migrations/0001_init.sql"),
-}];
+pub const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        name: "init",
+        sql: include_str!("../migrations/0001_init.sql"),
+    },
+    Migration {
+        version: 2,
+        name: "local_settings_and_search",
+        sql: include_str!("../migrations/0002_local_settings_and_search.sql"),
+    },
+];
 
 /// アプリが知る最新のスキーマ版。
 pub const LATEST_VERSION: u32 = MIGRATIONS[MIGRATIONS.len() - 1].version;
@@ -58,6 +65,23 @@ pub fn migrate(
     migrations: &[Migration],
     backup_dir: &Path,
 ) -> Result<MigrationReport> {
+    run(conn, migrations, Some(backup_dir))
+}
+
+/// `migrate` と同じだが、適用前のバックアップを取らない。バックアップの復元で、作業用のコピーを
+/// 最新の版にそろえるときに使う（元のバックアップがそのまま残るので、取り直す必要がない）。
+pub fn migrate_without_backup(
+    conn: &mut Connection,
+    migrations: &[Migration],
+) -> Result<MigrationReport> {
+    run(conn, migrations, None)
+}
+
+fn run(
+    conn: &mut Connection,
+    migrations: &[Migration],
+    backup_dir: Option<&Path>,
+) -> Result<MigrationReport> {
     check_list(migrations)?;
     let latest = migrations.last().map_or(0, |m| m.version);
     let current = user_version(conn)?;
@@ -78,8 +102,8 @@ pub fn migrate(
         return Ok(report);
     }
 
-    if current > 0 {
-        report.backup_path = Some(backup(conn, backup_dir, current)?);
+    if let (Some(dir), true) = (backup_dir, current > 0) {
+        report.backup_path = Some(backup(conn, dir, current)?);
     }
 
     for m in migrations.iter().filter(|m| m.version > current) {

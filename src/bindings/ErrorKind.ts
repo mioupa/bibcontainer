@@ -3,4 +3,4 @@
 /**
  * エラーの種類。フロントはこれで表示を切り替える。
  */
-export type ErrorKind = "db_unavailable" | "schema_too_new" | "database" | "internal";
+export type ErrorKind = "db_unavailable" | "schema_too_new" | "database" | "internal" | "validation" | "not_found" | "conflict" | "invalid_backup" | "network" | "provider" | "io" | "keychain";

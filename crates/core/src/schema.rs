@@ -145,6 +145,20 @@ impl FieldDef {
         }
     }
 
+    /// 列の既定値を Op の値（JSON）で表したもの。NULL 可の列では null、
+    /// Bool は真偽値、Json は配列かオブジェクト。
+    pub fn default_value(&self) -> Value {
+        match self.default {
+            ColDefault::Null => Value::Null,
+            ColDefault::Text(s) if self.ty == FieldType::Json => {
+                serde_json::from_str(s).unwrap_or(Value::Null)
+            }
+            ColDefault::Text(s) => Value::String(s.to_owned()),
+            ColDefault::Int(i) if self.ty == FieldType::Bool => Value::Bool(i != 0),
+            ColDefault::Int(i) => Value::from(i),
+        }
+    }
+
     /// 列に書く値。null なら列の既定値。型が合わなければ `None`。
     pub fn to_sql(&self, v: &Value) -> Option<SqlValue> {
         if v.is_null() {
@@ -227,14 +241,6 @@ const BOOK_FIELDS: &[FieldDef] = &[
     nullable("purchase_cond", Text),
     nullable("purchase_memo", Text),
     nullable("memo", Text),
-    column(
-        required("field_sources", Json, Txt("{}")),
-        "field_sources_json",
-    ),
-    column(
-        required("manual_fields", Json, Txt("[]")),
-        "manual_fields_json",
-    ),
     required("meta_status", Text, Txt("ok")),
     required("deleted", Bool, NO),
     required("purged", Bool, NO),
@@ -272,6 +278,59 @@ const SHELF_FIELDS: &[FieldDef] = &[
     required("created_at", Text, Txt("")),
 ];
 
+/// 書籍の取得元の記録の Op キーの接頭辞（`field_sources.<項目名>`）。値は取得元の文字列か null。
+pub const FIELD_SOURCES_PREFIX: &str = "field_sources.";
+/// 書籍の手修正の記録の Op キーの接頭辞（`manual_fields.<項目名>`）。値は `true` か null。
+pub const MANUAL_FIELDS_PREFIX: &str = "manual_fields.";
+
+/// 取得元の記録を保存する列（`books.field_sources_json`。オブジェクト）。
+/// Op のキーは項目ごと（`field_sources.<項目名>`）で、この列は Op から組み立てる保存形式。
+pub const FIELD_SOURCES_COLUMN: &str = "field_sources_json";
+/// 手修正の記録を保存する列（`books.manual_fields_json`。項目名の配列）。
+pub const MANUAL_FIELDS_COLUMN: &str = "manual_fields_json";
+
+/// `field_sources.<項目名>` のキーを作る。
+pub fn field_sources_key(field: &str) -> String {
+    format!("{FIELD_SOURCES_PREFIX}{field}")
+}
+
+/// `manual_fields.<項目名>` のキーを作る。
+pub fn manual_fields_key(field: &str) -> String {
+    format!("{MANUAL_FIELDS_PREFIX}{field}")
+}
+
+/// Op の `set` のキーの種類。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OpKey {
+    /// 通常の項目。列に保存する。
+    Column(&'static FieldDef),
+    /// 書籍の `field_sources.<項目名>`。中身は対象の項目の定義。
+    Source(&'static FieldDef),
+    /// 書籍の `manual_fields.<項目名>`。中身は対象の項目の定義。
+    Manual(&'static FieldDef),
+    /// `field_sources.` か `manual_fields.` で始まるが、項目名が書籍の既知の項目でない。
+    BadProvenance,
+    /// 知らない項目。`extra_json` に保持する。
+    Unknown,
+}
+
+/// Op の `set` のキーを分類する。`field_sources.` と `manual_fields.` は書籍だけで意味を持つ。
+pub fn classify_key(ent: Entity, name: &str) -> OpKey {
+    if let Some(def) = ent.field(name) {
+        return OpKey::Column(def);
+    }
+    if ent == Entity::Book {
+        let target = |prefix: &str| name.strip_prefix(prefix).map(|f| Entity::Book.field(f));
+        if let Some(found) = target(FIELD_SOURCES_PREFIX) {
+            return found.map_or(OpKey::BadProvenance, OpKey::Source);
+        }
+        if let Some(found) = target(MANUAL_FIELDS_PREFIX) {
+            return found.map_or(OpKey::BadProvenance, OpKey::Manual);
+        }
+    }
+    OpKey::Unknown
+}
+
 /// ローカルの変更として記録してよいか検証する。
 ///
 /// 他端末から届く Op と違い、未知の項目・型の不一致・NOT NULL 列への null はエラーにする
@@ -285,8 +344,29 @@ pub fn validate_local_change(ent: Entity, id: &str, set: &Fields) -> Result<()> 
         return bad("set が空".to_owned());
     }
     for (name, value) in set {
-        let Some(def) = ent.field(name) else {
-            return bad(format!("{} に項目 {name:?} はない", ent.as_str()));
+        let def = match classify_key(ent, name) {
+            OpKey::Column(def) => def,
+            OpKey::Source(_) => {
+                if !value.is_null() && value.as_str().is_none_or(str::is_empty) {
+                    return bad(format!("{name} は空でない文字列か null（値: {value}）"));
+                }
+                continue;
+            }
+            OpKey::Manual(_) => {
+                if !value.is_null() && *value != Value::Bool(true) {
+                    return bad(format!("{name} は true か null（値: {value}）"));
+                }
+                continue;
+            }
+            OpKey::BadProvenance => {
+                return bad(format!(
+                    "{name} の項目名が書籍の既知の項目でない（{} に項目 {name:?} はない）",
+                    ent.as_str()
+                ));
+            }
+            OpKey::Unknown => {
+                return bad(format!("{} に項目 {name:?} はない", ent.as_str()));
+            }
         };
         if value.is_null() {
             if !def.is_nullable() {
@@ -339,10 +419,18 @@ mod tests {
                 .collect::<std::result::Result<_, _>>()
                 .unwrap();
 
+            // field_sources_json / manual_fields_json は、項目ごとの Op キー
+            // （field_sources.<項目名> など）から組み立てる保存形式なので、項目定義には含めない。
+            let composed = if ent == Entity::Book {
+                vec![FIELD_SOURCES_COLUMN, MANUAL_FIELDS_COLUMN]
+            } else {
+                Vec::new()
+            };
             let synced: BTreeSet<&str> = cols
                 .keys()
                 .map(String::as_str)
                 .filter(|c| !["id", "extra_json", "updated_at"].contains(c))
+                .filter(|c| !composed.contains(c))
                 .collect();
             let defined: BTreeSet<&str> = ent.fields().iter().map(|f| f.column).collect();
             assert_eq!(synced, defined, "{} の列と項目定義が一致する", ent.table());
@@ -384,6 +472,17 @@ mod tests {
                 );
             }
 
+            if ent == Entity::Book {
+                assert_eq!(
+                    cols[FIELD_SOURCES_COLUMN],
+                    ("TEXT".to_owned(), true, Some("'{}'".to_owned()))
+                );
+                assert_eq!(
+                    cols[MANUAL_FIELDS_COLUMN],
+                    ("TEXT".to_owned(), true, Some("'[]'".to_owned()))
+                );
+            }
+
             // extra_json と id もスキーマどおり
             assert_eq!(cols["extra_json"].2.as_deref(), Some("'{}'"));
             assert!(cols["id"].1, "id は NOT NULL");
@@ -396,8 +495,9 @@ mod tests {
         let book = |n: &str| Entity::Book.field(n).map(|f| f.column);
         assert_eq!(book("authors"), Some("authors_json"));
         assert_eq!(book("tags"), Some("tags_json"));
-        assert_eq!(book("field_sources"), Some("field_sources_json"));
-        assert_eq!(book("manual_fields"), Some("manual_fields_json"));
+        // 項目全体のキーは廃止した（項目ごとの field_sources.<項目名> に置き換えた）
+        assert_eq!(book("field_sources"), None);
+        assert_eq!(book("manual_fields"), None);
         assert_eq!(book("title"), Some("title"));
         assert_eq!(book("authors_json"), None);
         assert_eq!(
@@ -425,7 +525,7 @@ mod tests {
         for n in ["deleted", "purged"] {
             assert_eq!(ty(Entity::Book, n), Bool, "{n}");
         }
-        for n in ["authors", "tags", "field_sources", "manual_fields"] {
+        for n in ["authors", "tags"] {
             assert_eq!(ty(Entity::Book, n), Json, "{n}");
         }
         for n in ["created_at", "meta_status", "title", "memo", "isbn13"] {
@@ -434,6 +534,66 @@ mod tests {
         assert_eq!(ty(Entity::Location, "sort_order"), Real);
         assert_eq!(ty(Entity::Shelf, "sort_order"), Real);
         assert_eq!(ty(Entity::Shelf, "query"), Json);
+    }
+
+    #[test]
+    fn classify_key_recognizes_per_field_provenance_keys() {
+        let title = Entity::Book.field("title").unwrap();
+        assert_eq!(classify_key(Entity::Book, "title"), OpKey::Column(title));
+        assert_eq!(
+            classify_key(Entity::Book, "field_sources.title"),
+            OpKey::Source(title)
+        );
+        assert_eq!(
+            classify_key(Entity::Book, "manual_fields.title"),
+            OpKey::Manual(title)
+        );
+        // 項目名が書籍の既知の項目でない
+        for bad in [
+            "field_sources.nope",
+            "manual_fields.nope",
+            "field_sources.",
+            "field_sources.field_sources",
+            "manual_fields.manual_fields",
+            "field_sources.id",
+        ] {
+            assert_eq!(
+                classify_key(Entity::Book, bad),
+                OpKey::BadProvenance,
+                "{bad}"
+            );
+        }
+        // 項目全体のキーは廃止した（知らない項目として extra に入る）
+        assert_eq!(classify_key(Entity::Book, "field_sources"), OpKey::Unknown);
+        assert_eq!(classify_key(Entity::Book, "manual_fields"), OpKey::Unknown);
+        // 書籍以外では意味を持たない
+        assert_eq!(
+            classify_key(Entity::Series, "field_sources.name"),
+            OpKey::Unknown
+        );
+    }
+
+    #[test]
+    fn local_validation_of_provenance_keys() {
+        let id = "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0a55";
+        let check = |pairs: &[(&str, Value)]| {
+            let set: Fields = pairs
+                .iter()
+                .map(|(k, v)| ((*k).to_owned(), v.clone()))
+                .collect();
+            validate_local_change(Entity::Book, id, &set)
+        };
+        assert!(check(&[("field_sources.title", json!("openbd"))]).is_ok());
+        assert!(check(&[("field_sources.title", json!(null))]).is_ok());
+        assert!(check(&[("manual_fields.title", json!(true))]).is_ok());
+        assert!(check(&[("manual_fields.title", json!(null))]).is_ok());
+        assert!(check(&[("field_sources.title", json!(1))]).is_err());
+        assert!(check(&[("field_sources.title", json!(""))]).is_err());
+        assert!(check(&[("manual_fields.title", json!(false))]).is_err());
+        assert!(check(&[("manual_fields.title", json!("x"))]).is_err());
+        assert!(check(&[("field_sources.nope", json!("x"))]).is_err());
+        assert!(check(&[("manual_fields.nope", json!(true))]).is_err());
+        assert!(check(&[("field_sources", json!({"title": "x"}))]).is_err());
     }
 
     #[test]

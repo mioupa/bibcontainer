@@ -25,6 +25,42 @@ pub enum AppError {
     /// 上のどれでもない、アプリ内部の不具合。
     #[error("内部エラー: {0}")]
     Internal(String),
+
+    /// 入力が不正（項目の値、書式、範囲など）。メッセージに項目名を含む。
+    #[error("{0}")]
+    Validation(String),
+
+    /// 対象が見つからない（書籍、保管場所、タグなど）。
+    #[error("{0}")]
+    NotFound(String),
+
+    /// 今の状態ではできない操作（本が残る保管場所の削除、循環する移動など）。
+    #[error("{0}")]
+    Conflict(String),
+
+    /// バックアップとして使えないファイル。
+    #[error("{0}")]
+    InvalidBackup(String),
+
+    /// ネットワークの操作に失敗した（書誌の取得など）。
+    #[error("ネットワークの操作に失敗しました: {0}")]
+    Network(String),
+
+    /// 書誌の取得元（API）が、エラーや想定外の応答を返した。
+    #[error("書誌の取得元でエラーが起きました: {0}")]
+    #[allow(
+        dead_code,
+        reason = "種類（provider）は IPC の取り決めに含む。今の書誌取得は、取得元のエラーを取得結果（ProviderReport）で返し、失敗にしない"
+    )]
+    Provider(String),
+
+    /// ファイルの読み書きに失敗した。
+    #[error("ファイルの操作に失敗しました: {0}")]
+    Io(String),
+
+    /// OS のキーチェーンの操作に失敗した。
+    #[error("キーチェーンの操作に失敗しました: {0}")]
+    Keychain(String),
 }
 
 /// エラーの種類。フロントはこれで表示を切り替える。
@@ -36,6 +72,14 @@ pub enum ErrorKind {
     SchemaTooNew,
     Database,
     Internal,
+    Validation,
+    NotFound,
+    Conflict,
+    InvalidBackup,
+    Network,
+    Provider,
+    Io,
+    Keychain,
 }
 
 /// コマンドが失敗したときにフロントへ届くエラー（Rust の `AppError` を直列化した形。TypeScript では `AppError`）。
@@ -53,6 +97,14 @@ impl AppError {
             Self::SchemaTooNew { .. } => ErrorKind::SchemaTooNew,
             Self::Database(_) => ErrorKind::Database,
             Self::Internal(_) => ErrorKind::Internal,
+            Self::Validation(_) => ErrorKind::Validation,
+            Self::NotFound(_) => ErrorKind::NotFound,
+            Self::Conflict(_) => ErrorKind::Conflict,
+            Self::InvalidBackup(_) => ErrorKind::InvalidBackup,
+            Self::Network(_) => ErrorKind::Network,
+            Self::Provider(_) => ErrorKind::Provider,
+            Self::Io(_) => ErrorKind::Io,
+            Self::Keychain(_) => ErrorKind::Keychain,
         }
     }
 
@@ -69,15 +121,37 @@ impl AppError {
     }
 }
 
-/// 実行中の DB 操作で起きたエラー。
+/// 実行中のコアの操作で起きたエラー。
+///
+/// - 入力の誤りと「今はできない操作」は、画面が出し分けられるよう専用の種類にする
+///   （`Validation` のメッセージには、コアが付ける項目名が入る）。
+/// - 壊れた Op・HLC など、アプリ側の不具合が疑われるものは `Internal`。
 impl From<bibcontainer_core::Error> for AppError {
     fn from(err: bibcontainer_core::Error) -> Self {
+        use bibcontainer_core::Error as E;
+        let message = err.to_string();
         match err {
-            bibcontainer_core::Error::SchemaTooNew { found, supported } => {
-                Self::SchemaTooNew { found, supported }
+            E::SchemaTooNew { found, supported } => Self::SchemaTooNew { found, supported },
+            E::Validation { .. } => Self::Validation(message),
+            E::NotFound { .. } => Self::NotFound(message),
+            E::Conflict(_) => Self::Conflict(message),
+            E::InvalidBackup(_) => Self::InvalidBackup(message),
+            E::Io(_) | E::InvalidPath(_) => Self::Io(message),
+            E::Json(_) | E::InvalidHlc(_) | E::InvalidOp(_) | E::ClockBehind { .. } => {
+                Self::Internal(message)
             }
-            other => Self::Database(other.to_string()),
+            E::Sqlite(_)
+            | E::MigrationFailed { .. }
+            | E::InvalidMigrations(_)
+            | E::MissingMeta(_)
+            | E::CorruptMeta { .. } => Self::Database(message),
         }
+    }
+}
+
+impl From<std::io::Error> for AppError {
+    fn from(err: std::io::Error) -> Self {
+        Self::Io(err.to_string())
     }
 }
 
@@ -120,5 +194,56 @@ mod tests {
 
         let core = bibcontainer_core::Error::MissingMeta("device_id");
         assert_eq!(AppError::from(core).kind(), ErrorKind::Database);
+    }
+
+    #[test]
+    fn maps_core_errors_to_their_kinds() {
+        use bibcontainer_core::Error as E;
+        let kind = |e: E| AppError::from(e).kind();
+        assert_eq!(
+            kind(E::validation("title", "空です")),
+            ErrorKind::Validation
+        );
+        assert_eq!(
+            kind(E::NotFound {
+                what: "書籍",
+                id: "x".into()
+            }),
+            ErrorKind::NotFound
+        );
+        assert_eq!(kind(E::Conflict("できない".into())), ErrorKind::Conflict);
+        assert_eq!(
+            kind(E::InvalidBackup("壊れている".into())),
+            ErrorKind::InvalidBackup
+        );
+        assert_eq!(
+            kind(E::Io(std::io::Error::other("読めない"))),
+            ErrorKind::Io
+        );
+        assert_eq!(kind(E::InvalidOp("x".into())), ErrorKind::Internal);
+    }
+
+    #[test]
+    fn validation_message_names_the_field() {
+        let err = AppError::from(bibcontainer_core::Error::validation("rating", "1〜5 です"));
+        assert!(err.to_string().contains("rating"), "{err}");
+        assert!(err.to_string().contains("1〜5 です"), "{err}");
+    }
+
+    #[test]
+    fn every_kind_serializes_in_snake_case() {
+        let pairs = [
+            (AppError::Validation("a".into()), "validation"),
+            (AppError::NotFound("a".into()), "not_found"),
+            (AppError::Conflict("a".into()), "conflict"),
+            (AppError::InvalidBackup("a".into()), "invalid_backup"),
+            (AppError::Network("a".into()), "network"),
+            (AppError::Provider("a".into()), "provider"),
+            (AppError::Io("a".into()), "io"),
+            (AppError::Keychain("a".into()), "keychain"),
+        ];
+        for (err, kind) in pairs {
+            assert_eq!(serde_json::to_value(&err).unwrap()["kind"], kind);
+        }
     }
 }

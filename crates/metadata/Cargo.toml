@@ -1,0 +1,38 @@
+[package]
+name = "bibcontainer-metadata"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "bibcontainer の書誌取得クレート（openBD・NDL・Google Books の取得、正規化、統合、書影の処理）。DB と Tauri には依存しない。"
+
+[lib]
+name = "bibcontainer_metadata"
+
+[dependencies]
+async-trait = "0.1"
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
+# 書影の変換に使う形式だけを有効にする（JPEG の出力、PNG・GIF・WebP の読み込み）
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
+quick-xml = "0.42"
+regex = "1"
+# TLS は rustls。暗号プロバイダは ring（reqwest の `rustls` 機能は aws-lc-rs を使い、Windows のビルドで
+# NASM や CMake が要ることがあるため、`rustls-no-provider` にして ring を自分で入れる。`http::install_crypto_provider`）。
+# system-proxy は大学などのプロキシ環境のために有効にしておく
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "http2", "system-proxy"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
+tokio = { version = "1", features = ["rt", "sync", "time"] }
+tracing = "0.1"
+ts-rs = "12"
+unicode-normalization = "0.1"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "test-util", "time"] }
+wiremock = "0.6"
+
+[lints.rust]
+unsafe_code = "forbid"

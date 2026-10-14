@@ -1,37 +1,39 @@
-// UI の文字列はすべてここに置く。コンポーネントに日本語を直接書かない。
+// UI の文字列はすべて i18n に置く。コンポーネントに日本語を直接書かない。
+//
+// 文言は機能ごとのファイル（src/i18n/ja/*.ts）に分けてあり、ここで 1 つの `ja` にまとめる。
+// 呼び出し側は今までどおり `ja.list.empty` のように引く。文言を足すときは、該当する機能のファイルに足す。
+//   common.ts   アプリ名、列挙値の表示名、値の整形、ショートカット名、通知
+//   errors.ts   エラー画面
+//   list.ts     メイン画面（上部バー、サイドバー、一覧、詳細ペイン、ステータスバー）
+//   scan.ts     スキャン入力・ペアリング
+//   edit.ts     編集・登録フォーム
+//   settings.ts 設定
 // 将来、多言語化するときは同じ形のオブジェクトを増やして切り替える。
-import type { ErrorKind } from "@/bindings/ErrorKind";
+import { app, appInfo, cCode, dialog, format, labels, shortcuts, toast } from "./ja/common";
+import { edit } from "./ja/edit";
+import { errorScreen } from "./ja/errors";
+import { detail, list, sidebar, statusBar, topBar } from "./ja/list";
+import { scan } from "./ja/scan";
+import { settings } from "./ja/settings";
 
 export const ja = {
-  app: {
-    title: "bibcontainer",
-    tagline: "蔵書管理",
-  },
-  appInfo: {
-    heading: "アプリ情報",
-    name: "アプリ名",
-    version: "バージョン",
-    deviceId: "端末 ID",
-    schemaVersion: "DB のスキーマ版",
-    dbPath: "DB のパス",
-    hlcLast: "HLC の前回値",
-    pendingOps: "未書き出しの変更",
-    none: "なし",
-    loading: "読み込み中…",
-  },
-  errorScreen: {
-    title: "アプリを開始できませんでした",
-    reason: "原因",
-    // エラーの種類ごとの案内。ErrorKind を増やすと、ここも書かないと型エラーになる。
-    hints: {
-      schema_too_new:
-        "このデータベースは、より新しい版の bibcontainer で作られています。アプリを最新版に更新してください。データベースは変更していません。",
-      db_unavailable:
-        "データベースを開けませんでした。ログフォルダのログファイルに詳しい内容があります。",
-      database: "データベースの操作に失敗しました。ログフォルダのログファイルを確認してください。",
-      internal: "アプリ内部の不具合です。ログフォルダのログファイルを確認してください。",
-    } satisfies Record<ErrorKind, string>,
-  },
+  app,
+  appInfo,
+  errorScreen,
+  labels,
+  format,
+  cCode,
+  dialog,
+  topBar,
+  sidebar,
+  list,
+  detail,
+  statusBar,
+  shortcuts,
+  scan,
+  edit,
+  settings,
+  toast,
 } as const;
 
 export type Messages = typeof ja;

@@ -5,12 +5,15 @@ use rusqlite::types::ValueRef;
 use serde_json::{Map, Number, Value, json};
 
 use crate::error::Result;
-use crate::schema::{Entity, FieldType};
+use crate::schema::{Entity, FIELD_SOURCES_COLUMN, FieldType, MANUAL_FIELDS_COLUMN};
 
 /// 全同期対象テーブルの行と `field_clocks` を、比較しやすい形の JSON にする。
 ///
 /// 端末ごとに異なる `updated_at` は含めない。`extra_json` は `extra` として含める。
 /// 行は id 順、時計は (entity, id, field) 順で、項目名は Op 上の名前を使う。
+/// 書籍の `field_sources`（オブジェクト）と `manual_fields`（項目名の配列）は、項目ごとの Op キー
+/// （`field_sources.<項目名>`、`manual_fields.<項目名>`）から組み立てた保存形式の値で、
+/// 時計は `field_clocks` にドット付きのキーで入る。
 /// 値は型に従って、Bool は真偽値、Json は JSON 値に戻して出す。
 ///
 /// ```text
@@ -31,28 +34,88 @@ pub fn dump_canonical(conn: &Connection) -> Result<Value> {
     Ok(Value::Object(root))
 }
 
-fn dump_table(conn: &Connection, ent: Entity) -> Result<Vec<Value>> {
-    let fields = ent.fields();
-    let columns: Vec<String> = fields.iter().map(|f| format!("\"{}\"", f.column)).collect();
-    let sql = format!(
-        "SELECT id, extra_json, {} FROM {} ORDER BY id",
+/// 書き出す 1 項目の定義（Op 上の名前、列名、型）。
+struct ColSpec {
+    name: &'static str,
+    column: &'static str,
+    ty: FieldType,
+}
+
+/// エンティティの書き出し項目。書籍は、項目ごとの Op キーから組み立てる 2 列
+/// （`field_sources` は JSON オブジェクト、`manual_fields` は項目名の配列）も出す。
+fn col_specs(ent: Entity) -> Vec<ColSpec> {
+    let mut specs: Vec<ColSpec> = ent
+        .fields()
+        .iter()
+        .map(|f| ColSpec {
+            name: f.name,
+            column: f.column,
+            ty: f.ty,
+        })
+        .collect();
+    if ent == Entity::Book {
+        specs.push(ColSpec {
+            name: "field_sources",
+            column: FIELD_SOURCES_COLUMN,
+            ty: FieldType::Json,
+        });
+        specs.push(ColSpec {
+            name: "manual_fields",
+            column: MANUAL_FIELDS_COLUMN,
+            ty: FieldType::Json,
+        });
+    }
+    specs
+}
+
+fn row_object(row: &rusqlite::Row<'_>, specs: &[ColSpec]) -> Result<Map<String, Value>> {
+    let mut obj = Map::new();
+    obj.insert("id".to_owned(), Value::String(row.get(0)?));
+    let extra: String = row.get(1)?;
+    obj.insert("extra".to_owned(), serde_json::from_str(&extra)?);
+    for (i, f) in specs.iter().enumerate() {
+        obj.insert(f.name.to_owned(), column_to_json(row.get_ref(i + 2)?, f.ty));
+    }
+    Ok(obj)
+}
+
+fn select_sql(ent: Entity, specs: &[ColSpec]) -> String {
+    let columns: Vec<String> = specs.iter().map(|f| format!("\"{}\"", f.column)).collect();
+    format!(
+        "SELECT id, extra_json, {} FROM {}",
         columns.join(", "),
         ent.table()
-    );
+    )
+}
+
+fn dump_table(conn: &Connection, ent: Entity) -> Result<Vec<Value>> {
+    let specs = col_specs(ent);
+    let sql = format!("{} ORDER BY id", select_sql(ent, &specs));
     let mut stmt = conn.prepare(&sql)?;
     let mut rows = stmt.query([])?;
     let mut out = Vec::new();
     while let Some(row) = rows.next()? {
-        let mut obj = Map::new();
-        obj.insert("id".to_owned(), Value::String(row.get(0)?));
-        let extra: String = row.get(1)?;
-        obj.insert("extra".to_owned(), serde_json::from_str(&extra)?);
-        for (i, f) in fields.iter().enumerate() {
-            obj.insert(f.name.to_owned(), column_to_json(row.get_ref(i + 2)?, f.ty));
-        }
-        out.push(Value::Object(obj));
+        out.push(Value::Object(row_object(row, &specs)?));
     }
     Ok(out)
+}
+
+/// 1 行の項目の値（Op 上の名前 → 値）を読む。`id` と `extra` も含む。行がなければ `None`。
+///
+/// 書籍には `field_sources`（オブジェクト）と `manual_fields`（配列）も入る。
+pub(crate) fn load_row(
+    conn: &Connection,
+    ent: Entity,
+    id: &str,
+) -> Result<Option<Map<String, Value>>> {
+    let specs = col_specs(ent);
+    let sql = format!("{} WHERE id = ?1", select_sql(ent, &specs));
+    let mut stmt = conn.prepare_cached(&sql)?;
+    let mut rows = stmt.query([id])?;
+    match rows.next()? {
+        Some(row) => Ok(Some(row_object(row, &specs)?)),
+        None => Ok(None),
+    }
 }
 
 fn column_to_json(v: ValueRef<'_>, ty: FieldType) -> Value {

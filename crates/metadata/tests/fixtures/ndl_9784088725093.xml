@@ -1,0 +1,1205 @@
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+  <version>1.2</version>
+  <numberOfRecords>4</numberOfRecords>
+  <extraResponseData>
+    <facets>
+      <lst name="REPOSITORY_NO">
+        <int name="R100000001">1</int>
+        <int name="R100000002">1</int>
+        <int name="R100000128">1</int>
+        <int name="R100000136">1</int>
+      </lst>
+      <lst name="NDC">
+        <int name="7">3</int>
+      </lst>
+      <lst name="ISSUED_DATE">
+        <int name="1997">4</int>
+      </lst>
+      <lst name="LIBRARY">
+        <int name="国立国会図書館">1</int>
+        <int name="堺市立中央図書館">1</int>
+        <int name="大阪市立図書館">1</int>
+        <int name="大阪府立中央図書館国際児童文学館">1</int>
+        <int name="横浜市立図書館">1</int>
+        <int name="相模原市立図書館">1</int>
+        <int name="群馬県立図書館">1</int>
+        <int name="静岡市立中央図書館">1</int>
+      </lst>
+    </facets>
+  </extraResponseData>
+  <records>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000128-IB16163212">
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000128</dcndl:bibRecordCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000128-IB16163212#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000128-IB16163212#material">
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088725093"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4-08-872509-3</dcterms:identifier>
+            <dcterms:title>ONE PIECE 巻一</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>ONE PIECE</rdf:value>
+                <dcndl:transcription>ワン ピース</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻一</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>ジャンプ・コミックス</rdf:value>
+                <dcndl:transcription>ジャンプ コミックス</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>尾田/栄一郎</foaf:name>
+                <dcndl:transcription>オダ エイイチロウ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>尾田栄一郎∥著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>集英社</foaf:name>
+                <dcndl:transcription>シュウエイシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JA</dcndl:publicationPlace>
+            <dcterms:date>1997.12</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1997</dcterms:issued>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>ROMANCE DAWN-冒険の夜明け-</dcterms:title>
+                <dcndl:transcription>ロマンス ドーン ボウケン ノ ヨアケ : ROMANCE DAWN-冒険の夜明け-</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>410円</dcndl:price>
+            <dcterms:extent>207p ; 18cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>児童</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://www.library.pref.osaka.jp/bibj/?B16163212"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000128-IB16163212#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000128-IB16163212#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>1</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000001-I14211199005747">
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000001</dcndl:bibRecordCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I14211199005747#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000001-I14211199005747#material">
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088725093"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088725093</dcterms:identifier>
+            <dcterms:title>Ｏｎｅ　Ｐｉｅｃｅ 巻一</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>Ｏｎｅ　Ｐｉｅｃｅ</rdf:value>
+                <dcndl:transcription>ワン　ピース</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻一</rdf:value>
+                <dcndl:transcription>０００１００</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>ジャンプ・コミックス</rdf:value>
+                <dcndl:transcription>ジャンプ　コミックス</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcndl:uniformTitle>
+              <rdf:Description>
+                <rdf:value>Ｏｎｅ　Ｐｉｅｃｅ</rdf:value>
+                <dcndl:transcription>ワン　ピース</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:uniformTitle>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>尾田, 栄一郎</foaf:name>
+                <dcndl:transcription>オダ, エイイチロウ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>尾田栄一郎 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>集英社</foaf:name>
+                <dcndl:transcription>シュウエイシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcterms:date>１９９７．１２</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1997</dcterms:issued>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/726.1"/>
+            <dc:subject rdf:datatype="http://ndl.go.jp/dcndl/terms/NDC8">726.1</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>３９０円</dcndl:price>
+            <dcterms:extent>２０７ｐ ; １８ｃｍ</dcterms:extent>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://opac.lib.city.yokohama.lg.jp/winj/opac/switch-detail-iccap.do?bibid=1199005747"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000001-I14211199005747#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I14211199005747#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>2</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959821795629">
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000136</dcndl:bibRecordCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959821795629#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959821795629#material">
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NIIBibID">BA47599030</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088725093"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088725441"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088725697"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088725948"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088726197"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088726421"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088726839"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088727126"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088727355"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088727738"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088727975"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/408872822X"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088728637"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088728882"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088730097"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088730453"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088730739"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/408873100X"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088731336"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088731581"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088731948"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088732227"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088732529"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088732820"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088733134"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088733363"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088733797"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088734181"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088734807"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088735021"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/408873551X"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088735714"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088735935"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088736389"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088736672"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088737687"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088738020"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/408873839X"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088738721"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088740033"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088740475"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088741277"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088741498"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088742877"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088743148"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088743822"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/408874411X"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088744421"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088744858"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088745213"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088745633"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088746029"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088746401"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088746623"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088747279"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088747613"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088700106"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088700458"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088700830"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088701257"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088701752"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088702179"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088702704"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088703015"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088703671"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088704166"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088704760"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088705316"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088706146"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088706603"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088707815"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088708331"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088800226"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088800691"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088801711"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088802190"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088803265"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088804224"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088804965"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088805788"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088806488"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088807263"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088808017"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088810027"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088810706"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088811987"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088812250"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088813622"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088814964"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088815626"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088816449"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088817583"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088818771"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088820545"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088821696"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088822525"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784088823478"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088725093</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088725441</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088725697</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088725948</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088726197</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088726421</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088726839</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088727126</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088727355</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088727738</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088727975</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">408872822X</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088728637</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088728882</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088730097</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088730453</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088730739</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">408873100X</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088731336</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088731581</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088731948</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088732227</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088732529</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088732820</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088733134</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088733363</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088733797</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088734181</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088734807</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088735021</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">408873551X</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088735714</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088735935</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088736389</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088736672</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088737687</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088738020</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">408873839X</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088738721</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088740033</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088740475</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088741277</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088741498</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088742877</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088743148</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4088743822</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">408874411X</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088744421</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088744858</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088745213</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088745633</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088746029</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088746401</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088746623</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088747279</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088747613</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088700106</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088700458</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088700830</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088701257</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088701752</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088702179</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088702704</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088703015</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088703671</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088704166</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088704760</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088705316</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088706146</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088706603</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088707815</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088708331</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088800226</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088800691</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088801711</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088802190</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088803265</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088804224</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088804965</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088805788</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088806488</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088807263</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088808017</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088810027</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088810706</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088811987</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088812250</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088813622</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088814964</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088815626</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088816449</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088817583</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088818771</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088820545</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088821696</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088822525</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784088823478</dcterms:identifier>
+            <dcterms:title>One piece = ワンピース 巻1</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>One piece = ワンピース</rdf:value>
+                <dcndl:transcription>One piece = ワンピース</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻1</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻2</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻3</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻4</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻5</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻6</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻7</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻8</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻9</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻10</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻11</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻12</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻13</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻14</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻15</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻16</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻17</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻18</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻19</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻20</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻21</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻22</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻23</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻24</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻25</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻26</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻27</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻28</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻29</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻30</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻31</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻32</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻33</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻34</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻35</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻36</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻37</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻38</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻39</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻40</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻41</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻42</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻43</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻44</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻45</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻46</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻47</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻48</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻49</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻50</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻51</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻52</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻53</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻54</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻55</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻56</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻57</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻58</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻59</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻60</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻61</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻62</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻63</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻64</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻65</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻66</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻67</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻68</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻69</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻70</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻71</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻72</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻73</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻74</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻75</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻76</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻77</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻78</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻79</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻80</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻81</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻82</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻83</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻84</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻85</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻86</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻87</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻88</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻89</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻90</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻91</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻92</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻93</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻94</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻95</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻96</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻97</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻5 (誰が為に鐘は鳴る)</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻4 (三日月)</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻15 (まっすぐ!!!)</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻16 (受け継がれる意志)</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻13 (大丈夫!!!)</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻14 (本能)</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻11 (東一番の悪)</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻12 (伝説は始まった)</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻9 (涙)</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻10 (OK,let's stand up!)</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻6 (誓い)</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻8 (死なねェよ)</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻3 (偽れぬもの)</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻2 (Versus!!バギー海賊団)</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>尾田, 栄一郎</foaf:name>
+                <dcndl:transcription>オダ, エイイチロウ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>尾田栄一郎著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>集英社</foaf:name>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>1997</dcterms:date>
+            <dcterms:date>1998</dcterms:date>
+            <dcterms:date>2000</dcterms:date>
+            <dcterms:date>1999</dcterms:date>
+            <dcterms:date>1997.12-</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1997</dcterms:issued>
+            <dcterms:abstract>ジャンプ・コミックス</dcterms:abstract>
+            <dcterms:description>巻1:Romance dawn : 冒険の夜明け 巻2:"Versus!!バギー海賊団 巻3:偽れぬもの 巻4:三日月 巻5:誰が為に鐘は鳴る 巻6:誓い 巻7:クソジジイ 巻8:死なねエよ 巻9:涙 巻10:OK, let's stand up! 巻11:東一番の悪 巻12:伝説は始まった 巻13:大丈夫!!! 巻14:本能 巻15:まっすぐ!!! 巻16:受け継がれる意志 巻17:ヒルルクの桜 巻18:エース登場 巻19:反乱 巻20:決戦はアルバーナ</dcterms:description>
+            <dcterms:description>巻21:理想郷 巻22:Hope!! 巻23:ビビの冒険 巻24:人の夢 巻25:一億の男 巻26:神の島の冒険 巻27:序曲 (オーバーチュア) 巻28:「戦鬼」ワイパー 巻29:聖譚曲 (オラトリオ) 巻30:狂想曲 (カプリッチオ) 巻31:ここにいる 巻32:島の歌声 (ラブ・ソング) 巻33:Davy back fight!! (デービーバックファイト) 巻34:「水の都」ウォーターセブン 巻35:船長 (キャプテン) 巻36:9番目の正義 巻37:トムさん 巻38:ロケットマン 巻39:争奪戦 巻40:ギア</dcterms:description>
+            <dcterms:description>巻41:宣戦布告 巻42:海賊vsCP9 巻43:英雄伝説 巻44:帰ろう 巻45:心中お察しする 巻46:ゴースト島 (アイランド) の冒険 巻47:くもり時々ホネ 巻 48:オーズの冒険 巻49:ナイトメア・ルフィ 巻50:再び辿りつく 巻51:11人の超新星 巻52:ロジャーとレイリー 巻53:王の資質 巻54:もう誰にも止められない 巻55:地獄に仏(オカマ) 巻56:ありがとう 巻57:頂上決戦 巻58:この時代の名を"白ひげ"と呼ぶ 巻59:ポートガス・D・エース死す 巻60:弟よ</dcterms:description>
+            <dcterms:description>第61:Romance dawn for the new world - 新しい世界への冒険の夜明け 巻62:魚人島の冒険 巻63:オトヒメとタイガー 巻64:10万vs.10 巻65:ゼロに 巻66: タイヨウへと続く道 巻67:Cool fight 巻68:海賊同盟 巻69:SAD 巻70:ドフラミンゴ現る 巻71:曲者達のコロシアム 巻72:ドレスローザの忘れ物 巻73:ドレスローザSOP作戦 巻74:いつでもキミのそばにいる 巻75:おれの恩返し 巻76:構わず進め 巻77:スマイル 巻78:悪のカリスマ 巻79:LUCY!! 巻80:"開幕宣言"</dcterms:description>
+            <dcterms:description>巻81:"ネコマムシの旦那に会いに行こう" 巻82:"ざわつく世界" 巻83:"海賊「四皇」シャーロット・リンリン" 巻84:ルフィvs.(バーサス)サンジ 巻85:"ウソつき"巻86:四皇帝暗殺作戦 巻87:"甘くない" 巻88:"獅子" 巻89:"Badend musical" 巻90:"聖地マリージョア" 巻91:"侍の国の冒険" 巻92:"花魁小紫登場" 巻93:"えびす町の人気者" 巻94:"兵 (つわもの) どもが夢" 巻95:"おでんの冒険" 巻96:"煮えてなんぼのおでんに候" 巻97:"僕の聖書"</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc9/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>18cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://cir.nii.ac.jp/crid/1970304959821795629"/>
+            <dcterms:relation rdf:resource="https://cir.nii.ac.jp/crid/1971993809692380961" rdfs:label="ジャンプ・コミックス"/>
+            <dcterms:relation rdf:resource="https://ci.nii.ac.jp/ncid/BA47599030#entity"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14245148"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14245716"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14245719"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14245750"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14245752"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14245753"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14245755"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14245757"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14245759"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14245761"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14245763"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14245765"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14245766"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14307505"/>
+            <dcterms:relation rdf:resource="https://dl.ndl.go.jp/pid/14313829"/>
+            <dcterms:isPartOf rdf:resource="https://cir.nii.ac.jp/crid/1971993809692380961" rdfs:label="ジャンプ・コミックス"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959821795629#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959821795629#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>3</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000002634563">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/1987</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000002634563#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000002634563#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/98070114"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000002634563"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">98070114</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000002634563</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4088725093"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4-08-872509-3</dcterms:identifier>
+            <dcterms:title>One piece. 巻1</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>One piece</rdf:value>
+                <dcndl:transcription>One piece</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>巻1</rdf:value>
+                <dcndl:transcription>1</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:alternative>
+              <rdf:Description>
+                <rdf:value>Romance dawn : 冒険の夜明け</rdf:value>
+                <dcndl:transcription>Romance dawn : ボウケン ノ ヨアケ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:alternative>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>ジャンプ・コミックス</rdf:value>
+                <dcndl:transcription>ジャンプ コミックス</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00676651">
+                <foaf:name>尾田, 栄一郎, 1975-</foaf:name>
+                <dcndl:transcription>オダ, エイイチロウ, 1975-</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>尾田栄一郎 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>集英社</foaf:name>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>1997.12</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1997</dcterms:issued>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Romance dawn : 冒険の夜明け</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc9/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>390円</dcndl:price>
+            <dcterms:extent>207p ; 18cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000002634563"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000002634563#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I10111101674227#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I1423971555#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I22211001101986936#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I22211001101986936#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000000802660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27221000001153576#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000002634563#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000039-I14245148#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049604#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049605#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049606#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049607#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049608#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049609#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049610#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049611#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049612#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049613#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049614#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049615#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049616#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049617#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049618#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049619#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049620#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049621#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049622#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049623#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049624#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049625#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049626#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049627#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049628#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049629#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049630#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049631#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049632#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049633#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049634#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049635#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049636#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049637#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049638#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049639#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049640#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049641#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049642#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049643#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049644#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049645#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049646#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049647#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049648#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049649#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049650#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049651#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049652#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049653#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049654#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049655#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049656#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049657#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049658#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049659#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049660#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049661#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049662#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049663#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049664#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049665#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049666#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049667#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049668#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049669#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049670#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049671#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049672#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049673#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049674#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049675#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049676#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049677#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049678#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049679#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049680#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049681#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049682#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049683#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049684#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049685#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049686#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049687#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049688#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049689#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049690#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049691#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049692#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049693#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049694#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049695#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049696#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049697#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049698#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049699#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000132-I000049700#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>4</recordPosition>
+    </record>
+  </records>
+</searchRetrieveResponse>

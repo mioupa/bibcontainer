@@ -19,6 +19,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 bibcontainer-core = { path = "../crates/core" }
+bibcontainer-metadata = { path = "../crates/metadata" }
 tauri = { version = "2", features = [] }
 # core が返す Connection と同じ型を名前で書くために必要（バージョンは core に合わせる）
 rusqlite = "0.40"
@@ -28,7 +29,20 @@ ts-rs = "12"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
+# 書誌取得（src/metadata）: 生の応答のキャッシュのトレイト実装、API キーの OS キーチェーン、provider_cache の時刻
+async-trait = "0.1"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+keyring = "4"
+# ファイルの選択・保存先の指定（JS から使う）と、フォルダを OS で開く（Rust のコマンドから使う）
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde_json = "1"
+# 日次バックアップの定期実行（1 時間ごと）に使う
+tokio = { version = "1", features = ["time", "sync"] }
 
 [dev-dependencies]
-serde_json = "1"
 tempfile = "3"
+# コマンドを、引数の JSON から呼んで確かめる（commands/ipc_tests.rs）。MockRuntime が要る
+tauri = { version = "2", features = ["test"] }
+# 書影のテスト用の画像を作る（bibcontainer-metadata と同じ版・機能）
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }

@@ -243,7 +243,8 @@ fn null_writes_the_column_default_for_not_null_columns_and_null_otherwise() {
             DEV_A,
             1_000,
             json!({"title": "x", "authors": [{"name": "a"}], "tags": ["t"], "ownership": "wanted",
-                   "deleted": true, "field_sources": {"title": "openbd"}, "rating": 3, "memo": "m"}),
+                   "deleted": true, "field_sources.title": "openbd", "manual_fields.title": true,
+                   "rating": 3, "memo": "m"}),
         ),
     );
     let outcome = apply(
@@ -252,10 +253,11 @@ fn null_writes_the_column_default_for_not_null_columns_and_null_otherwise() {
             DEV_A,
             2_000,
             json!({"title": null, "authors": null, "tags": null, "ownership": null,
-                   "deleted": null, "field_sources": null, "rating": null, "memo": null}),
+                   "deleted": null, "field_sources.title": null, "manual_fields.title": null,
+                   "rating": null, "memo": null}),
         ),
     );
-    assert_eq!(outcome, applied(8));
+    assert_eq!(outcome, applied(9));
     let row = book(&conn);
     assert_eq!(row["title"], json!(""));
     assert_eq!(row["authors"], json!([]));
@@ -263,6 +265,7 @@ fn null_writes_the_column_default_for_not_null_columns_and_null_otherwise() {
     assert_eq!(row["ownership"], json!("owned"));
     assert_eq!(row["deleted"], json!(false));
     assert_eq!(row["field_sources"], json!({}));
+    assert_eq!(row["manual_fields"], json!([]));
     assert_eq!(row["rating"], json!(null));
     assert_eq!(row["memo"], json!(null));
 }
@@ -342,8 +345,9 @@ fn op_names_map_to_columns_and_types_are_stored_natively() {
         &book_op(
             DEV_A,
             1_000,
-            json!({"authors": [{"name": "a"}], "tags": ["x", "y"], "field_sources": {"title": "openbd"},
-                   "manual_fields": ["title"], "volume_sort": 2, "list_price": 700, "deleted": true, "purged": false}),
+            json!({"authors": [{"name": "a"}], "tags": ["x", "y"], "field_sources.title": "openbd",
+                   "manual_fields.title": true, "manual_fields.memo": true, "volume_sort": 2,
+                   "list_price": 700, "deleted": true, "purged": false}),
         ),
     );
     let (authors, tags, sources, manual, volume_sort, list_price, deleted, purged): (
@@ -377,7 +381,7 @@ fn op_names_map_to_columns_and_types_are_stored_natively() {
     assert_eq!(authors, r#"[{"name":"a"}]"#);
     assert_eq!(tags, r#"["x","y"]"#);
     assert_eq!(sources, r#"{"title":"openbd"}"#);
-    assert_eq!(manual, r#"["title"]"#);
+    assert_eq!(manual, r#"["memo","title"]"#);
     assert_eq!(volume_sort, 2.0);
     assert_eq!(list_price, 700);
     assert_eq!((deleted, purged), (1, 0));

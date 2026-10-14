@@ -1,16 +1,20 @@
 //! Op の適用と、ローカルの変更の記録。
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use rusqlite::types::Value as SqlValue;
 use rusqlite::{Connection, OptionalExtension, Transaction, params, params_from_iter};
 use serde_json::Value;
 
+use crate::derived;
 use crate::error::{Error, Result};
 use crate::hlc::{Clock, Hlc, ms_to_iso8601};
 use crate::meta;
 use crate::op::{OP_VERSION, Op};
-use crate::schema::{Entity, Fields, validate_local_change};
+use crate::schema::{
+    Entity, FIELD_SOURCES_COLUMN, Fields, MANUAL_FIELDS_COLUMN, OpKey, classify_key,
+    validate_local_change,
+};
 
 /// `apply_op` の結果（項目ごとの件数）。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -37,6 +41,12 @@ impl ApplyOutcome {
 ///    値を書き込んで時計を更新する。同じか古ければ何もしない。
 /// 3. 知らない項目名は、`extra_json` の該当キーに入れる（時計の扱いは通常の項目と同じ）。
 /// 4. NOT NULL 列への null は、列の既定値を書く。
+/// 5. 書籍の `field_sources.<項目名>`（取得元の文字列か null）と `manual_fields.<項目名>`（true か null）は、
+///    ドット付きのキー名のまま時計を持ち、勝ったときだけ `field_sources_json`（オブジェクト）・
+///    `manual_fields_json`（項目名の配列）に反映する。項目名が書籍の既知の項目でなければ、
+///    警告を出して無視する（`invalid` に数え、時計も進めない）。
+/// 6. 検索用の派生データ（`derived`）を、書籍が変わったらその本、シリーズ名が変わったらそのシリーズの
+///    本について更新する。
 ///
 /// 冪等で、適用の順序に依存しない。削除も `deleted` 項目の LWW なので、ほかの項目の更新で
 /// 取り消されることはない。項目の値の型が合わない場合は、その項目だけを無視する
@@ -63,30 +73,45 @@ pub fn apply_op(tx: &Transaction<'_>, op: &Op) -> Result<ApplyOutcome> {
     let mut outcome = ApplyOutcome::default();
     let mut assignments: Vec<(&'static str, SqlValue)> = Vec::new();
     let mut extras: Vec<(&str, &Value)> = Vec::new();
+    // field_sources.<項目名> / manual_fields.<項目名> のうち、時計に勝ったもの。
+    let mut source_changes: Vec<(&'static str, Option<&str>)> = Vec::new();
+    let mut manual_changes: Vec<(&'static str, bool)> = Vec::new();
+    let mut touched: Vec<&str> = Vec::new();
 
     for (name, value) in &op.set {
-        let column_value = match op.ent.field(name) {
-            Some(def) => match def.to_sql(value) {
-                Some(v) => Some((def.column, v)),
-                None => {
-                    tracing::warn!(
-                        ent = ent_name, id = %op.id, field = %name, hlc = %op.hlc,
-                        "値の型が項目の型に合わないので無視した"
-                    );
-                    outcome.invalid += 1;
-                    continue;
-                }
-            },
-            None => None,
+        // 値の検査（型・項目名）。通らないものは無視して、時計も進めない。
+        let key = classify_key(op.ent, name);
+        let accepted = match key {
+            OpKey::Column(def) => def.to_sql(value).is_some(),
+            OpKey::Source(_) => value.is_null() || value.is_string(),
+            OpKey::Manual(_) => value.is_null() || *value == Value::Bool(true),
+            OpKey::BadProvenance => false,
+            OpKey::Unknown => true,
         };
+        if !accepted {
+            tracing::warn!(
+                ent = ent_name, id = %op.id, field = %name, hlc = %op.hlc,
+                "値の型か項目名が不正なので無視した"
+            );
+            outcome.invalid += 1;
+            continue;
+        }
         if !advance_clock(tx, ent_name, &op.id, name, &op.hlc)? {
             outcome.stale += 1;
             continue;
         }
         outcome.applied += 1;
-        match column_value {
-            Some(assignment) => assignments.push(assignment),
-            None => extras.push((name, value)),
+        touched.push(name);
+        match key {
+            OpKey::Column(def) => {
+                if let Some(v) = def.to_sql(value) {
+                    assignments.push((def.column, v));
+                }
+            }
+            OpKey::Source(def) => source_changes.push((def.name, value.as_str())),
+            OpKey::Manual(def) => manual_changes.push((def.name, value.is_boolean())),
+            OpKey::Unknown => extras.push((name, value)),
+            OpKey::BadProvenance => {}
         }
     }
 
@@ -102,6 +127,17 @@ pub fn apply_op(tx: &Transaction<'_>, op: &Op) -> Result<ApplyOutcome> {
             params.push(SqlValue::Text(merged));
             sets.push(format!("extra_json = ?{}", params.len()));
         }
+        if !source_changes.is_empty() || !manual_changes.is_empty() {
+            let (sources, manual) = merge_provenance(tx, &op.id, &source_changes, &manual_changes)?;
+            if let Some(json) = sources {
+                params.push(SqlValue::Text(json));
+                sets.push(format!("{FIELD_SOURCES_COLUMN} = ?{}", params.len()));
+            }
+            if let Some(json) = manual {
+                params.push(SqlValue::Text(json));
+                sets.push(format!("{MANUAL_FIELDS_COLUMN} = ?{}", params.len()));
+            }
+        }
         params.push(SqlValue::Text(ms_to_iso8601(hlc.ms())?));
         sets.push(format!("updated_at = MAX(updated_at, ?{})", params.len()));
         params.push(SqlValue::Text(op.id.clone()));
@@ -112,6 +148,8 @@ pub fn apply_op(tx: &Transaction<'_>, op: &Op) -> Result<ApplyOutcome> {
         );
         tx.execute(&sql, params_from_iter(params))?;
     }
+    // 何も書き換わらなくても、行を作っただけの本には派生データの行を作る（作り直しと同じ結果にする）。
+    derived::after_apply(tx, op.ent, &op.id, &touched)?;
     Ok(outcome)
 }
 
@@ -152,6 +190,62 @@ fn merge_extras(
         map.insert((*key).to_owned(), (*value).clone());
     }
     Ok(serde_json::to_string(&map)?)
+}
+
+/// 取得元・手修正の記録を、時計に勝った変更から組み立て直す。
+///
+/// 書籍の `field_sources_json`（オブジェクト）と `manual_fields_json`（項目名の配列）に、変更を
+/// 1 項目ずつ反映した JSON 文字列を返す（変更のない側は `None`）。キーと配列は辞書順に保存するので、
+/// 項目ごとの勝者が同じなら、適用の順序によらず同じ文字列になる。
+fn merge_provenance(
+    tx: &Transaction<'_>,
+    id: &str,
+    sources: &[(&str, Option<&str>)],
+    manual: &[(&str, bool)],
+) -> Result<(Option<String>, Option<String>)> {
+    let (current_sources, current_manual): (String, String) = tx.query_row(
+        "SELECT field_sources_json, manual_fields_json FROM books WHERE id = ?1",
+        [id],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    let sources_json = if sources.is_empty() {
+        None
+    } else {
+        let mut map: BTreeMap<String, Value> = serde_json::from_str(&current_sources)
+            .unwrap_or_else(|_| {
+                tracing::warn!(id, "field_sources_json が壊れているので作り直す");
+                BTreeMap::new()
+            });
+        for (field, source) in sources {
+            match source {
+                Some(s) => {
+                    map.insert((*field).to_owned(), Value::String((*s).to_owned()));
+                }
+                None => {
+                    map.remove(*field);
+                }
+            }
+        }
+        Some(serde_json::to_string(&map)?)
+    };
+    let manual_json = if manual.is_empty() {
+        None
+    } else {
+        let mut set: BTreeSet<String> =
+            serde_json::from_str(&current_manual).unwrap_or_else(|_| {
+                tracing::warn!(id, "manual_fields_json が壊れているので作り直す");
+                BTreeSet::new()
+            });
+        for (field, on) in manual {
+            if *on {
+                set.insert((*field).to_owned());
+            } else {
+                set.remove(*field);
+            }
+        }
+        Some(serde_json::to_string(&set)?)
+    };
+    Ok((sources_json, manual_json))
 }
 
 /// 他端末の HLC を観測して、`local_meta` の前回値を `max(自分, 受け取った値)` に進める。

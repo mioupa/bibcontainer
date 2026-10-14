@@ -4,6 +4,32 @@
 //!   （`cargo test` で生成される）。フロント側の対応表は `src/lib/ipc.ts`。
 //! - 戻り値のエラーは `AppError`（`{ kind, message }` として届く）。
 //! - DB に触るコマンドは async にし、`Database::run` 経由で別スレッドで実行する。
+//! - 蔵書を変えるコマンドは、成功したあとに `events::emit_library_changed` で変更を知らせる。
+//!
+//! 機能ごとにモジュールを分ける。
+//!
+//! | モジュール | コマンド |
+//! |---|---|
+//! | `library` | 一覧・検索・詳細・重複チェックなどの参照 |
+//! | `books` | 書籍の作成・変更・ゴミ箱・タグの一括変更 |
+//! | `organize` | 保管場所・タグ・シリーズ |
+//! | `barcode` | バーコードの判定・Cコード表 |
+//! | `settings` | 端末ごとの設定（セクションごとの get/set） |
+//! | `io` | CSV・JSON の書き出し、ISBN 一覧の解析 |
+//! | `backup` | バックアップの一覧・作成・復元 |
+//! | `system` | ログ・バックアップのフォルダを開く |
+
+pub mod backup;
+pub mod barcode;
+pub mod books;
+pub mod io;
+pub mod library;
+pub mod organize;
+pub mod settings;
+pub mod system;
+
+#[cfg(test)]
+mod ipc_tests;
 
 use std::path::Path;
 use std::sync::Arc;
@@ -15,7 +41,14 @@ use ts_rs::TS;
 
 use crate::database::Database;
 use crate::error::AppError;
-use bibcontainer_core::{HlcState, meta, migrate, pending_ops};
+use bibcontainer_core::library::Env;
+use bibcontainer_core::{HlcState, SystemClock, meta, migrate, pending_ops};
+
+/// 実際の時計で、書籍などの操作の環境を作る。
+pub(crate) fn env() -> Env<'static> {
+    static CLOCK: SystemClock = SystemClock;
+    Env::new(&CLOCK)
+}
 
 /// アプリと DB の状態（動作確認と診断用）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]

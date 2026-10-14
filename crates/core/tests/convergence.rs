@@ -24,6 +24,21 @@ const BOOK_FIELDS: &[&str] = &[
     "created_at",
     "zz_unknown_1",
     "zz_unknown_2",
+    // 項目ごとの取得元・手修正の記録（項目名が不正なものも混ぜる。不正なものは無視される）
+    "field_sources.title",
+    "field_sources.memo",
+    "field_sources.rating",
+    "manual_fields.title",
+    "manual_fields.memo",
+    "manual_fields.authors",
+    "field_sources.zz_unknown_1",
+    "manual_fields.zz_unknown_1",
+    // 検索用の派生データに関わる項目
+    "title_kana",
+    "publisher",
+    "series_id",
+    "tags",
+    "purged",
 ];
 const TAG_FIELDS: &[&str] = &["name", "color", "deleted", "zz_unknown_1"];
 const SERIES_FIELDS: &[&str] = &["name", "memo", "deleted"];
@@ -39,13 +54,36 @@ fn entity_ids(ent: Entity) -> &'static [&'static str] {
 /// 型が合う値（null を含む）と、型の合わない値を混ぜて出す。
 fn value_for(field: &'static str) -> BoxedStrategy<Value> {
     let typed: BoxedStrategy<Value> = match field {
-        "title" | "memo" | "name" | "color" | "created_at" => prop_oneof![
-            Just(json!("")),
-            Just(json!("a")),
-            Just(json!("b")),
-            Just(json!("日本語"))
+        f if f.starts_with("field_sources.") => prop_oneof![
+            Just(json!("manual")),
+            Just(json!("openbd")),
+            Just(json!("ndl"))
         ]
         .boxed(),
+        // false は不正（true か null だけが有効）。any_value 側の true と合わせて混ぜる。
+        f if f.starts_with("manual_fields.") => {
+            prop_oneof![8 => Just(json!(true)), 1 => Just(json!(false))].boxed()
+        }
+        "series_id" => {
+            prop_oneof![Just(json!(SERIES_1)), Just(json!(BOOK_2)), Just(json!("x"))].boxed()
+        }
+        "tags" => prop_oneof![
+            Just(json!([])),
+            Just(json!(["a"])),
+            Just(json!(["a", "研究/SiC"])),
+            Just(json!(["ｂ"]))
+        ]
+        .boxed(),
+        "purged" => any::<bool>().prop_map(|b| json!(b)).boxed(),
+        "title" | "memo" | "name" | "color" | "created_at" | "title_kana" | "publisher" => {
+            prop_oneof![
+                Just(json!("")),
+                Just(json!("a")),
+                Just(json!("b")),
+                Just(json!("日本語"))
+            ]
+            .boxed()
+        }
         "rating" => (0i64..=5).prop_map(|n| json!(n)).boxed(),
         "deleted" => any::<bool>().prop_map(|b| json!(b)).boxed(),
         "authors" => prop_oneof![
@@ -125,6 +163,55 @@ fn apply_in_one_db(ops: &[Op]) -> Value {
     dump_canonical(&conn).unwrap()
 }
 
+/// 検索用の派生データ（索引の行、FTS の中身、タグの索引）を比べやすい形にしたもの。
+fn derived_snapshot(conn: &rusqlite::Connection) -> Value {
+    let rows: Vec<Value> = conn
+        .prepare(
+            "SELECT i.book_id, i.sort_title, i.sort_authors, f.title, f.title_kana, f.authors,
+                    f.publisher, f.series, f.tags, f.memo, f.isbn
+             FROM book_idx i JOIN books_fts f ON f.rowid = i.idx ORDER BY i.book_id",
+        )
+        .unwrap()
+        .query_map([], |r| {
+            Ok(Value::Array(
+                (0..11)
+                    .map(|i| json!(r.get::<_, String>(i).unwrap()))
+                    .collect(),
+            ))
+        })
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    let tags: Vec<Value> = conn
+        .prepare("SELECT book_id, tag FROM book_tags ORDER BY book_id, tag")
+        .unwrap()
+        .query_map([], |r| {
+            Ok(json!([r.get::<_, String>(0)?, r.get::<_, String>(1)?]))
+        })
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    let fts_rows: i64 = conn
+        .query_row("SELECT count(*) FROM books_fts", [], |r| r.get(0))
+        .unwrap();
+    json!({"rows": rows, "tags": tags, "fts_rows": fts_rows})
+}
+
+/// 適用して、(ダンプ, 派生データ) を返す。途中の更新で作った派生データは、
+/// 最後に全体を作り直したものと一致しなければならない。
+fn apply_with_derived(ops: &[Op]) -> (Value, Value) {
+    let mut conn = mem_db();
+    apply_all(&mut conn, ops);
+    let incremental = derived_snapshot(&conn);
+    bibcontainer_core::derived::rebuild(&mut conn).unwrap();
+    assert_eq!(
+        incremental,
+        derived_snapshot(&conn),
+        "差分の更新と全体の作り直しが一致する"
+    );
+    (dump_canonical(&conn).unwrap(), incremental)
+}
+
 /// (重複なしの Op 集合, 重複を混ぜた並べ替え A, 重複を混ぜた並べ替え B)
 fn arb_scenario() -> impl Strategy<Value = (Vec<Op>, Vec<Op>, Vec<Op>)> {
     (prop::collection::vec(arb_op(), 1..40), 0usize..20).prop_flat_map(|(ops, dup_count)| {
@@ -149,11 +236,14 @@ proptest! {
         let mut by_hlc = ops;
         by_hlc.sort_by(|x, y| x.hlc.cmp(&y.hlc));
 
-        let da = apply_in_one_db(&order_a);
-        let db = apply_in_one_db(&order_b);
-        let dl = apply_in_one_db(&by_hlc);
+        let (da, sa) = apply_with_derived(&order_a);
+        let (db, sb) = apply_with_derived(&order_b);
+        let (dl, sl) = apply_with_derived(&by_hlc);
         prop_assert_eq!(&da, &db);
         prop_assert_eq!(&da, &dl);
+        // 派生データも、順序・重複によらず同じになる
+        prop_assert_eq!(&sa, &sb);
+        prop_assert_eq!(&sa, &sl);
     }
 }
 
@@ -181,7 +271,7 @@ proptest! {
     }
 }
 
-/// 小さな具体例（衝突、削除、未知の項目、別エンティティ）を、全 120 通りの順序で適用する。
+/// 小さな具体例（衝突、削除、未知の項目、別エンティティ、取得元・手修正の記録）を、全通りの順序で適用する。
 #[test]
 fn every_permutation_of_a_small_scenario_converges() {
     let ops = [
@@ -191,7 +281,8 @@ fn every_permutation_of_a_small_scenario_converges() {
             0,
             Entity::Book,
             BOOK_1,
-            json!({"title": "A の書名", "rating": 2, "authors": [{"name": "a"}]}),
+            json!({"title": "A の書名", "rating": 2, "authors": [{"name": "a"}],
+                   "field_sources.title": "openbd", "manual_fields.title": true}),
         ),
         remote_op(
             DEV_B,
@@ -199,7 +290,9 @@ fn every_permutation_of_a_small_scenario_converges() {
             0,
             Entity::Book,
             BOOK_1,
-            json!({"title": "B の書名", "memo": "B"}),
+            // 端末 B は別の項目（出版社）に手修正を記録した（別のキーなので、どちらの記録も残る）
+            json!({"title": "B の書名", "memo": "B", "field_sources.title": "manual",
+                   "field_sources.publisher": "manual", "manual_fields.publisher": true}),
         ),
         remote_op(
             DEV_A,
@@ -207,7 +300,9 @@ fn every_permutation_of_a_small_scenario_converges() {
             0,
             Entity::Book,
             BOOK_1,
-            json!({"deleted": true, "zz_unknown_1": 1}),
+            // 項目名が不正なキーは無視される
+            json!({"deleted": true, "zz_unknown_1": 1, "field_sources.nope": "x",
+                   "manual_fields.nope": true}),
         ),
         remote_op(
             DEV_C,
@@ -215,7 +310,8 @@ fn every_permutation_of_a_small_scenario_converges() {
             1,
             Entity::Book,
             BOOK_1,
-            json!({"rating": 5, "zz_unknown_1": null, "zz_unknown_2": {"k": 1}}),
+            json!({"rating": 5, "zz_unknown_1": null, "zz_unknown_2": {"k": 1},
+                   "manual_fields.title": null}),
         ),
         remote_op(
             DEV_C,
@@ -230,12 +326,13 @@ fn every_permutation_of_a_small_scenario_converges() {
 
     let mut indices: Vec<usize> = (0..ops.len()).collect();
     let mut checked = 0;
+    let factorial: usize = (1..=ops.len()).product();
     permute(&mut indices, 0, &mut |order| {
         let shuffled: Vec<Op> = order.iter().map(|&i| ops[i].clone()).collect();
         assert_eq!(apply_in_one_db(&shuffled), expected, "順序 {order:?}");
         checked += 1;
     });
-    assert_eq!(checked, 120);
+    assert_eq!(checked, factorial);
 
     // 期待する最終状態
     let row = dump_row(&expected, "books", BOOK_1);
@@ -251,6 +348,13 @@ fn every_permutation_of_a_small_scenario_converges() {
         row["extra"],
         json!({"zz_unknown_1": null, "zz_unknown_2": {"k": 1}})
     );
+    // 別々の端末が別の項目に付けた記録は、どちらも残る
+    // title の取得元は端末 B（同じ ms・カウンタなら端末 ID が大きい方）、手修正は端末 C が外した
+    assert_eq!(
+        row["field_sources"],
+        json!({"publisher": "manual", "title": "manual"})
+    );
+    assert_eq!(row["manual_fields"], json!(["publisher"]));
 }
 
 fn permute(items: &mut Vec<usize>, k: usize, visit: &mut impl FnMut(&[usize])) {

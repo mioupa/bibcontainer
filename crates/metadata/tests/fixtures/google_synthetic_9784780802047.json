@@ -1,0 +1,23 @@
+{
+  "kind": "books#volumes",
+  "totalItems": 1,
+  "items": [
+    {
+      "kind": "books#volume",
+      "id": "SYNTHETIC0003",
+      "volumeInfo": {
+        "title": "おにぎりレシピ101",
+        "subtitle": "Everyday Onigiri",
+        "authors": ["山田玲子", "水野菜生"],
+        "publishedDate": "2014",
+        "industryIdentifiers": [
+          {"type": "ISBN_13", "identifier": "9784780802047"},
+          {"type": "ISBN_10", "identifier": "4780802040"}
+        ],
+        "pageCount": 0,
+        "printType": "BOOK",
+        "language": "ja"
+      }
+    }
+  ]
+}

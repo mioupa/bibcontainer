@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use rusqlite::{Connection, Transaction, TransactionBehavior};
 
+use crate::derived;
 use crate::error::Result;
 use crate::meta;
 use crate::migrate::{self, MIGRATIONS, Migration, MigrationReport};
@@ -35,6 +36,8 @@ pub fn open_with_migrations(
     configure(&conn)?;
     let report = migrate::migrate(&mut conn, migrations, backup_dir)?;
     meta::ensure_device_id(&conn)?;
+    // 検索用の派生データは、マイグレーションでは入れ物しか作らない。中身はここで埋める。
+    derived::ensure_built(&mut conn)?;
     Ok((conn, report))
 }
 
@@ -45,6 +48,7 @@ pub fn open_in_memory() -> Result<Connection> {
     // 新規 DB なのでバックアップは取られない。
     migrate::migrate(&mut conn, MIGRATIONS, Path::new(""))?;
     meta::ensure_device_id(&conn)?;
+    derived::ensure_built(&mut conn)?;
     Ok(conn)
 }
 

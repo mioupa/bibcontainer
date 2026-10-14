@@ -28,7 +28,7 @@ Rust のコマンドが受け取る引数と返す値の型を、TypeScript 側�
   - DB に触るコマンドは async にして、`Database::run` 経由で呼ぶ（SQLite の呼び出しはブロックするので、メインスレッドでは実行しない）。
 - **フィールド名は camelCase** にする。IPC に使う構造体には `#[serde(rename_all = "camelCase")]` を付け、ts-rs もそれに従う（例: `AppInfo.deviceId`）。
 - **コマンドのエラーは `{ kind, message }`** で返す。
-  - Rust 側は `thiserror` の `AppError`（`DbUnavailable`、`SchemaTooNew`、`Database`、`Internal`）で、`Serialize` を手書きして `{ kind, message }` にする。TypeScript には `AppError`（`src/bindings/AppError.ts`）と `ErrorKind`（`"db_unavailable" | "schema_too_new" | "database" | "internal"`）が出る。
+  - Rust 側は `thiserror` の `AppError`（`DbUnavailable`、`SchemaTooNew`、`Database`、`Internal`）で、`Serialize` を手書きして `{ kind, message }` にする。TypeScript には `AppError`（`src/bindings/AppError.ts`）と `ErrorKind`（`"db_unavailable" | "schema_too_new" | "database" | "internal"`）が出る。（フェーズ 1 で、`validation`・`not_found`・`conflict`・`invalid_backup`・`network`・`provider`・`io`・`keychain` を足して 12 種類になった。0009 の 1 を参照。）
   - `kind` は画面の出し分け用、`message` は Rust 側が日本語で用意した原因の説明。
   - `ipc.ts` は invoke の失敗を `IpcError`（`kind` と `message` を持つ `Error`）に変換して投げる。`{ kind, message }` の形でない失敗（未登録のコマンドなど）は `kind = "internal"` にする。
   - エラーの種類を増やすときは `ErrorKind` に足す。`src/i18n/ja.ts` の `errorScreen.hints` は `ErrorKind` の全種類を要求するので、案内文を書かないと型エラーになる。

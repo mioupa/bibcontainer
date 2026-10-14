@@ -25,7 +25,7 @@
         "default-src": "'self'",
         "script-src": "'self'",
         "style-src": "'self' 'unsafe-inline'",
-        "img-src": "'self' data: blob: asset: http://asset.localhost",
+        "img-src": "'self' data: blob: asset: http://asset.localhost cover: http://cover.localhost",
         "font-src": "'self' data:",
         "connect-src": "'self' ipc: http://ipc.localhost"
       }

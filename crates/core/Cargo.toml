@@ -16,6 +16,10 @@ uuid = { version = "1", features = ["v4", "v7"] }
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 thiserror = "2"
 tracing = "0.1"
+# IPC で使う型の TypeScript 定義を出力する（バーコード判定の型など）
+ts-rs = "12"
+# 検索用の正規化（NFKC）
+unicode-normalization = "0.1"
 
 [dev-dependencies]
 proptest = "1"

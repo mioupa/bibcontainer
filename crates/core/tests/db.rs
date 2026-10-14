@@ -18,7 +18,7 @@ fn open_creates_the_latest_schema_with_the_decided_pragmas() {
 
     assert_eq!(report.from_version, 0);
     assert_eq!(report.to_version, LATEST_VERSION);
-    assert_eq!(report.applied, vec![1]);
+    assert_eq!(report.applied, (1..=LATEST_VERSION).collect::<Vec<_>>());
     assert!(
         report.backup_path.is_none(),
         "新規 DB ではバックアップしない"
@@ -48,7 +48,11 @@ fn open_creates_the_latest_schema_with_the_decided_pragmas() {
 fn schema_has_the_expected_tables_and_no_foreign_keys() {
     let conn = mem_db();
     let tables: Vec<String> = conn
-        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+        // books_fts の内部テーブル（books_fts_data など）は数えない
+        .prepare(
+            "SELECT name FROM sqlite_master
+             WHERE type = 'table' AND name NOT LIKE 'books\\_fts\\_%' ESCAPE '\\' ORDER BY name",
+        )
         .unwrap()
         .query_map([], |r| r.get(0))
         .unwrap()
@@ -58,17 +62,22 @@ fn schema_has_the_expected_tables_and_no_foreign_keys() {
         tables,
         [
             "applied_segments",
+            "book_idx",
+            "book_tags",
             "books",
+            "books_fts",
             "field_clocks",
             "local_meta",
+            "local_settings",
             "locations",
             "outbox",
+            "outbox_restored",
             "provider_cache",
             "series",
             "shelves",
             "tags",
         ],
-        "books_fts と book_tags はフェーズ 1 で作る"
+        "0002 で local_settings・検索用の派生データ・outbox_restored を足した"
     );
 
     for ent in Entity::ALL {
