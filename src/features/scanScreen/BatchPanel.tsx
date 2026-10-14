@@ -29,6 +29,7 @@ import { useScanSessionStore } from "@/features/scanScreen/sessionStore";
 import { ja } from "@/i18n/ja";
 import { errorMessage } from "@/lib/errors";
 import { ipc } from "@/lib/ipc";
+import { useModalGuard } from "@/lib/useModalGuard";
 import { useEditorStore } from "@/stores/editorStore";
 
 interface BatchPanelProps {
@@ -43,6 +44,7 @@ export function BatchPanel({ onImport }: BatchPanelProps) {
   const [saving, setSaving] = useState(false);
   // 一覧を空にする前の確認（誤って押して、溜めた本を失わないように）
   const [clearing, setClearing] = useState(false);
+  useModalGuard(clearing);
   const b = ja.scan.batch;
 
   // 保存の対象で、まだ取得を始めていない行（重複から対象に戻した行など）の取得を始める

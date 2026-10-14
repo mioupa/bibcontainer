@@ -19,6 +19,13 @@ interface SelectionStore extends SelectionState {
     options: { extend: boolean; pageSize: number },
   ) => void;
   selectAll: (ids: readonly string[]) => void;
+  /**
+   * 1 冊だけを選び、一覧をその本までスクロールさせる（検索欄の ISBN など、ほかの場所から本へ移るとき）。
+   * すでに focus している本でも、一覧は動く（`revealTick` が変わる）。
+   */
+  reveal: (id: string) => void;
+  /** `reveal` のたびに増える。一覧は、focus が変わったときと、この値が変わったときだけスクロールする。 */
+  revealTick: number;
   /** 選択を、表示している行だけに絞る。 */
   prune: (visible: ReadonlySet<string>) => void;
   clear: () => void;
@@ -32,9 +39,17 @@ const pick = (s: SelectionStore): SelectionState => ({
 
 export const useSelectionStore = create<SelectionStore>()((set) => ({
   ...EMPTY_SELECTION,
+  revealTick: 0,
   click: (ids, id, modifiers) => set((s) => clickRow(pick(s), ids, id, modifiers)),
   move: (ids, target, options) => set((s) => moveFocus(pick(s), ids, target, options)),
   selectAll: (ids) => set((s) => selectAll(pick(s), ids)),
+  reveal: (id) =>
+    set((s) => ({
+      selected: new Set([id]),
+      anchor: id,
+      focus: id,
+      revealTick: s.revealTick + 1,
+    })),
   prune: (visible) =>
     set((s) => {
       const current = pick(s);

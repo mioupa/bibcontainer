@@ -6,6 +6,7 @@ import { EditorHost } from "@/features/editor/EditorHost";
 import { MainScreen } from "@/features/layout/MainScreen";
 import { DEFAULT_SCAN_SETTINGS } from "@/features/scan/config";
 import { ja } from "@/i18n/ja";
+import { chooseSavePath } from "@/lib/dialog";
 import { useEditorStore } from "@/stores/editorStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { useScreenStore } from "@/stores/screenStore";
@@ -25,6 +26,7 @@ const toast = vi.hoisted(() =>
   Object.assign(vi.fn(), { success: vi.fn(), info: vi.fn(), error: vi.fn() }),
 );
 vi.mock("sonner", () => ({ toast }));
+vi.mock("@/lib/dialog", () => ({ chooseSavePath: vi.fn() }));
 
 stubElementSize({ width: 1400, height: 700 });
 
@@ -134,6 +136,30 @@ describe("メイン画面", () => {
   });
 
   describe("検索欄の ISBN（FR-SCAN-09）", () => {
+    it("詳細ペインが閉じていれば、登録済みの本へ移るときに開く（FR-SCAN-09）", async () => {
+      useLayoutStore.setState({ detailOpen: false });
+      renderMain();
+      await screen.findByRole("grid");
+      expect(screen.queryByLabelText(ja.detail.ariaLabel)).not.toBeInTheDocument();
+
+      fireEvent.change(search(), { target: { value: "9784003101117" } });
+      fireEvent.keyDown(search(), { key: "Enter" });
+
+      await waitFor(() => expect(useLayoutStore.getState().detailOpen).toBe(true));
+      expect(await screen.findAllByText("詳細のメモ")).not.toHaveLength(0);
+      expect(useSelectionStore.getState().focus).toBe("a");
+    });
+
+    it("未登録の ISBN では、詳細ペインを開かない（開くのは本へ移るときだけ）", async () => {
+      useLayoutStore.setState({ detailOpen: false });
+      renderMain();
+      await screen.findByRole("grid");
+      fireEvent.change(search(), { target: { value: "9784140819005" } });
+      fireEvent.keyDown(search(), { key: "Enter" });
+      await screen.findByText(ja.list.isbnSearch.registerTitle);
+      expect(useLayoutStore.getState().detailOpen).toBe(false);
+    });
+
     it("登録済みの ISBN を Enter で確定すると、その本を選んで詳細を出す（ハイフン・ISBN-10 でも）", async () => {
       renderMain();
       await screen.findByRole("grid");
@@ -179,6 +205,66 @@ describe("メイン画面", () => {
       expect(useScreenStore.getState().screen).toBe("main");
     });
 
+    // 日本語入力がオンのままリーダーで読むと、数字は変換中の全角の数字になり、Enter は変換の確定に使われる。
+    // それでも、Enter 1 回で確定する（Chromium: key "Process"・isComposing → compositionend）
+    it("日本語入力がオンのままスキャンしても（変換中の全角の数字 → Enter で変換を確定）、Enter 1 回でその本へ移る", async () => {
+      useLayoutStore.setState({ detailOpen: false });
+      renderMain();
+      await screen.findByRole("grid");
+      fireEvent.compositionStart(search());
+      fireEvent.change(search(), { target: { value: "９７８４００３１０１１１７" } });
+      fireEvent.keyDown(search(), {
+        key: "Process",
+        code: "Enter",
+        keyCode: 229,
+        isComposing: true,
+      });
+      fireEvent.compositionEnd(search(), { data: "９７８４００３１０１１１７" });
+
+      await waitFor(() => expect([...useSelectionStore.getState().selected]).toEqual(["a"]));
+      expect(useViewStore.getState().searchText).toBe("");
+      expect(useLayoutStore.getState().detailOpen).toBe(true);
+    });
+
+    it("日本語入力がオンのままスキャンした、未登録の ISBN は、Enter 1 回で「登録しますか？」を出す", async () => {
+      renderMain();
+      await screen.findByRole("grid");
+      fireEvent.compositionStart(search());
+      fireEvent.change(search(), { target: { value: "９７８４１４０８１９００５" } });
+      // Safari（WKWebView）の順序: compositionend → 確定の Enter（keyCode 229・isComposing false）
+      fireEvent.compositionEnd(search(), { data: "９７８４１４０８１９００５" });
+      fireEvent.keyDown(search(), {
+        key: "Enter",
+        code: "Enter",
+        keyCode: 229,
+        isComposing: false,
+      });
+
+      expect(await screen.findByText(ja.list.isbnSearch.registerTitle)).toBeInTheDocument();
+      expect(
+        screen.getByText(ja.list.isbnSearch.registerDescription("9784140819005")),
+      ).toBeInTheDocument();
+    });
+
+    it("日本語を変換して Enter で確定しただけ（ISBN の形でない）なら、何も起きない", async () => {
+      renderMain();
+      await screen.findByRole("grid");
+      fireEvent.compositionStart(search());
+      fireEvent.change(search(), { target: { value: "吾輩は猫である" } });
+      fireEvent.keyDown(search(), {
+        key: "Process",
+        code: "Enter",
+        keyCode: 229,
+        isComposing: true,
+      });
+      fireEvent.compositionEnd(search(), { data: "吾輩は猫である" });
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(screen.queryByText(ja.list.isbnSearch.registerTitle)).not.toBeInTheDocument();
+      expect(useSelectionStore.getState().selected.size).toBe(0);
+      // 検索語は、そのまま残る
+      expect(useViewStore.getState().searchText).toBe("吾輩は猫である");
+    });
+
     it("ISBN でない検索語の Enter では、何もしない。日本語入力の変換中の Enter も無視する", async () => {
       renderMain();
       await screen.findByRole("grid");
@@ -192,13 +278,10 @@ describe("メイン画面", () => {
   });
 
   describe("ショートカット（9.5）", () => {
-    it("⌘N は手動登録、⇧⌘N はスキャン登録、⌘, は設定、⌘I は詳細ペインの切替、⌘F は検索欄へ", async () => {
+    // ⌘N・⇧⌘N・⌘, は、どの画面でも効くので App が受ける（AppScreens.test.tsx）。メイン画面だけのものはここ
+    it("⌘I は詳細ペインの切替、⌘F は検索欄へ", async () => {
       renderMain();
       await screen.findByRole("grid");
-
-      press({ code: "KeyN", metaKey: true });
-      expect(useEditorStore.getState().request?.mode).toBe("new");
-      await closeEditor();
 
       press({ code: "KeyI", metaKey: true });
       expect(useLayoutStore.getState().detailOpen).toBe(false);
@@ -207,13 +290,6 @@ describe("メイン画面", () => {
 
       press({ code: "KeyF", metaKey: true });
       expect(document.activeElement).toBe(search());
-
-      press({ code: "Comma", metaKey: true });
-      expect(useScreenStore.getState().screen).toBe("settings");
-      useScreenStore.setState({ screen: "main" });
-
-      press({ code: "KeyN", metaKey: true, shiftKey: true });
-      expect(useScreenStore.getState().screen).toBe("scan");
     });
 
     it("一覧で Enter を押すと、選んだ本の編集フォームを開く", async () => {
@@ -233,9 +309,11 @@ describe("メイン画面", () => {
       await screen.findByRole("dialog");
       const request = useEditorStore.getState().request;
 
-      press({ code: "KeyN", metaKey: true, shiftKey: true }); // スキャン登録
-      press({ code: "Comma", metaKey: true }); // 設定
-      press({ code: "KeyN", metaKey: true }); // 手動登録（別のフォームに差し替わらない）
+      press({ code: "KeyI", metaKey: true }); // 詳細ペインの切替
+      expect(useLayoutStore.getState().detailOpen).toBe(true);
+      press({ code: "KeyF", metaKey: true }); // 検索欄へ
+      // （ダイアログの外は aria-hidden になるので、検索欄は role では探せない）
+      expect(document.activeElement).not.toBe(document.querySelector('input[type="search"]'));
       expect(useScreenStore.getState().screen).toBe("main");
       expect(useEditorStore.getState().request).toBe(request);
 
@@ -261,6 +339,42 @@ describe("メイン画面", () => {
         document.body.dispatchEvent(enter);
       });
       expect(showScan).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("表示中の本の書き出し（FR-IO-01）", () => {
+    it("「表示中の N 冊を CSV に書き出す」で、一覧に出ている本（絞り込み結果）の ID だけを書き出す", async () => {
+      vi.mocked(chooseSavePath).mockResolvedValue("/tmp/shown.csv");
+      routeLibrary({ export_csv: 2 });
+      renderMain();
+      await screen.findByRole("grid");
+      await rowsReady();
+
+      fireEvent.click(screen.getByRole("button", { name: ja.list.exportShown.label(2) }));
+      await waitFor(() => expect(calls("export_csv")).toHaveLength(1));
+      expect(calls("export_csv")[0]).toEqual({ path: "/tmp/shown.csv", ids: ["a", "b"] });
+      expect(toast.success).toHaveBeenCalledWith(ja.toast.exported(2));
+
+      // 絞り込む（欲しい本だけ）と、その 1 冊だけ。件数もボタンに出る
+      act(() => useViewStore.getState().setLibrary("wanted"));
+      fireEvent.click(await screen.findByRole("button", { name: ja.list.exportShown.label(1) }));
+      await waitFor(() => expect(calls("export_csv")).toHaveLength(2));
+      expect(calls("export_csv")[1]).toEqual({ path: "/tmp/shown.csv", ids: ["b"] });
+    });
+
+    it("保存先の選択をやめたら、何も書き出さない。表示中の本がないときは押せない", async () => {
+      vi.mocked(chooseSavePath).mockResolvedValue(null);
+      renderMain();
+      await screen.findByRole("grid");
+      await rowsReady();
+      fireEvent.click(screen.getByRole("button", { name: ja.list.exportShown.label(2) }));
+      await waitFor(() => expect(chooseSavePath).toHaveBeenCalled());
+      expect(calls("export_csv")).toHaveLength(0);
+
+      act(() => useViewStore.getState().setLibrary("trash"));
+      expect(
+        await screen.findByRole("button", { name: ja.list.exportShown.label(0) }),
+      ).toBeDisabled();
     });
   });
 

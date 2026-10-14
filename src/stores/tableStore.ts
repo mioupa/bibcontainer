@@ -1,4 +1,4 @@
-// 一覧の列の状態（表示・非表示、幅、並べ替え）。端末ごとに保存する（FR-LIST-01）。
+// 一覧の列の状態（表示・非表示、並び順、幅、並べ替え）。端末ごとに保存する（FR-LIST-01）。
 // 保存先は src/lib/persist.ts（今は localStorage。後で Rust の local_settings に差し替える）。
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -8,6 +8,9 @@ import {
   defaultColumnVisibility,
   MAX_COLUMN_SIZE,
   MIN_COLUMN_SIZE,
+  moveColumnId,
+  sanitizeColumnOrder,
+  type ColumnId,
 } from "@/features/list/columnMeta";
 import type { SortSpec } from "@/features/library/sort";
 import { isSortable } from "@/features/library/sort";
@@ -25,9 +28,14 @@ const DEFAULT_SORTING: SortSpec[] = [{ id: "title", desc: false }];
 interface TableState {
   sorting: SortSpec[];
   columnVisibility: Record<string, boolean>;
+  /** 列の並び順。空なら既定の順（Rust の `list.columnOrder` と同じ意味）。載っていない列は末尾に並ぶ。 */
+  columnOrder: string[];
   columnSizing: Record<string, number>;
   setSorting: (updater: Updater<SortSpec[]>) => void;
   setColumnVisibility: (updater: Updater<Record<string, boolean>>) => void;
+  setColumnOrder: (updater: Updater<string[]>) => void;
+  /** 列を 1 つ上（左）・下（右）へ動かす。 */
+  moveColumn: (id: ColumnId, direction: "up" | "down") => void;
   setColumnSizing: (updater: Updater<Record<string, number>>) => void;
   /** 列の状態を既定に戻す。 */
   resetColumns: () => void;
@@ -65,6 +73,7 @@ export const useTableStore = create<TableState>()(
     (set) => ({
       sorting: DEFAULT_SORTING,
       columnVisibility: defaultColumnVisibility(),
+      columnOrder: [],
       columnSizing: {},
       setSorting: (updater) =>
         set((s) => ({ sorting: sanitizeSorting(applyUpdater(updater, s.sorting)) })),
@@ -72,12 +81,17 @@ export const useTableStore = create<TableState>()(
         set((s) => ({
           columnVisibility: sanitizeVisibility(applyUpdater(updater, s.columnVisibility)),
         })),
+      setColumnOrder: (updater) =>
+        set((s) => ({ columnOrder: sanitizeColumnOrder(applyUpdater(updater, s.columnOrder)) })),
+      moveColumn: (id, direction) =>
+        set((s) => ({ columnOrder: moveColumnId(s.columnOrder, id, direction) })),
       setColumnSizing: (updater) =>
         set((s) => ({ columnSizing: sanitizeSizing(applyUpdater(updater, s.columnSizing)) })),
       resetColumns: () =>
         set({
           sorting: DEFAULT_SORTING,
           columnVisibility: defaultColumnVisibility(),
+          columnOrder: [],
           columnSizing: {},
         }),
     }),
@@ -88,11 +102,12 @@ export const useTableStore = create<TableState>()(
       partialize: (s) => ({
         sorting: s.sorting,
         columnVisibility: s.columnVisibility,
+        columnOrder: s.columnOrder,
         columnSizing: s.columnSizing,
       }),
       merge: (persisted, current) => {
         const saved = (persisted ?? {}) as Partial<
-          Pick<TableState, "sorting" | "columnVisibility" | "columnSizing">
+          Pick<TableState, "sorting" | "columnVisibility" | "columnOrder" | "columnSizing">
         >;
         return {
           ...current,
@@ -101,6 +116,9 @@ export const useTableStore = create<TableState>()(
             ...current.columnVisibility,
             ...sanitizeVisibility(saved.columnVisibility ?? {}),
           },
+          columnOrder: Array.isArray(saved.columnOrder)
+            ? sanitizeColumnOrder(saved.columnOrder.filter((id) => typeof id === "string"))
+            : [],
           columnSizing: sanitizeSizing(saved.columnSizing ?? {}),
         };
       },

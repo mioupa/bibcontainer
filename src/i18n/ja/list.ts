@@ -117,8 +117,15 @@ const listBase = {
   emptyHint: "絞り込みや検索語を変えてみてください。",
   columnPicker: {
     button: "列",
-    heading: "表示する列",
+    heading: "表示する列と並び順",
+    hint: "チェックで表示・非表示、矢印で並び順を変えます。",
+    moveUp: (name: string) => `${name}を上（左）へ動かす`,
+    moveDown: (name: string) => `${name}を下（右）へ動かす`,
     reset: "列を既定に戻す",
+  },
+  // 表示中の絞り込み結果の書き出し（FR-IO-01）
+  exportShown: {
+    label: (count: number) => `表示中の ${n(count)} 冊を CSV に書き出す`,
   },
   // 列の見出し。ColumnId を増やすと、ここも書かないと型エラーになる。
   columns: {
@@ -248,6 +255,7 @@ export const detail = {
     cCode: "Cコード",
     ndc: "NDC",
     listPrice: "本体価格（税抜）",
+    refPriceIncl: "参考税込価格",
     pages: "ページ数",
     ownership: "所有状態",
     wishPriority: "優先度",

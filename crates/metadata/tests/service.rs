@@ -363,8 +363,52 @@ async fn all_network_providers_failing_means_offline() {
     assert!(result.merged.chosen(MetaField::Title).is_none());
     // 何も保存されない
     assert!(r.cache.is_empty());
-    // 各取得元に、最初の 1 回 + リトライ 3 回
+    // 接続できないエラー（DNS の解決失敗・接続拒否など）は、リトライしない。各取得元に 1 回だけ
+    assert_eq!(r.http.urls_containing("api.openbd.jp").len(), 1);
+    assert_eq!(r.http.urls_containing("ndlsearch.ndl.go.jp").len(), 1);
+    assert_eq!(r.http.urls_containing("googleapis.com").len(), 1);
+}
+
+/// オフラインのとき（接続が確立できない）は、バックオフ（1 + 2 + 4 秒）を待たずに、すぐ `offline` を返す。
+/// 1 冊ごとに 7 秒かかると、連続登録で何冊も読む間、待たされ続ける（AT-11、FR-SCAN-16）。
+#[tokio::test(start_paused = true)]
+async fn offline_is_reported_at_once_without_waiting_for_retries() {
+    let http = FakeHttp::new(Box::new(|_| {
+        Err(TransportError::Connect(
+            "dns error: failed to lookup address information".into(),
+        ))
+    }));
+    let r = rig_with(http, None);
+
+    // 時間を止めたテストなので、待った時間はそのまま経過時間に出る。1 冊目は待ちなし
+    let start = Instant::now();
+    let result = r.service.fetch(&FetchRequest::new(ONIGIRI)).await;
+    assert!(result.offline, "{:?}", result.reports);
+    assert_eq!(Instant::now() - start, Duration::ZERO);
+
+    // 続けて読んでも、待つのは NDL の 1 秒間隔（レート制限）だけ。1 冊ごとの 7 秒のリトライは待たない
+    let start = Instant::now();
+    for isbn in [KOKORO, YUKIGUNI] {
+        let result = r.service.fetch(&FetchRequest::new(isbn)).await;
+        assert!(result.offline, "{isbn}: {:?}", result.reports);
+    }
+    assert!(Instant::now() - start <= Duration::from_secs(2));
+}
+
+/// タイムアウトは、通信路が一時的に不安定なだけのことがあるので、今までどおりリトライする。
+/// 3 回やり直しても応答がなければ、`offline`。
+#[tokio::test(start_paused = true)]
+async fn timeouts_are_still_retried_before_reporting_offline() {
+    let http = FakeHttp::new(Box::new(|_| Err(TransportError::Timeout)));
+    let r = rig_with(http, None);
+    let start = Instant::now();
+    let result = r.service.fetch(&FetchRequest::new(ONIGIRI)).await;
+    assert!(result.offline, "{:?}", result.reports);
     assert_eq!(r.http.urls_containing("api.openbd.jp").len(), 4);
+    assert!(
+        Instant::now() - start >= Duration::from_secs(7),
+        "1 + 2 + 4 秒"
+    );
 }
 
 #[tokio::test(start_paused = true)]

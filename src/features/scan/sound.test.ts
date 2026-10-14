@@ -114,6 +114,68 @@ describe("通知音（FR-SCAN-11）", () => {
     expect(context.resume).toHaveBeenCalled();
   });
 
+  describe("unlock（自動再生の制限の解除）", () => {
+    /** resume() すると running になる AudioContext。 */
+    function lockedContext() {
+      const fake = fakeContext("suspended");
+      fake.context.resume.mockImplementation(() => {
+        (fake.context as { state: string }).state = "running";
+        return Promise.resolve();
+      });
+      return fake;
+    }
+
+    it("まだ鳴らしていなくても、AudioContext を作って再開する（鳴らす前に、ユーザーの操作の中で）", async () => {
+      const { context } = lockedContext();
+      const create = vi.fn(() => context);
+      const player = createSoundPlayer(create);
+      expect(create).not.toHaveBeenCalled();
+
+      await expect(player.unlock()).resolves.toBe(true);
+      expect(create).toHaveBeenCalledOnce();
+      expect(context.resume).toHaveBeenCalledOnce();
+      expect(context.state).toBe("running");
+    });
+
+    it("unlock のあとに鳴らすと、同じ AudioContext を使い、もう再開しない", async () => {
+      const { context, oscillators } = lockedContext();
+      const create = vi.fn(() => context);
+      const player = createSoundPlayer(create);
+      await player.unlock();
+      player.play("success", { volume: 1, muted: false });
+      expect(create).toHaveBeenCalledOnce();
+      expect(context.resume).toHaveBeenCalledOnce();
+      expect(oscillators).toHaveLength(SOUND_TONES.success.length);
+    });
+
+    it("ミュートでも unlock する（あとでミュートを外したとき、最初から鳴らせるように）", async () => {
+      const { context } = lockedContext();
+      const player = createSoundPlayer(() => context);
+      await expect(player.unlock()).resolves.toBe(true);
+    });
+
+    it("すでに running なら、再開しない。再開できなかったとき（まだ操作として数えられない）は false", async () => {
+      const running = fakeContext("running");
+      await expect(createSoundPlayer(() => running.context).unlock()).resolves.toBe(true);
+      expect(running.context.resume).not.toHaveBeenCalled();
+
+      const stuck = fakeContext("suspended"); // resume() しても suspended のまま
+      await expect(createSoundPlayer(() => stuck.context).unlock()).resolves.toBe(false);
+      expect(stuck.context.resume).toHaveBeenCalledOnce();
+    });
+
+    it("作れない環境・例外でも、例外を投げず false", async () => {
+      await expect(createSoundPlayer(() => null).unlock()).resolves.toBe(false);
+      const broken = fakeContext("suspended");
+      broken.context.resume.mockRejectedValue(new Error("not allowed"));
+      await expect(createSoundPlayer(() => broken.context).unlock()).resolves.toBe(false);
+      const throwing = vi.fn(() => {
+        throw new Error("no audio");
+      });
+      await expect(createSoundPlayer(throwing).unlock()).resolves.toBe(false);
+    });
+  });
+
   it("鳴らせない環境（AudioContext がない・例外）でも、例外を投げない", () => {
     expect(() =>
       createSoundPlayer(() => null).play("success", { volume: 1, muted: false }),

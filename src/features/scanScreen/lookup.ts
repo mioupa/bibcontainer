@@ -3,6 +3,9 @@
 // ISBN を読んだ時点で取得を始め（2段目を待たない。FR-SCAN-05）、結果はストア（`lookups`）に ISBN ごとに入れる。
 // 確定したあとの処理（フォームを開く、連続登録の行にする）は、この結果を引く。
 // 同じ ISBN の取得が進行中なら、新しく始めずにその結果を待つ。
+// 失敗・オフライン（取得待ち）の結果は、次に読んだとき（ISBN を読んで取得を始めるとき）に取り直す。確定のとき（フォームを開く、
+// 一覧に足す）は、読んだときに始めた取得の結果をそのまま使う（`reuseKnown`）。オフラインだと取得はすぐ終わるので、
+// 確定のときにまた取り直すと、同じ読み取りで 2 回取得してしまう。
 import { useScanSessionStore } from "@/features/scanScreen/sessionStore";
 import type { LookupOutcome } from "@/features/scanScreen/batch";
 import { errorMessage } from "@/lib/errors";
@@ -32,12 +35,17 @@ function isRetryable(outcome: LookupOutcome): boolean {
 export interface StartLookupOptions {
   /** 前の取得が終わってから始める（ISBN 一覧の取り込み。取得元のレート制限は Rust 側が守る）。 */
   serial?: boolean;
+  /**
+   * 取得済みの結果は、失敗・オフラインでも使う（取り直さない）。確定のとき、読んだときに始めた取得の結果を引くために使う。
+   * 指定しないと、失敗・オフラインの結果は取り直す（次に読んだとき）。
+   */
+  reuseKnown?: boolean;
 }
 
 /**
  * 取得を始めて、結果を待つ Promise を返す。
  * - 進行中なら、その結果を待つ。
- * - 取得済みなら、その結果をすぐ返す。ただし、失敗やオフラインだったものは、改めて取得する。
+ * - 取得済みなら、その結果をすぐ返す。ただし、失敗やオフラインだったものは、改めて取得する（`reuseKnown` なら、そのまま返す）。
  */
 export function startLookup(
   isbn13: string,
@@ -49,7 +57,7 @@ export function startLookup(
   const store = useScanSessionStore.getState();
   const known = store.lookups[isbn13];
   if (known !== undefined) {
-    if (!isRetryable(known)) return Promise.resolve(known);
+    if (options.reuseKnown || !isRetryable(known)) return Promise.resolve(known);
     store.dropLookup(isbn13);
   }
 
@@ -68,9 +76,9 @@ export function startLookup(
   return tracked;
 }
 
-/** 取得の結果を待つ。始めていなければ、始める。 */
+/** 取得の結果を待つ。始めていなければ、始める。取得済みなら（失敗・オフラインでも）その結果を使う。 */
 export function awaitLookup(isbn13: string): Promise<LookupOutcome> {
-  return startLookup(isbn13);
+  return startLookup(isbn13, { reuseKnown: true });
 }
 
 /** 進行中の取得の記録を捨てる（テスト用）。 */

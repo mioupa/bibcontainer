@@ -2,9 +2,12 @@
 //!
 //! - レート制限: 取得元（レート制限のグループ）ごとに、リクエストの開始間隔と同時接続数を制限する。
 //!   NDL は同時接続 1、1 秒に 1 件。同じグループ（`ndl`）を使う取得元は一緒に数える。
-//! - リトライ: タイムアウト・接続エラー・429・500・502・503・504 を、指数バックオフ（1 秒・2 秒・4 秒）で最大 3 回やり直す。
+//! - リトライ: タイムアウト・応答の受信の失敗・429・500・502・503・504 を、指数バックオフ（1 秒・2 秒・4 秒）で最大 3 回やり直す。
 //!   やり直しても 5xx・429 のままなら、その応答を返す（HTTP エラー）。応答が得られなければ通信エラー。
 //!   429 でも「1 日あたりの上限」（Google Books の割り当て切れ）はやり直しても無駄なので、すぐ返す。
+//!   接続そのものが確立できないエラー（DNS の解決失敗・接続拒否・到達不能など。`TransportError::Connect`）は、
+//!   オフラインのときに起きてすぐ分かるので、やり直さず、すぐ通信エラーとして返す（オフラインで 1 冊ごとに
+//!   7 秒待たされないように。AT-11、FR-SCAN-16）。
 //! - ログに出す URL は API キーを伏せる。
 
 use std::collections::HashMap;
@@ -366,7 +369,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn gives_up_after_three_retries() {
-        let client = Script::new(vec![Err(TransportError::Connect("refused".into()))]);
+        let client = Script::new(vec![Err(TransportError::Timeout)]);
         let t = Transport::new(client.clone());
         let start = Instant::now();
         let err = t
@@ -377,6 +380,34 @@ mod tests {
         let calls = client.calls.lock().unwrap().clone();
         assert_eq!(calls.len(), 4, "最初の 1 回 + リトライ 3 回");
         assert_eq!(calls[3] - start, Duration::from_secs(7), "1 + 2 + 4 秒");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn connection_errors_are_not_retried_and_do_not_wait() {
+        let client = Script::new(vec![
+            Err(TransportError::Connect(
+                "dns error: failed to lookup address information (https://x.example/?key=SECRET)"
+                    .into(),
+            )),
+            resp(200, "ok"),
+        ]);
+        let t = Transport::new(client.clone());
+        let start = Instant::now();
+        let err = t
+            .get(&limit(), HttpRequest::get("https://x.example/?key=SECRET"))
+            .await
+            .unwrap_err();
+        // 待たずに（バックオフの 1 秒も待たずに）通信エラーを返す。回復しない接続エラーなので、やり直さない
+        assert_eq!(Instant::now() - start, Duration::ZERO);
+        assert_eq!(client.calls.lock().unwrap().len(), 1);
+        match err {
+            FetchError::Network(m) => {
+                assert!(m.contains("接続できません"), "{m}");
+                assert!(!m.contains("SECRET"), "秘密は伏せる: {m}");
+                assert!(!m.contains("やり直しても"), "やり直していない: {m}");
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     #[tokio::test(start_paused = true)]

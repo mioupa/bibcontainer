@@ -5,6 +5,7 @@ import { DetailPane } from "@/features/detail/DetailPane";
 import { ja } from "@/i18n/ja";
 import { makeDetail } from "@/test/detail";
 import { makeRow } from "@/test/factories";
+import type { BookDetail } from "@/types/contracts";
 
 const row = makeRow({
   id: "detail-1",
@@ -120,6 +121,26 @@ describe("DetailPane（FR-LIST-06）", () => {
       expect(dd(ja.detail.fields.manualFields)).toHaveTextContent("書名、発行日");
     });
 
+    it("参考税込価格（ref_price_incl）を出す。値がなければ「—」（FR-LIST-06）", () => {
+      const { unmount } = render(
+        <DetailPane
+          row={row}
+          detail={makeDetail({ id: "detail-1", refPriceIncl: 1430 })}
+          selectedCount={1}
+          cCodes={PROVISIONAL_C_CODE_TABLE}
+          locationPaths={new Map()}
+          onEdit={vi.fn()}
+          onRefetch={vi.fn()}
+        />,
+      );
+      const dd = (label: string) => screen.getByText(label).nextElementSibling as HTMLElement;
+      expect(dd(ja.detail.fields.refPriceIncl)).toHaveTextContent("1,430円");
+      unmount();
+
+      renderPane({ detail: makeDetail({ id: "detail-1", refPriceIncl: null }) });
+      expect(dd(ja.detail.fields.refPriceIncl)).toHaveTextContent(ja.detail.noValue);
+    });
+
     it("別の本の詳細は使わない（選び直した直後に、前の本の項目を出さない）", () => {
       renderPane({ detail: { ...detail, id: "other-book" } });
       expect(screen.queryByText(ja.detail.fields.review)).not.toBeInTheDocument();
@@ -130,6 +151,115 @@ describe("DetailPane（FR-LIST-06）", () => {
       expect(screen.queryByText(ja.detail.fields.review)).not.toBeInTheDocument();
       expect(screen.getByText(ja.detail.fields.publisher)).toBeInTheDocument();
     });
+  });
+
+  // BookDetail（get_book_detail）の項目それぞれについて、詳細ペインに出すか、出さない理由を決めておく。
+  // 項目を足したときに、ここが型エラーになり、出し忘れに気づける（FR-LIST-06「全項目」）。
+  const DETAIL_FIELDS: Record<keyof BookDetail, { label: string } | { hidden: string }> = {
+    id: { hidden: "内部の ID" },
+    isbn13: { label: ja.detail.fields.isbn13 },
+    title: { hidden: "見出しに出す" },
+    titleKana: { label: ja.detail.fields.titleKana },
+    subtitle: { hidden: "見出しの下に出す" },
+    seriesId: { label: ja.detail.fields.series }, // 名前（seriesName）で出す
+    volume: { label: ja.detail.fields.volume },
+    volumeSort: { hidden: "並べ替え用の内部の値" },
+    authors: { hidden: "見出しの下に出す" },
+    publisher: { label: ja.detail.fields.publisher },
+    publishedOn: { label: ja.detail.fields.publishedOn },
+    cCode: { label: ja.detail.fields.cCode },
+    ndc: { label: ja.detail.fields.ndc },
+    listPrice: { label: ja.detail.fields.listPrice },
+    refPriceIncl: { label: ja.detail.fields.refPriceIncl },
+    pages: { label: ja.detail.fields.pages },
+    sizeText: { label: ja.detail.fields.sizeText },
+    language: { label: ja.detail.fields.language },
+    description: { label: ja.detail.fields.description },
+    coverHash: { hidden: "書影の画像で出す" },
+    ownership: { label: ja.detail.fields.ownership },
+    wishPriority: { label: ja.detail.fields.wishPriority }, // 欲しい本のときだけ
+    locationId: { label: ja.detail.fields.location },
+    tags: { label: ja.detail.fields.tags },
+    readStatus: { label: ja.detail.fields.readStatus },
+    readStartedOn: { label: ja.detail.fields.readStartedOn },
+    readFinishedOn: { label: ja.detail.fields.readFinishedOn },
+    rating: { label: ja.detail.fields.rating },
+    review: { label: ja.detail.fields.review },
+    purchasedOn: { label: ja.detail.fields.purchasedOn },
+    purchaseStore: { label: ja.detail.fields.purchaseStore },
+    purchasePrice: { label: ja.detail.fields.purchasePrice },
+    purchaseCond: { label: ja.detail.fields.purchaseCond },
+    purchaseMemo: { label: ja.detail.fields.purchaseMemo },
+    memo: { label: ja.detail.fields.memo },
+    metaStatus: { label: ja.detail.fields.metaStatus },
+    deleted: { hidden: "ゴミ箱の本は、一覧で薄く出す" },
+    purged: { hidden: "内部の状態（完全に削除した本は出ない）" },
+    createdAt: { label: ja.detail.fields.createdAt },
+    fieldSources: { hidden: "取得元の記録（編集フォームの項目の横に出す）" },
+    manualFields: { label: ja.detail.fields.manualFields },
+    extra: { hidden: "新しい版の端末から届いた、この版が知らない項目" },
+  };
+
+  it("BookDetail の項目は、出さないと決めたもの以外すべて、値つきで出す（FR-LIST-06「全項目」）", () => {
+    const full = makeRow({
+      id: "all-1",
+      title: "全項目の本",
+      titleKana: "ゼンコウモクノホン",
+      isbn13: "9784780802047",
+      volume: "3",
+      seriesId: "s1",
+      seriesName: "全項目シリーズ",
+      publisher: "ポット出版",
+      publishedOn: "2020-05",
+      cCode: "0077",
+      ndc: "596",
+      listPrice: 1300,
+      pages: 200,
+      ownership: "wanted",
+      wishPriority: "high",
+      locationId: "loc",
+      tags: ["料理"],
+      readStatus: "reading",
+      readFinishedOn: "2026-02-03",
+      rating: 4,
+      purchasedOn: "2026-01-05",
+      purchasePrice: 1430,
+      purchaseStore: "近所の本屋",
+    });
+    const detail = makeDetail({
+      id: "all-1",
+      refPriceIncl: 1430,
+      sizeText: "15cm",
+      language: "jpn",
+      description: "内容紹介",
+      readStartedOn: "2026-01-06",
+      review: "感想",
+      purchaseCond: "new",
+      purchaseMemo: "購入メモ",
+      memo: "メモ",
+      manualFields: ["title"],
+    });
+    render(
+      <DetailPane
+        row={full}
+        detail={detail}
+        selectedCount={1}
+        cCodes={PROVISIONAL_C_CODE_TABLE}
+        locationPaths={new Map([["loc", "自宅 > 書斎"]])}
+        onEdit={vi.fn()}
+        onRefetch={vi.fn()}
+      />,
+    );
+    for (const [key, entry] of Object.entries(DETAIL_FIELDS)) {
+      if (!("label" in entry)) continue;
+      // 「メモ」は見出しと項目名が同じなので、項目名（dt）だけを探す
+      const terms = screen.getAllByText(entry.label).filter((el) => el.tagName === "DT");
+      expect(terms, `${key}（${entry.label}）の項目がない`).toHaveLength(1);
+      expect(
+        terms[0]!.nextElementSibling,
+        `${key}（${entry.label}）に値がない`,
+      ).not.toHaveTextContent(ja.detail.noValue);
+    }
   });
 
   it("設定が税込を併記なら、本体価格に税込を併記する（FR-CONF-05）", () => {

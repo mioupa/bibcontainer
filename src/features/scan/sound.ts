@@ -61,15 +61,36 @@ export interface AudioContextLike {
 export interface SoundPlayer {
   /** 音を鳴らす。ミュートか音量 0 なら何もしない。鳴らせない環境でも例外は投げない。 */
   play: (kind: SoundKind, settings: SoundPlayback) => void;
+  /**
+   * AudioContext を作り、止まっていれば再開する（自動再生の制限の解除）。キー入力・クリックの中で呼ぶ。
+   * `play` が最初に呼ばれるのは、IPC の完了のあと（ユーザーの操作の外）なので、そこで作ると、
+   * WKWebView などでは止まったままになり、最初の 1 回が鳴らないことがある。
+   * 戻り値は、鳴らせる状態（running）になったか。作れない環境・まだ再開できないときは false。
+   */
+  unlock: () => Promise<boolean>;
 }
 
-/** AudioContext は最初に鳴らすとき（ユーザーの操作の中）に作る。作れない環境では黙る。 */
+/**
+ * AudioContext は、最初のキー入力・クリック（`unlock`。useSoundUnlock）か、最初に鳴らすときに作る。
+ * 作れない環境では黙る。
+ */
 export function createSoundPlayer(
   createContext: () => AudioContextLike | null = defaultCreateContext,
 ): SoundPlayer {
   let context: AudioContextLike | null | undefined;
 
   return {
+    async unlock() {
+      try {
+        context ??= createContext();
+        if (!context) return false;
+        if (context.state === "suspended") await context.resume();
+        return context.state === "running";
+      } catch {
+        return false;
+      }
+    },
+
     play(kind, settings) {
       if (settings.muted) return;
       const scale = gainScale(settings.volume);
@@ -77,8 +98,8 @@ export function createSoundPlayer(
       try {
         context ??= createContext();
         if (!context) return;
-        // 自動再生の制限で止まっているときは再開する（スキャンのキー入力はユーザーの操作として扱われる）
-        if (context.state === "suspended") void context.resume();
+        // 自動再生の制限で止まっているときは再開する（最初のキー入力・クリックで `unlock` 済みなら、ここは通らない）
+        if (context.state === "suspended") void context.resume().catch(() => {});
         const base = context.currentTime;
         for (const tone of SOUND_TONES[kind]) {
           const oscillator = context.createOscillator();

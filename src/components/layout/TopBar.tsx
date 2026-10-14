@@ -12,6 +12,7 @@ import type { RefObject } from "react";
 import { ShortcutTip } from "@/components/layout/ShortcutTip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSearchEnter } from "@/features/library/useSearchEnter";
 import { ja } from "@/i18n/ja";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { useViewStore } from "@/stores/viewStore";
@@ -21,7 +22,10 @@ interface TopBarProps {
   onNewBook: () => void;
   onScanRegister: () => void;
   onOpenSettings: () => void;
-  /** 検索欄で Enter を押したとき（ISBN の確定。FR-SCAN-09）。日本語入力の変換中の Enter は呼ばない。 */
+  /**
+   * 検索欄で Enter を押したとき（ISBN の確定。FR-SCAN-09）。日本語入力の変換を確定する Enter は、
+   * 確定した値が ISBN の形のときだけ呼ぶ（日本語入力がオンのままスキャンしても、Enter 1 回で確定する。useSearchEnter）。
+   */
   onSearchSubmit?: (text: string) => void;
 }
 
@@ -38,6 +42,7 @@ export function TopBar({
   const detailOpen = useLayoutStore((s) => s.detailOpen);
   const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
   const toggleDetail = useLayoutStore((s) => s.toggleDetail);
+  const searchEnter = useSearchEnter(searchRef, onSearchSubmit);
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-card px-2">
@@ -63,11 +68,9 @@ export function TopBar({
           type="search"
           value={searchText}
           onChange={(event) => setSearchText(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-              onSearchSubmit?.(event.currentTarget.value);
-            }
-          }}
+          onKeyDown={searchEnter.onKeyDown}
+          onCompositionStart={searchEnter.onCompositionStart}
+          onCompositionEnd={searchEnter.onCompositionEnd}
           aria-label={ja.topBar.searchLabel}
           placeholder={ja.topBar.searchPlaceholder}
           className="h-8 pl-8"

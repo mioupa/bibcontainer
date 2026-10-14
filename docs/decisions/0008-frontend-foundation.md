@@ -34,7 +34,7 @@ src/
     settings/                    設定ダイアログ（暫定。テーマとスキャン入力・通知音だけ）
   stores/                        Zustand のストア
   lib/                           platform・theme・cover・cCode・format・persist・runtime などの小さな部品
-  data/cCodeTable.ts             付録 A を元にした暫定の C コード表
+  data/cCodeTable.ts             付録 A と同じ名称の C コード表（Tauri の外のモックとテスト用。`cCodeTable.test.ts` が Rust の表・付録 A と照合する）
   dev/                           ダミーデータ（mockRows.ts・mockBackend.ts）
 ```
 
@@ -47,7 +47,7 @@ src/
 |---|---|---|
 | バックエンドのデータ（全書籍、保管場所、Cコード表、検索結果の ID） | TanStack Query（`features/library/hooks.ts`）。取得は `api.ts` の裏に隠す | しない |
 | 絞り込み・検索語（`viewStore`）、行の選択（`selectionStore`） | Zustand | しない（起動のたびに「すべて」から始める） |
-| 列の状態（並べ替え・表示・幅。`tableStore`）、サイドバーと詳細ペインの開閉（`layoutStore`）、テーマ・スキャン入力・通知音（`settingsStore`） | Zustand の `persist` | 端末ごと。今は localStorage（`lib/persist.ts`） |
+| 列の状態（並べ替え・表示・並び順・幅。`tableStore`）、サイドバーと詳細ペインの開閉（`layoutStore`）、テーマ・スキャン入力・通知音（`settingsStore`） | Zustand の `persist` | 端末ごと。今は localStorage（`lib/persist.ts`） |
 | 絞り込み後の行・件数 | `useLibraryView()` が TanStack Query の結果から `useMemo` で導く（画面の最上位で 1 回だけ呼ぶ） | しない |
 
 - 保存する 3 つのストアは、保存された値が壊れていても、範囲に収めて読み込む（未知の列、範囲外の幅、3〜30 秒の外のタイムアウトなど）。
@@ -82,10 +82,11 @@ src/
 
 ### 6. 一覧の表（FR-LIST-01／02、9.5）
 
-- TanStack Table v9（`useTable` と機能の登録）で、列の定義・表示・幅・並べ替えの状態を持ち、TanStack Virtual で行を仮想スクロールする。
+- TanStack Table v9（`useTable` と機能の登録）で、列の定義・表示・並び順・幅・並べ替えの状態を持ち、TanStack Virtual で行を仮想スクロールする。
 - 行は絞り込み・並べ替え済みの `ListRow[]` をそのまま渡し、**Table の行モデルは作らない**。20,000 行の行モデルの生成は、測ると 12.7ms（初回）かかり、絞り込みのたびに無駄になる。セルは `features/list/cells.tsx` が列 id ごとに描く。
 - 並べ替えは `features/library/sort.ts` の純粋関数。Table には `manualSorting` を指定し、見出しのクリックと Shift+クリックの複数列の操作だけを使う（最初のクリックは常に昇順。降順始まりにすると Table が先頭行の値の型を調べにいって行モデルを作ってしまうため、`sortDescFirst: false`）。
   - 書名は `sortTitle`、著者は `sortAuthors`。ほかの文字列の列は、UTF-16 のコード単位で比べる（`Intl.Collator` は 2 万行では遅い）。値のない行は、昇順でも降順でも最後。同じ値のときは、書名 → 巻次 → 元の並びで決める。
+- 列の並び順（FR-LIST-01）は `tableStore.columnOrder`（空なら既定の順。Rust の `list.columnOrder` に保存）。「列」メニュー（`ColumnPicker`。矢印のボタンへ Tab で移れるよう、メニューではなくポップオーバー）と、設定の「表示」（どちらも `ColumnList`）の、上・下の矢印で 1 つずつ動かす。載っていない列（あとから増えた列）は末尾に並ぶ。見出しのドラッグでは動かせない。
 - 幅の変更はドラッグをやめたときに確定する（`columnResizeMode: "onEnd"`）。途中の移動のたびに保存しない。ダブルクリックで既定の幅に戻る。
 - 行の選択は `features/list/selection.ts` の純粋関数: クリック、⌘（macOS）／Ctrl（Windows）+クリックで 1 行ずつ、Shift+クリックで範囲（⌘／Ctrl+Shift で足す）。キーボードは、矢印、Shift+矢印、Home、End、PageUp、PageDown、⌘／Ctrl+A、Esc、Enter（編集を開くコールバック）、ゴミ箱への移動。日本語入力の変換中のキーは無視する。右クリックで、編集・一括変更・再取得・書き出し・ゴミ箱へ移動のメニューを出す（行の外では出さない）。
 - 内容（Cコード）列の名称は、Cコード表を props で受け取って引く（`lib/cCode.ts`）。表にない内容は「未定義（xx）」。
@@ -124,11 +125,11 @@ src/
 ### 10. 通知音（FR-SCAN-11）
 
 - Web Audio API で合成する（`features/scan/sound.ts`）。成功（高い 2 音が上がる、サイン波）、エラー（低い音を 2 回、のこぎり波）、注意（中くらいの音を 2 回、三角波）。音量（0〜1。聞こえ方に合わせて 2 乗）とミュートは設定ストア。
-- `AudioContext` は最初に鳴らすときに作り、止まっていれば再開する。作れない環境でも例外を投げない。
+- `AudioContext` は、最初のキー入力・クリックで作って `resume()` しておく（`useSoundUnlock`。App が呼ぶ）。音を鳴らすのは、バーコードを読んだあとの IPC の完了のあと（ユーザーの操作の外）なので、そこで初めて作ると、WKWebView の自動再生の制限で止まったままになり、最初の 1 回が鳴らないことがあるため。修飾キーだけの keydown などは操作として数えられないことがあるので、鳴らせる状態（running）になるまで、続く操作でもやり直す。鳴らすときも、止まっていれば再開する。作れない環境でも例外を投げない。
 
 ### 11. ショートカット（9.5）
 
-- `features/shortcuts/shortcuts.ts` に定義を集め、`event.code` で判定する（OS ごとに ⌘ と Ctrl、Shift の有無も区別）。手動登録、スキャン登録、検索欄へ移動、詳細ペインの切替、設定、元に戻す（入力欄にフォーカスがあるときは入力欄に譲る）は、`useShortcuts` が受ける。編集（Enter）とゴミ箱へ移動（macOS は ⌘⌫、Windows は Delete）は、一覧にフォーカスがあるときだけ、一覧の `onKeyDown` が同じ判定関数で受ける。
+- `features/shortcuts/shortcuts.ts` に定義を集め、`event.code` で判定する（OS ごとに ⌘ と Ctrl、Shift の有無も区別）。手動登録、スキャン登録、検索欄へ移動、詳細ペインの切替、設定、元に戻す（入力欄にフォーカスがあるときは入力欄に譲る）は、`useShortcuts` が受ける（手動登録・スキャン登録・設定は、どの画面でも効くよう App の `useGlobalShortcuts`、検索欄・詳細ペインはメイン画面。0011 §12）。編集（Enter）とゴミ箱へ移動（macOS は ⌘⌫、Windows は Delete）は、一覧にフォーカスがあるときだけ、一覧の `onKeyDown` が同じ判定関数で受ける。
 - Tauri の既定のメニューが ⌘ 系のキーを先に取る場合がある。実機で確かめ、取られるものはメニュー側の設定を直す。
 
 ### 12. 書影（FR-COVER）

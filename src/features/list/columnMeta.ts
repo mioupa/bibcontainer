@@ -84,3 +84,39 @@ export function defaultColumnVisibility(): Record<string, boolean> {
   for (const id of OPTIONAL_COLUMN_IDS) visibility[id] = false;
   return visibility;
 }
+
+const isColumnId = (id: string): id is ColumnId => (COLUMN_IDS as readonly string[]).includes(id);
+
+/**
+ * 保存された列の並び順（空なら既定の順）から、全列の並びを作る（FR-LIST-01）。
+ * 知らない列と重複は捨てる。載っていない列（あとから増えた列など）は、既定の順のまま末尾に足す。
+ */
+export function resolveColumnOrder(saved: readonly string[]): ColumnId[] {
+  const order = new Set<ColumnId>();
+  for (const id of saved) {
+    if (isColumnId(id)) order.add(id);
+  }
+  for (const id of COLUMN_IDS) order.add(id);
+  return [...order];
+}
+
+/** 保存する並び順を整える（知らない列と重複を捨てる。載っていない列はそのまま。表示するときに `resolveColumnOrder` が末尾に足す）。 */
+export function sanitizeColumnOrder(order: readonly string[]): ColumnId[] {
+  return [...new Set(order.filter(isColumnId))];
+}
+
+/** `id` の列を 1 つ上（左）・下（右）へ動かした、全列の並び。端の列を端の外へは動かせない（変わらない）。 */
+export function moveColumnId(
+  order: readonly string[],
+  id: ColumnId,
+  direction: "up" | "down",
+): ColumnId[] {
+  const next = resolveColumnOrder(order);
+  const from = next.indexOf(id);
+  const to = direction === "up" ? from - 1 : from + 1;
+  const other = next[to];
+  if (from < 0 || other === undefined) return next;
+  next[to] = id;
+  next[from] = other;
+  return next;
+}

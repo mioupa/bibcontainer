@@ -153,6 +153,35 @@ describe("BookTable", () => {
       ).toBeInTheDocument();
     });
 
+    it("列の並び順（Zustand の状態）が、見出しと行のセルに反映される（FR-LIST-01）", () => {
+      renderTable();
+      act(() => {
+        // 既定の並びは 書影・書名・巻・著者…。著者を 3 回上へ動かして、先頭にする
+        for (let i = 0; i < 3; i++) useTableStore.getState().moveColumn("authors", "up");
+      });
+      const names = screen.getAllByRole("columnheader").map((h) => h.textContent);
+      expect(names.slice(0, 3)).toEqual([
+        ja.list.columns.authors,
+        ja.list.columns.cover,
+        ja.list.columns.title,
+      ]);
+      // 行のセルも同じ順（先頭のセルが著者）
+      const first = within(rowEl("row-0")!).getAllByRole("gridcell")[0]!;
+      expect(first).toHaveTextContent("著者0");
+    });
+
+    it("並び順に載っていない列（保存のあとに増えた列）は、末尾に並ぶ。非表示の列は並び順があっても出ない", () => {
+      renderTable();
+      act(() => {
+        useTableStore.getState().setColumnOrder(["rating", "title"]);
+        useTableStore.getState().setColumnVisibility((old) => ({ ...old, publisher: false }));
+      });
+      const names = screen.getAllByRole("columnheader").map((h) => h.textContent);
+      expect(names.slice(0, 2)).toEqual([ja.list.columns.rating, ja.list.columns.title]);
+      expect(names).not.toContain(ja.list.columns.publisher);
+      expect(names.at(-1)).toBe(ja.list.columns.createdAt);
+    });
+
     it("列の幅の見出しをダブルクリックすると、既定の幅に戻る", () => {
       renderTable();
       act(() => {
@@ -260,6 +289,98 @@ describe("BookTable", () => {
       fireEvent.click(rowEl("row-2")!, { metaKey: true });
       rerender(<BookTable {...props} rows={rows.filter((r) => r.id !== "row-1")} />);
       expect(selectedIds()).toEqual(["row-2"]);
+    });
+  });
+
+  // 選択行（focus）へのスクロール。jsdom にはレイアウトがないので、scrollTo を作って scrollTop を動かす
+  describe("選択行へのスクロール", () => {
+    function installScroll(grid: HTMLElement) {
+      // jsdom の scrollTop は動かせず、scrollHeight は 0 なので（0 だと、仮想スクロールが行き先を 0 に丸める）、
+      // 書き換えられる値と、十分な高さにする
+      Object.defineProperty(grid, "scrollTop", { value: 0, writable: true, configurable: true });
+      Object.defineProperty(grid, "scrollHeight", { value: 200 * 48, configurable: true });
+      const scrollTo = vi.fn((options: ScrollToOptions) => {
+        grid.scrollTop = options.top ?? 0;
+        grid.dispatchEvent(new Event("scroll"));
+      });
+      Object.defineProperty(grid, "scrollTo", { value: scrollTo, configurable: true });
+      return scrollTo;
+    }
+    const focusRow = (id: string) =>
+      act(() => {
+        useSelectionStore.setState({ selected: new Set([id]), anchor: id, focus: id });
+      });
+
+    it("focus が変わったとき、その行までスクロールする（見えていない行へ移ったとき）", () => {
+      const { grid } = renderTable();
+      const scrollTo = installScroll(grid);
+      focusRow("row-60");
+      expect(scrollTo).toHaveBeenCalled();
+      expect(grid.scrollTop).toBeGreaterThan(40 * 48);
+    });
+
+    it("行が差し替わっても（library-changed で行が更新されても）、ユーザーのスクロール位置から選択行へ戻さない", () => {
+      const { grid, props, rerender } = renderTable();
+      const scrollTo = installScroll(grid);
+      focusRow("row-60");
+      expect(grid.scrollTop).toBeGreaterThan(0);
+
+      // ユーザーが先頭の方へスクロールした
+      grid.scrollTop = 0;
+      fireEvent.scroll(grid);
+      scrollTo.mockClear();
+
+      // 同じ ID の行が、更新された内容で差し替わる（行の配列が新しくなる）
+      rerender(<BookTable {...props} rows={makeRows(100).map((row) => ({ ...row }))} />);
+      rerender(<BookTable {...props} rows={makeRows(100)} />);
+      expect(scrollTo).not.toHaveBeenCalled();
+      expect(grid.scrollTop).toBe(0);
+    });
+
+    it("focus が変わらないまま行が増減しても、動かさない。別の行を選んだときは、また動く", () => {
+      const { grid, props, rerender } = renderTable();
+      const scrollTo = installScroll(grid);
+      focusRow("row-60");
+      grid.scrollTop = 0;
+      fireEvent.scroll(grid);
+      scrollTo.mockClear();
+
+      rerender(<BookTable {...props} rows={makeRows(120)} />);
+      expect(scrollTo).not.toHaveBeenCalled();
+
+      focusRow("row-80");
+      expect(scrollTo).toHaveBeenCalled();
+    });
+
+    it("focus した行がまだ並びにないとき（絞り込みの更新待ち）は、行が現れたときに 1 度だけスクロールする", () => {
+      const { grid, props, rerender } = renderTable({ rows: makeRows(10) });
+      const scrollTo = installScroll(grid);
+      focusRow("row-60"); // まだ 10 行しかない
+      expect(scrollTo).not.toHaveBeenCalled();
+
+      rerender(<BookTable {...props} rows={makeRows(100)} />);
+      expect(scrollTo).toHaveBeenCalled();
+      expect(grid.scrollTop).toBeGreaterThan(40 * 48);
+
+      // そのあとの差し替えでは動かない
+      grid.scrollTop = 0;
+      fireEvent.scroll(grid);
+      scrollTo.mockClear();
+      rerender(<BookTable {...props} rows={makeRows(100)} />);
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
+
+    it("reveal（検索欄の ISBN など）は、すでに focus している本でも、その行までスクロールする", () => {
+      const { grid } = renderTable();
+      const scrollTo = installScroll(grid);
+      focusRow("row-60");
+      grid.scrollTop = 0;
+      fireEvent.scroll(grid);
+      scrollTo.mockClear();
+
+      act(() => useSelectionStore.getState().reveal("row-60"));
+      expect(scrollTo).toHaveBeenCalled();
+      expect(selectedIds()).toEqual(["row-60"]);
     });
   });
 

@@ -8,8 +8,9 @@ import { DEFAULT_SCAN_SETTINGS } from "@/features/scan/config";
 import { resetLookupsForTest } from "@/features/scanScreen/lookup";
 import { ScanScreen } from "@/features/scanScreen/ScanScreen";
 import { useScanSessionStore } from "@/features/scanScreen/sessionStore";
-import { ISBN_A, ISBN_B, makeResult } from "@/features/scanScreen/testData";
+import { ISBN_A, ISBN_B, ISBN_C, makeResult } from "@/features/scanScreen/testData";
 import { ja } from "@/i18n/ja";
+import { useModalStore } from "@/lib/useModalGuard";
 import { useEditorStore } from "@/stores/editorStore";
 import { useScreenStore } from "@/stores/screenStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -266,6 +267,26 @@ describe("1 冊ずつ登録（FR-SCAN-13）", () => {
     expect(second.source.isbn13).toBe(ISBN_B);
   });
 
+  it("AT-11: オフラインでも、待たずにフォームが開く（取得待ちの下書き）。同じ読み取りで 2 回は取得しない", async () => {
+    route({
+      fetch_metadata: (args: { isbn13: string } | undefined) =>
+        makeResult(args?.isbn13 ?? "", { offline: true }),
+    });
+    renderScreen();
+    scan(ISBN_A);
+    await waitFor(() => expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10)));
+    press("Space");
+    // 確定するとき、読んだときに始めた取得の結果（オフライン）をそのまま使う。取り直して待たない
+    await waitFor(() => expect(useEditorStore.getState().request).not.toBeNull(), {
+      timeout: 500,
+    });
+    const request = useEditorStore.getState().request;
+    if (request?.mode !== "new") throw new Error("new ではありません");
+    expect(request.source.fetched?.offline).toBe(true);
+    expect(request.source.fetched?.draft.fields.meta_status.value).toBe("pending");
+    expect(calls("fetch_metadata")).toHaveLength(1);
+  });
+
   it("AT-08: 同じ ISBN を続けて 2 回読むと、2 回目は無視されて注意音", async () => {
     renderScreen();
     scan(ISBN_A);
@@ -416,9 +437,12 @@ describe("重複と欲しい本", () => {
     press("Space");
 
     const dialog = await screen.findByRole("dialog");
+    // 確認を出している間は、画面全体のショートカット（⌘N など）を止める（9.5）
+    expect(useModalStore.getState().count).toBe(1);
     fireEvent.click(within(dialog).getByRole("button", { name: ja.scan.wantedDialog.cancel }));
 
     expect(await screen.findByText("欲しい本のままにしました: 欲しかった本")).toBeInTheDocument();
+    expect(useModalStore.getState().count).toBe(0);
     expect(calls("update_book")).toHaveLength(0);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -520,6 +544,47 @@ describe("連続登録（FR-SCAN-14／15）", () => {
     expect(byField.isbn13).toBe(ISBN_A);
     expect(byField.c_code).toBe("0193");
     expect(byField.list_price).toBe(700);
+  });
+
+  it("AT-11／FR-SCAN-16: オフラインで続けて読んでも、待たずに、1 冊ずつすぐ「取得待ち」の行になる（取得をやり直さない）", async () => {
+    // Rust は、接続できないエラー（DNS の解決失敗など）をリトライせず、すぐ offline の結果を返す（0010 §13）。
+    // 画面は、その結果を受けたらすぐ「取得待ち」の行にする。待ちやリトライを足さない
+    route({
+      fetch_metadata: (args: { isbn13: string } | undefined) =>
+        makeResult(args?.isbn13 ?? "", { offline: true }),
+      create_books_from_drafts: ["n1", "n2", "n3"],
+    });
+    renderScreen();
+    for (const [index, isbn] of [ISBN_A, ISBN_B, ISBN_C].entries()) {
+      scan(isbn);
+      await waitFor(() => expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10)));
+      press("Space");
+      await waitFor(() => expect(rows()).toHaveLength(index + 1));
+    }
+    // IPC の往復ぶんだけで、3 冊とも「取得待ち」になる（短い待ちの上限で確かめる）
+    await waitFor(
+      () =>
+        expect(rows().map((row) => row.getAttribute("data-status"))).toEqual([
+          "pending",
+          "pending",
+          "pending",
+        ]),
+      { timeout: 500 },
+    );
+    expect(calls("fetch_metadata")).toHaveLength(3);
+    // 取得中の行がないので、すぐ保存できる
+    const save = screen.getByRole("button", { name: /まとめて保存/ });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    await waitFor(() => expect(calls("create_books_from_drafts")).toHaveLength(1));
+    const sent = (
+      calls("create_books_from_drafts")[0]![1] as {
+        drafts: { changes: { field: string; value: unknown }[] }[];
+      }
+    ).drafts;
+    expect(
+      sent.map((draft) => draft.changes.find((c) => c.field === "meta_status")?.value),
+    ).toEqual(["pending", "pending", "pending"]);
   });
 
   it("取得そのものが失敗した行も、ISBN と 2段目だけで保存できる（取得待ち）", async () => {
@@ -739,10 +804,13 @@ describe("連続登録（FR-SCAN-14／15）", () => {
 
     fireEvent.click(screen.getByRole("button", { name: ja.scan.batch.clear }));
     const dialog = await screen.findByRole("dialog");
+    // 確認を出している間は、画面全体のショートカット（⌘N など）を止める（9.5）
+    expect(useModalStore.getState().count).toBe(1);
     fireEvent.click(
       within(dialog).getByRole("button", { name: ja.scan.batch.clearConfirm.cancel }),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(useModalStore.getState().count).toBe(0);
     expect(rows()).toHaveLength(2);
 
     fireEvent.click(screen.getByRole("button", { name: ja.scan.batch.clear }));

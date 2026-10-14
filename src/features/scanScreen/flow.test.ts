@@ -35,7 +35,11 @@ interface Fakes {
   lasts: LastRead[];
   forms: NewBookSource[];
   rows: { book: ConfirmedBook; duplicate: RowDuplicate | null }[];
-  startedLookups: { isbn13: string; serial: boolean | undefined }[];
+  startedLookups: {
+    isbn13: string;
+    serial: boolean | undefined;
+    reuseKnown: boolean | undefined;
+  }[];
   updated: string[];
   errors: unknown[];
 }
@@ -68,7 +72,7 @@ function setup(
         : Promise.resolve(options.matches ?? []),
     ),
     startLookup: (isbn13, o) => {
-      fakes.startedLookups.push({ isbn13, serial: o?.serial });
+      fakes.startedLookups.push({ isbn13, serial: o?.serial, reuseKnown: o?.reuseKnown });
     },
     awaitLookup: vi.fn(() => Promise.resolve(options.lookup ?? done(ISBN_A, { title: "こころ" }))),
     openNewForm: (source) => {
@@ -243,7 +247,8 @@ describe("processConfirmed: 新しい本", () => {
 
     expect(outcome).toBe("added");
     expect(f.rows).toEqual([{ book: book(SECOND), duplicate: null }]);
-    expect(f.startedLookups).toEqual([{ isbn13: ISBN_A, serial: undefined }]);
+    // 読んだときに始めた取得の結果を使う（オフラインでも取り直さない。取り直すのは、次に読んだとき）
+    expect(f.startedLookups).toEqual([{ isbn13: ISBN_A, serial: undefined, reuseKnown: true }]);
     expect(f.forms).toEqual([]);
     expect(f.deps.awaitLookup).not.toHaveBeenCalled();
     expect(lastResult(f)?.level).toBe("success");
@@ -263,7 +268,8 @@ describe("processConfirmed: 新しい本", () => {
     expect(f.sounds).toEqual([]);
     expect(f.results).toEqual([]);
     expect(f.lasts).toEqual([]);
-    expect(f.startedLookups).toEqual([{ isbn13: ISBN_A, serial: true }]);
+    // 読んだときの取得がないので、オフラインで取得待ちだった結果は取り直す
+    expect(f.startedLookups).toEqual([{ isbn13: ISBN_A, serial: true, reuseKnown: false }]);
   });
 });
 

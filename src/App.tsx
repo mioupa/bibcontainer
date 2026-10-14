@@ -5,8 +5,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { EditorHost } from "@/features/editor/EditorHost";
 import { MainScreen } from "@/features/layout/MainScreen";
 import { useLibraryChangeSync } from "@/features/library/sync";
+import { useSoundUnlock } from "@/features/scan/useSoundUnlock";
 import { ScanScreen } from "@/features/scanScreen/ScanScreen";
 import { SettingsScreen } from "@/features/settings/SettingsScreen";
+import { useGlobalShortcuts } from "@/features/shortcuts/useGlobalShortcuts";
 import { ja } from "@/i18n/ja";
 import { IpcError, ipc } from "@/lib/ipc";
 import { inTauri } from "@/lib/runtime";
@@ -29,11 +31,14 @@ function Screens() {
 /**
  * DB が使えるときのアプリ本体。画面（メイン・スキャン登録・設定）と、画面の外側に 1 つだけ置くもの
  * （登録・編集フォーム）。トーストは、エラー画面でも出せるよう、App が持つ。
+ * 画面全体のショートカット（⌘N・⇧⌘N・⌘,）も、ここで受ける（どの画面でも効く）。
  * `library-changed` の購読は、どの画面を出していても続ける（スキャン登録や設定の画面で本を変えたあと、
  * メイン画面に戻ったときに一覧が古くならないように）。
  */
 function AppShell() {
   useLibraryChangeSync();
+  // ⌘N（手動登録）・⇧⌘N（スキャン登録）・⌘,（設定）は、どの画面でも効く（9.5）
+  useGlobalShortcuts();
   return (
     <>
       <Screens />
@@ -68,6 +73,8 @@ function Gate() {
 
 export function App() {
   useThemeSync();
+  // 通知音の AudioContext を、最初のキー入力・クリックで作って再開しておく（最初の 1 回から鳴らすため）
+  useSoundUnlock();
   return (
     <TooltipProvider delayDuration={400}>
       <Gate />

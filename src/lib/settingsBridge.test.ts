@@ -103,22 +103,39 @@ describe("table / layout ストア ↔ list", () => {
     expect(tableFromList(list)).toEqual({
       sorting: list.sorting,
       columnVisibility: list.columnVisibility,
+      columnOrder: ["title", "authors"],
       columnSizing: list.columnSizing,
     });
     expect(layoutFromList(list)).toEqual({ sidebarOpen: false, detailOpen: true });
   });
 
-  it("table の保存は、layout の項目と列の並び順を残して重ねる", () => {
+  it("table の保存は、layout の項目を残して重ねる。列の並び順も list.columnOrder に書く（FR-LIST-01）", () => {
     const next = listWithTable(list, {
       sorting: [{ id: "title", desc: false }],
       columnVisibility: { tags: true },
+      columnOrder: ["authors", "title", "publisher"],
       columnSizing: { title: 500 },
     });
     expect(next.sorting).toEqual([{ id: "title", desc: false }]);
     expect(next.columnVisibility).toEqual({ tags: true });
+    expect(next.columnOrder).toEqual(["authors", "title", "publisher"]);
     expect(next.columnSizing).toEqual({ title: 500 });
     expect(next.sidebarOpen).toBe(false);
-    expect(next.columnOrder).toEqual(["title", "authors"]);
+    expect(next.detailOpen).toBe(true);
+  });
+
+  it("table の保存に並び順がない（古い保存内容）・形が違うときは、今の並び順を残す。文字列でない要素は捨てる", () => {
+    const old = { sorting: [], columnVisibility: {}, columnSizing: {} };
+    expect(listWithTable(list, old).columnOrder).toEqual(["title", "authors"]);
+    expect(listWithTable(list, { ...old, columnOrder: "title" }).columnOrder).toEqual([
+      "title",
+      "authors",
+    ]);
+    expect(listWithTable(list, { ...old, columnOrder: ["title", 3, null] }).columnOrder).toEqual([
+      "title",
+    ]);
+    // 空の並び順は「既定の順」の意味で、そのまま書く
+    expect(listWithTable(list, { ...old, columnOrder: [] }).columnOrder).toEqual([]);
   });
 
   it("layout の保存は、table の項目を残して重ねる。形が違う項目は今の値のまま", () => {

@@ -25,6 +25,7 @@ import { ja } from "@/i18n/ja";
 import { chooseDirectory, chooseSavePath } from "@/lib/dialog";
 import { errorMessage } from "@/lib/errors";
 import { ipc } from "@/lib/ipc";
+import { useModalGuard } from "@/lib/useModalGuard";
 import { inTauri } from "@/lib/runtime";
 
 const clampDailyKeep = clampInteger(1, 365, 7);
@@ -124,6 +125,8 @@ function BackupList() {
   const client = useQueryClient();
   const t = ja.settings.backup;
   const [target, setTarget] = useState<BackupInfo | null>(null);
+  // 復元の確認を出している間は、画面全体のショートカット（⌘N など）を止める
+  useModalGuard(target !== null);
   const backups = useQuery({ queryKey: settingsKeys.backups, queryFn: ipc.listBackups });
 
   const backupNow = useMutation({

@@ -11,9 +11,12 @@ import {
 } from "@/components/ui/dialog";
 import { useScanSessionStore } from "@/features/scanScreen/sessionStore";
 import { ja } from "@/i18n/ja";
+import { useModalGuard } from "@/lib/useModalGuard";
 
 export function WantedDialog() {
   const prompt = useScanSessionStore((s) => s.prompt);
+  // 確認を出している間は、画面全体のショートカット（⌘N など）を止める
+  useModalGuard(prompt !== null);
   const d = ja.scan.wantedDialog;
   return (
     <Dialog

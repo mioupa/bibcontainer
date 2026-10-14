@@ -1,6 +1,7 @@
-// 一覧の列の定義（TanStack Table）。列の状態（表示・非表示、幅、並べ替え）は Table が持ち、
+// 一覧の列の定義（TanStack Table）。列の状態（表示・非表示、並び順、幅、並べ替え）は Table が持ち、
 // 行の描画は cells.tsx が行う（行モデルを作らず、ListRow をそのまま仮想スクロールに渡す。BookTable.tsx 参照）。
 import {
+  columnOrderingFeature,
   columnResizingFeature,
   columnSizingFeature,
   columnVisibilityFeature,
@@ -23,6 +24,7 @@ import type { ListRow } from "@/types/contracts";
 export const tableFeaturesDef = tableFeatures({
   rowSortingFeature,
   columnVisibilityFeature,
+  columnOrderingFeature,
   columnSizingFeature,
   columnResizingFeature,
 });

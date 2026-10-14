@@ -3,13 +3,15 @@
 //
 // 操作のつなぎ:
 //   手動登録・編集 … useEditorStore（フォームは features/editor。EditorHost が開く）
-//   スキャン登録・設定 … useScreenStore（画面の切り替えは App.tsx）
+//   スキャン登録・設定 … useScreenStore（画面の切り替えは App.tsx。⌘N・⇧⌘N・⌘, のショートカットも App が受ける）
 //   検索欄の ISBN（FR-SCAN-09）・メイン画面でのスキャン（FR-SCAN-10）… 登録済みなら選ぶ、未登録ならスキャン登録へ引き渡す
-//   一括変更・再取得・書き出し・ゴミ箱 … useLibraryActions
+//   一括変更・再取得・書き出し（選んだ本・表示中の絞り込み結果）・ゴミ箱 … useLibraryActions
+import { DownloadIcon } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { StatusBar } from "@/components/layout/StatusBar";
 import { TopBar } from "@/components/layout/TopBar";
+import { Button } from "@/components/ui/button";
 import { DetailPane } from "@/features/detail/DetailPane";
 import { RefetchDialog } from "@/features/detail/RefetchDialog";
 import { IsbnRegisterDialog } from "@/features/layout/IsbnRegisterDialog";
@@ -52,6 +54,7 @@ export function MainScreen() {
   const sidebarOpen = useLayoutStore((s) => s.sidebarOpen);
   const detailOpen = useLayoutStore((s) => s.detailOpen);
   const toggleDetail = useLayoutStore((s) => s.toggleDetail);
+  const setDetailOpen = useLayoutStore((s) => s.setDetailOpen);
   const selected = useSelectionStore((s) => s.selected);
   const focus = useSelectionStore((s) => s.focus);
 
@@ -146,26 +149,22 @@ export function MainScreen() {
       }
       // 検索語は消し、全冊（ゴミ箱の本ならゴミ箱）から選ぶ。検索結果が届くのを待たずに選べる
       useViewStore.getState().setSearchText("");
-      useSelectionStore.setState({
-        selected: new Set([result.id]),
-        anchor: result.id,
-        focus: result.id,
-      });
+      useSelectionStore.getState().reveal(result.id);
+      // 選んだ本の詳細が見えるよう、詳細ペインが閉じていれば開く（FR-SCAN-09）
+      setDetailOpen(true);
     },
-    [books.data],
+    [books.data, setDetailOpen],
   );
 
-  useShortcuts(
-    modalOpen
-      ? {}
-      : {
-          newBook: () => openNew(),
-          scanRegister: () => showScan(),
-          focusSearch,
-          toggleDetail,
-          openSettings: () => showSettings(),
-        },
-  );
+  // 表示中の絞り込み結果（今、一覧に出ている本すべて）を CSV に書き出す（FR-IO-01）
+  const shownCount = view.rows.length;
+  const exportShown = useCallback(() => {
+    void actions.exportCsv(view.rows.map((row) => row.id));
+  }, [actions, view.rows]);
+
+  // ⌘F（検索欄）と ⌘I（詳細ペイン）は、メイン画面だけで効く。⌘N・⇧⌘N・⌘, は、どの画面でも効くので App が受ける
+  // （features/shortcuts/useGlobalShortcuts.ts）
+  useShortcuts(modalOpen ? {} : { focusSearch, toggleDetail });
 
   // メイン画面でバーコードリーダーの入力を拾い、スキャン登録に引き渡す（FR-SCAN-10）
   useScanCapture({
@@ -205,7 +204,11 @@ export function MainScreen() {
         )}
 
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className="flex h-8 shrink-0 items-center justify-end border-b px-2">
+          <div className="flex h-8 shrink-0 items-center justify-end gap-1 border-b px-2">
+            <Button variant="ghost" size="xs" disabled={shownCount === 0} onClick={exportShown}>
+              <DownloadIcon />
+              {ja.list.exportShown.label(shownCount)}
+            </Button>
             <ColumnPicker />
           </div>
           <BookTable

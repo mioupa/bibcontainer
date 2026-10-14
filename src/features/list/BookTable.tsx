@@ -4,7 +4,7 @@
 // - 行は絞り込み・並べ替え済みの ListRow[] をそのまま仮想スクロールに渡す。TanStack Table の行モデルは作らない
 //   （絞り込みのたびに 2 万行ぶんの行オブジェクトを作り直す無駄を避ける）。Table は列の定義・表示・幅・並べ替えの状態を受け持つ。
 // - 並べ替えは features/library/sort.ts の純粋関数。Table には manualSorting を指定し、Shift+クリックの複数列の操作だけを使う。
-// - 列の状態（並べ替え・表示・幅）は Zustand（stores/tableStore.ts）が持ち、Table に controlled で渡す。
+// - 列の状態（並べ替え・表示・並び順・幅）は Zustand（stores/tableStore.ts）が持ち、Table に controlled で渡す。
 // - 行の選択は stores/selectionStore.ts。キーボードの操作（矢印・Shift・Home/End・PageUp/Down・⌘A・Enter・Delete）はこのファイルで受ける。
 import { useTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -34,7 +34,7 @@ import type { BulkChange } from "@/features/list/bulk";
 import { bookColumns, tableFeaturesDef } from "@/features/list/columns";
 import { Cell } from "@/features/list/cells";
 import { cellTitle, type CellContext } from "@/features/list/cellText";
-import { NUMERIC_COLUMN_IDS, type ColumnId } from "@/features/list/columnMeta";
+import { NUMERIC_COLUMN_IDS, resolveColumnOrder, type ColumnId } from "@/features/list/columnMeta";
 import { matchShortcut } from "@/features/shortcuts/shortcuts";
 import { ja } from "@/i18n/ja";
 import { detectPlatform } from "@/lib/platform";
@@ -117,13 +117,18 @@ export function BookTable({
 }: BookTableProps) {
   const sorting = useTableStore((s) => s.sorting);
   const columnVisibility = useTableStore((s) => s.columnVisibility);
+  const savedColumnOrder = useTableStore((s) => s.columnOrder);
   const columnSizing = useTableStore((s) => s.columnSizing);
   const setSorting = useTableStore((s) => s.setSorting);
   const setColumnVisibility = useTableStore((s) => s.setColumnVisibility);
+  const setColumnOrder = useTableStore((s) => s.setColumnOrder);
   const setColumnSizing = useTableStore((s) => s.setColumnSizing);
+  // 保存された並び順（空なら既定の順。載っていない列は末尾）を、全列の並びにして Table に渡す
+  const columnOrder = useMemo(() => resolveColumnOrder(savedColumnOrder), [savedColumnOrder]);
 
   const selected = useSelectionStore((s) => s.selected);
   const focus = useSelectionStore((s) => s.focus);
+  const revealTick = useSelectionStore((s) => s.revealTick);
   const click = useSelectionStore((s) => s.click);
   const move = useSelectionStore((s) => s.move);
   const selectAll = useSelectionStore((s) => s.selectAll);
@@ -135,9 +140,10 @@ export function BookTable({
     columns: bookColumns,
     data: rows,
     getRowId: (row) => row.id,
-    state: { sorting, columnVisibility, columnSizing },
+    state: { sorting, columnVisibility, columnOrder, columnSizing },
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnOrderChange: setColumnOrder,
     onColumnSizingChange: setColumnSizing,
     manualSorting: true,
     enableMultiSort: true,
@@ -186,15 +192,26 @@ export function BookTable({
     if (index !== undefined) virtualizer.scrollToIndex(index, { align: "auto" });
   };
 
-  // 検索欄の ISBN などで、ほかの場所から選んだ本が見えるよう、focus した行までスクロールする
-  // （見えている行なら動かない）
+  // focus した行（検索欄の ISBN など、ほかの場所から選んだ本を含む）が見えるよう、その行までスクロールする
+  // （見えている行なら動かない）。動かすのは、focus が変わったとき（と、`reveal` で選び直したとき）だけ。
+  // 行が差し替わっただけ（`library-changed` で行が更新されたときなど）では動かさない。動かすと、
+  // ユーザーがスクロールした位置から、選択行へ引き戻してしまう。
+  // 絞り込みの更新より先に focus が変わることがあるので、その行がまだ並びにない間は「スクロール待ち」にして、
+  // 並びに現れたときに 1 度だけ動く。
+  const scrollPending = useRef<string | null>(null);
   useEffect(() => {
-    if (focus === null) return;
-    const index = indexById.get(focus);
-    if (index !== undefined) virtualizer.scrollToIndex(index, { align: "auto" });
-    // virtualizer は毎回同じ参照ではないので、focus と並びが変わったときだけ動かす
+    scrollPending.current = focus;
+  }, [focus, revealTick]);
+  useEffect(() => {
+    const target = scrollPending.current;
+    if (target === null) return;
+    const index = indexById.get(target);
+    if (index === undefined) return;
+    scrollPending.current = null;
+    virtualizer.scrollToIndex(index, { align: "auto" });
+    // virtualizer は毎回同じ参照ではないので、focus・reveal・並びが変わったときだけ動かす
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focus, indexById]);
+  }, [focus, revealTick, indexById]);
 
   const pageSize = () =>
     Math.max(

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_FILTER } from "@/features/library/filter";
+import { COLUMN_IDS } from "@/features/list/columnMeta";
+import { STORAGE_KEYS } from "@/lib/persist";
 import { DEFAULT_SCAN_SETTINGS, DEFAULT_SOUND_SETTINGS } from "@/features/scan/config";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { useSelectionStore } from "@/stores/selectionStore";
@@ -155,12 +157,68 @@ describe("tableStore", () => {
   });
 
   it("既定に戻せる", () => {
-    const { setSorting, setColumnSizing, resetColumns } = useTableStore.getState();
+    const { setSorting, setColumnSizing, moveColumn, resetColumns } = useTableStore.getState();
     setSorting([{ id: "rating", desc: true }]);
     setColumnSizing({ title: 500 });
+    moveColumn("publisher", "up");
     resetColumns();
     expect(useTableStore.getState().sorting).toEqual([{ id: "title", desc: false }]);
     expect(useTableStore.getState().columnSizing).toEqual({});
+    expect(useTableStore.getState().columnOrder).toEqual([]);
+  });
+
+  it("列の並び順は、既定では空（既定の順）。1 つ上・下へ動かすと、全列の並びを持つ（FR-LIST-01）", () => {
+    expect(useTableStore.getState().columnOrder).toEqual([]);
+    useTableStore.getState().moveColumn("authors", "up");
+    const order = useTableStore.getState().columnOrder;
+    expect(order).toHaveLength(COLUMN_IDS.length);
+    expect(order.slice(0, 4)).toEqual(["cover", "title", "authors", "volume"]);
+    useTableStore.getState().moveColumn("authors", "down");
+    expect(useTableStore.getState().columnOrder.slice(0, 4)).toEqual([
+      "cover",
+      "title",
+      "volume",
+      "authors",
+    ]);
+    // 端の列を端の外へは動かせない
+    useTableStore.getState().moveColumn("cover", "up");
+    expect(useTableStore.getState().columnOrder[0]).toBe("cover");
+  });
+
+  it("並び順は更新関数でも変えられる。知らない列と重複は取り除く", () => {
+    useTableStore.getState().setColumnOrder(["rating", "bogus", "title", "rating"]);
+    expect(useTableStore.getState().columnOrder).toEqual(["rating", "title"]);
+    useTableStore.getState().setColumnOrder((old) => [...old, "cover"]);
+    expect(useTableStore.getState().columnOrder).toEqual(["rating", "title", "cover"]);
+  });
+
+  it("並び順を保存し、読み込み直しても保たれる（端末ごと）。壊れた並び順は捨てる", async () => {
+    useTableStore.getState().moveColumn("rating", "up");
+    const raw = localStorage.getItem(STORAGE_KEYS.table) ?? "null";
+    const saved = JSON.parse(raw) as { state: { columnOrder: string[] } };
+    expect(saved.state.columnOrder.indexOf("rating")).toBe(COLUMN_IDS.indexOf("rating") - 1);
+
+    // 画面の状態を捨てて（これも保存し直されるので）、保存済みの内容を戻してから読み込み直す
+    useTableStore.setState({ columnOrder: [] });
+    localStorage.setItem(STORAGE_KEYS.table, raw);
+    await useTableStore.persist.rehydrate();
+    expect(useTableStore.getState().columnOrder.indexOf("rating")).toBe(
+      COLUMN_IDS.indexOf("rating") - 1,
+    );
+
+    localStorage.setItem(
+      STORAGE_KEYS.table,
+      JSON.stringify({ state: { columnOrder: ["title", 7, "bogus", "title"] }, version: 1 }),
+    );
+    await useTableStore.persist.rehydrate();
+    expect(useTableStore.getState().columnOrder).toEqual(["title"]);
+
+    localStorage.setItem(
+      STORAGE_KEYS.table,
+      JSON.stringify({ state: { columnOrder: "title" }, version: 1 }),
+    );
+    await useTableStore.persist.rehydrate();
+    expect(useTableStore.getState().columnOrder).toEqual([]);
   });
 });
 

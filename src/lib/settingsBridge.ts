@@ -4,7 +4,7 @@
 // Rust の `local_settings`（型付きのセクション）にする（src/lib/persist.ts）。ストアとセクションの対応は次のとおり。
 //
 //   bibcontainer.settings … display（テーマ・フォント・文字サイズ）と scan（スキャン入力・通知音）
-//   bibcontainer.table    … list（並べ替え・列の表示と幅）
+//   bibcontainer.table    … list（並べ替え・列の表示・並び順・幅）
 //   bibcontainer.layout   … list（サイドバーと詳細ペインの開閉）
 //
 // `list` は table と layout の 2 つのストアが分け合うので、書くときは、もう一方の項目を残して重ねる。
@@ -125,6 +125,7 @@ export function sectionsFromSettings(
 export interface TablePersisted {
   sorting: ListSettings["sorting"];
   columnVisibility: ListSettings["columnVisibility"];
+  columnOrder: ListSettings["columnOrder"];
   columnSizing: ListSettings["columnSizing"];
 }
 
@@ -137,6 +138,7 @@ export function tableFromList(list: ListSettings): TablePersisted {
   return {
     sorting: list.sorting,
     columnVisibility: list.columnVisibility,
+    columnOrder: list.columnOrder,
     columnSizing: list.columnSizing,
   };
 }
@@ -145,7 +147,7 @@ export function layoutFromList(list: ListSettings): LayoutPersisted {
   return { sidebarOpen: list.sidebarOpen, detailOpen: list.detailOpen };
 }
 
-/** table ストアの保存内容を、list セクションに重ねる（layout の項目と、列の並び順は残す）。 */
+/** table ストアの保存内容を、list セクションに重ねる（layout の項目は残す）。 */
 export function listWithTable(list: ListSettings, state: unknown): ListSettings {
   const saved = record(state);
   return {
@@ -154,6 +156,9 @@ export function listWithTable(list: ListSettings, state: unknown): ListSettings 
       ? (saved.sorting as ListSettings["sorting"])
       : list.sorting,
     columnVisibility: record(saved.columnVisibility) as ListSettings["columnVisibility"],
+    columnOrder: Array.isArray(saved.columnOrder)
+      ? saved.columnOrder.filter((id): id is string => typeof id === "string")
+      : list.columnOrder,
     columnSizing: record(saved.columnSizing) as ListSettings["columnSizing"],
   };
 }

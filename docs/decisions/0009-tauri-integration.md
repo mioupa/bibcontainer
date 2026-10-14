@@ -99,7 +99,7 @@
 | `backup` | `directory`: 空（既定の場所）、`dailyKeep`: 7（1〜365）、`weeklyKeep`: 4（1〜52） |
 
 - `backup.directory` の扱い: 保存時に空を渡すと既定の場所（`app_local_data_dir/backups`）に戻る。既定の場所と同じパスを渡したときも空として保存する。読んだときは、既定でも実際の絶対パスを入れて返す（画面に出せるように）。相対パスは保存できない（`validation`）。読むときに相対パスなら、既定の場所に戻す。
-- `list` は、フロントの `tableStore`（並べ替え・列の表示と幅）と `layoutStore`（サイドバー・詳細ペインの開閉）が分け合う。`columnOrder` はまだ画面にない（そのまま残す）。
+- `list` は、フロントの `tableStore`（並べ替え・列の表示と幅）と `layoutStore`（サイドバー・詳細ペインの開閉）が分け合う。`columnOrder` は `tableStore` が持つ（「列」メニューと設定の「表示」の矢印で並べ替える）。
 
 ### 6. 日次バックアップ（FR-IO-05、0005 §9）
 
@@ -144,7 +144,7 @@
 
 - zustand の persist は、キー名ごとに `{ state, version }` を保存する。Tauri の中では、その保存先をセクションに変える（`lib/settingsBridge.ts` が変換、`lib/persist.ts` が IPC）。対応は次のとおり。
   - `bibcontainer.settings`（テーマ・フォント・文字サイズ・スキャン・通知音）… `display` と `scan`
-  - `bibcontainer.table`（並べ替え・列の表示と幅）と `bibcontainer.layout`（サイドバー・詳細ペインの開閉）… `list`（もう一方の項目と列の並び順を残して重ねる）
+  - `bibcontainer.table`（並べ替え・列の表示と幅）と `bibcontainer.layout`（サイドバー・詳細ペインの開閉）… `list`（もう一方の項目を残して重ねる。並び順は table の項目）
 - 書き込みは「最新の値だけ」にまとめる（書いている最中に来た値は、最新だけを次に書く）。スライダーなど、短い間隔で何度も変わる設定で、IPC と DB への書き込みを溜めないため。
 - 読み込みは非同期なので、`main.tsx` は、Tauri の中ではストアの読み込み（最大 1 秒）を待ってから描く（ライトの画面が一瞬見えるのを避ける）。読み込めなかったとき（DB を開けないなど）は、既定の設定で進み、書き込みはしない。
 - 通知音の設定は、種類ごとの有効・音量と、全体のミュートに変えた（`SoundSettings = { muted, kinds }`）。再生器（`sound.ts`）は、1 回ぶんの `{ volume, muted }` を受け取るままで、`playSound` が `effectiveSound` で求める。設定ダイアログ（暫定）の音量は、3 種類をそろえて変える。種類ごとの画面は、設定画面の段階で作る。

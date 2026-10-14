@@ -83,6 +83,8 @@ impl HttpResponse {
 pub enum TransportError {
     #[error("タイムアウトしました")]
     Timeout,
+    /// 接続そのものが確立できなかった（DNS の解決失敗・接続拒否・到達不能など。reqwest の `is_connect()`）。
+    /// オフラインのときに起きる。待っても回復しないので、リトライしない（`is_retryable`）。
     #[error("接続できません: {0}")]
     Connect(String),
     #[error("応答の受信に失敗しました: {0}")]
@@ -95,8 +97,15 @@ pub enum TransportError {
 
 impl TransportError {
     /// リトライする価値があるか。
+    ///
+    /// 接続が確立できないエラー（`Connect`）は、オフラインのときに起き、すぐに分かる。やり直しても
+    /// 7 秒（1 + 2 + 4 秒）待つだけなので、リトライせず、すぐ通信エラーとして返す（AT-11、FR-SCAN-16）。
+    /// タイムアウト・応答の受信の失敗は、通信路が一時的に不安定なだけのことがあるので、リトライする。
     pub fn is_retryable(&self) -> bool {
-        !matches!(self, TransportError::TooLarge(_))
+        !matches!(
+            self,
+            TransportError::TooLarge(_) | TransportError::Connect(_)
+        )
     }
 }
 
@@ -158,6 +167,7 @@ fn describe_error(e: reqwest::Error) -> String {
 }
 
 fn classify(e: reqwest::Error, in_body: bool) -> TransportError {
+    // 接続のタイムアウトは `is_connect()` でもあるが、先に見る `is_timeout()` で `Timeout`（リトライする）にする
     if e.is_timeout() {
         TransportError::Timeout
     } else if e.is_connect() {
@@ -261,6 +271,15 @@ mod tests {
             mask_secrets("error sending request for url (https://x/?q=1&key=SECRET)"),
             "error sending request for url (https://x/?q=1&key=***)"
         );
+    }
+
+    #[test]
+    fn only_connection_failures_and_oversized_bodies_are_not_retried() {
+        assert!(!TransportError::Connect("dns error".into()).is_retryable());
+        assert!(!TransportError::TooLarge(10).is_retryable());
+        assert!(TransportError::Timeout.is_retryable());
+        assert!(TransportError::Body("reset".into()).is_retryable());
+        assert!(TransportError::Other("x".into()).is_retryable());
     }
 
     #[test]

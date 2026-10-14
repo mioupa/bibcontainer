@@ -102,6 +102,13 @@ export function DetailPane({
               label={ja.detail.fields.listPrice}
               value={formatListPrice(row.listPrice, price) || null}
             />
+            {/* 参考税込価格（楽天など）は一覧の行にないので、詳細が届いたら出す */}
+            {extra && (
+              <Field
+                label={ja.detail.fields.refPriceIncl}
+                value={formatYen(extra.refPriceIncl) || null}
+              />
+            )}
             <Field
               label={ja.detail.fields.pages}
               value={row.pages === null ? null : formatInteger(row.pages)}

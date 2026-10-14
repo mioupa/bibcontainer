@@ -103,6 +103,7 @@ describe("設定の保存先（Tauri の中: Rust の local_settings）", () => 
     await write(STORAGE_KEYS.table, {
       sorting: [{ id: "authors", desc: true }],
       columnVisibility: { tags: true },
+      columnOrder: ["authors", "title"],
       columnSizing: { title: 480 },
     });
     await write(STORAGE_KEYS.layout, { sidebarOpen: false, detailOpen: true });
@@ -114,6 +115,7 @@ describe("設定の保存先（Tauri の中: Rust の local_settings）", () => 
       ...list,
       sorting: [{ id: "authors", desc: true }],
       columnVisibility: { tags: true },
+      columnOrder: ["authors", "title"],
       columnSizing: { title: 480 },
       sidebarOpen: false,
     });

@@ -20,8 +20,8 @@ import { ja } from "@/i18n/ja";
 /** 処理が使う操作。画面（フック）が本物をつなぎ、テストは偽物を渡す。 */
 export interface FlowDeps {
   findByIsbn: (isbn13: string) => Promise<IsbnMatch[]>;
-  /** 書誌取得を始める（進行中・取得済みならそのまま）。 */
-  startLookup: (isbn13: string, options?: { serial?: boolean }) => void;
+  /** 書誌取得を始める（進行中・取得済みならそのまま。`reuseKnown` なら、失敗・オフラインの結果も取り直さない）。 */
+  startLookup: (isbn13: string, options?: { serial?: boolean; reuseKnown?: boolean }) => void;
   /** 書誌取得の完了を待つ。 */
   awaitLookup: (isbn13: string) => Promise<LookupOutcome>;
   /** 新しい本の登録フォームを開き、閉じるまで待つ。 */
@@ -146,7 +146,14 @@ export async function processConfirmed(
 
   // 一覧に足す。取得は、行を足す前に始める（画面が、取得を始めていない行を見つけて、順番を待たない取得を始めないように）
   const inBatch = deps.hasRow(book.isbn13);
-  if (!inBatch) deps.startLookup(book.isbn13, { serial: options.serialLookup });
+  // 読んだときに始めた取得の結果は、オフラインでも取り直さない（取り直すのは、次に読んだとき）。
+  // ISBN 一覧の取り込みは、読んだときの取得がないので、取り直す
+  if (!inBatch) {
+    deps.startLookup(book.isbn13, {
+      serial: options.serialLookup,
+      reuseKnown: !options.serialLookup,
+    });
+  }
   deps.addRow(book, inBatch ? { kind: "inBatch" } : null);
   if (inBatch) {
     sound("attention");

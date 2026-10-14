@@ -10,6 +10,7 @@ import type { ProviderStatus } from "@/bindings/ProviderStatus";
 import { DEFAULT_SCAN_SETTINGS, DEFAULT_SOUND_SETTINGS } from "@/features/scan/config";
 import { SettingsScreen } from "@/features/settings/SettingsScreen";
 import { ja } from "@/i18n/ja";
+import { useModalStore } from "@/lib/useModalGuard";
 import { useScreenStore } from "@/stores/screenStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTableStore } from "@/stores/tableStore";
@@ -592,6 +593,20 @@ describe("表示（FR-CONF-04）", () => {
   });
 });
 
+describe("表示: 一覧の列の並び順（FR-LIST-01）", () => {
+  it("矢印で並び順を変えられる（メイン画面の列と同じ設定）。既定に戻すと並び順も戻る", () => {
+    useTableStore.getState().resetColumns();
+    renderSettings("display");
+    fireEvent.click(
+      screen.getByRole("button", { name: ja.list.columnPicker.moveDown(ja.list.columns.cover) }),
+    );
+    expect(useTableStore.getState().columnOrder.slice(0, 3)).toEqual(["title", "cover", "volume"]);
+
+    fireEvent.click(screen.getByRole("button", { name: ja.settings.display.columns.reset }));
+    expect(useTableStore.getState().columnOrder).toEqual([]);
+  });
+});
+
 describe("価格（FR-CONF-05）", () => {
   it("税込の併記と税率を保存する", async () => {
     renderSettings("price");
@@ -722,18 +737,21 @@ describe("バックアップ（FR-CONF-06、FR-IO-05）", () => {
     );
   });
 
-  it("復元の確認でキャンセルしたら、何もしない", async () => {
+  it("復元の確認でキャンセルしたら、何もしない。確認を出している間は、画面全体のショートカットを止める（9.5）", async () => {
     renderSettings("backup");
+    expect(useModalStore.getState().count).toBe(0);
     fireEvent.click(
       await screen.findByRole("button", {
         name: ja.settings.backup.list.restoreOf("daily-20261014.sqlite3"),
       }),
     );
     const dialog = await screen.findByRole("dialog");
+    expect(useModalStore.getState().count).toBe(1);
     fireEvent.click(
       within(dialog).getByRole("button", { name: ja.settings.backup.restore.cancel }),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(useModalStore.getState().count).toBe(0);
     expect(calls("restore_backup")).toHaveLength(0);
   });
 

@@ -8,7 +8,9 @@ use std::time::Duration;
 
 use bibcontainer_metadata::cover::{CoverDownload, download_cover, import_cover_url};
 use bibcontainer_metadata::error::{CoverError, FetchError};
-use bibcontainer_metadata::http::{DEFAULT_TIMEOUT, HttpRequest, user_agent};
+use bibcontainer_metadata::http::{
+    DEFAULT_TIMEOUT, HttpClient, HttpRequest, TransportError, user_agent,
+};
 use bibcontainer_metadata::provider::Provider;
 use bibcontainer_metadata::providers::{GoogleBooks, Ndl, OpenBd};
 use bibcontainer_metadata::service::{FetchRequest, MetadataService, ProviderOutcome};
@@ -181,6 +183,33 @@ async fn rejects_responses_over_the_size_limit() {
         server.received_requests().await.unwrap().len(),
         1,
         "大きすぎるのはリトライしない"
+    );
+}
+
+/// 本物の接続エラー（閉じているポートへの接続拒否）は、`Connect` になり、リトライせずにすぐ返る。
+/// 既定のリトライ（1 + 2 + 4 秒）が効いていれば 7 秒かかるので、1 秒未満で終わることで確かめる。
+#[tokio::test]
+async fn refused_connections_fail_at_once_without_retries() {
+    // 空いているポートを借りてすぐ閉じる（そのポートへの接続は拒否される）
+    let port = {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.local_addr().unwrap().port()
+    };
+    let url = format!("http://127.0.0.1:{port}/x");
+
+    let client = ReqwestClient::new(UA).unwrap();
+    let err = client.get(HttpRequest::get(url.clone())).await.unwrap_err();
+    assert!(matches!(err, TransportError::Connect(_)), "{err:?}");
+    assert!(!err.is_retryable());
+
+    let t = Transport::new(Arc::new(client)); // 既定のリトライ（最大 3 回、1 秒から）
+    let start = std::time::Instant::now();
+    let err = t.get(&limit(), HttpRequest::get(url)).await.unwrap_err();
+    assert!(matches!(err, FetchError::Network(_)), "{err:?}");
+    assert!(
+        start.elapsed() < Duration::from_secs(1),
+        "リトライを待たずに返る: {:?}",
+        start.elapsed()
     );
 }
 
