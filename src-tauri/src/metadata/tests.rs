@@ -5,10 +5,12 @@ use std::time::{Duration, Instant};
 
 use bibcontainer_core::library::{FieldChange, Origin, UpdateOptions};
 use bibcontainer_metadata::cover::cover_path;
+use bibcontainer_metadata::http::{HttpResponse, TransportError};
 use bibcontainer_metadata::{MetaGroup, MetaSecondTier, MetaSource, ProviderId, ProviderOutcome};
 use serde_json::json;
 
 use super::draft::{DraftSeries, MetaStatus};
+use super::providers::{ProviderTestVerdict, test_isbns};
 use super::refetch::{RefetchOutcome, RefetchSummary};
 use super::register::NewBookDraft;
 use super::testing::*;
@@ -820,7 +822,9 @@ fn test_provider_fetches_a_known_isbn_without_the_cache_even_if_the_provider_is_
         .unwrap();
     assert_eq!(found.provider, ProviderId::Openbd);
     assert_eq!(found.isbn13, "9784780802047");
+    assert_eq!(found.tried, vec!["9784780802047"], "取れたら、そこで止める");
     assert_eq!(found.outcome, ProviderOutcome::Found);
+    assert_eq!(found.verdict, ProviderTestVerdict::Found);
     assert_eq!(found.title.as_deref(), Some("おにぎりレシピ101"));
     assert_eq!(found.c_code.as_deref(), Some("0077"));
     assert!(found.has_cover);
@@ -851,6 +855,12 @@ fn test_provider_fetches_a_known_isbn_without_the_cache_even_if_the_provider_is_
         .block(rig.state.test_provider(ProviderId::Google))
         .unwrap();
     assert_eq!(google.outcome, ProviderOutcome::Found);
+    assert_eq!(google.verdict, ProviderTestVerdict::Found);
+    assert_eq!(
+        google.isbn13, KOKORO,
+        "Google は、和書の定番（こころ）から試す"
+    );
+    assert_eq!(google.title.as_deref(), Some("こころ"));
 
     // つながらないときは、エラーではなく結果として返す
     rig.http.set_offline();
@@ -858,7 +868,197 @@ fn test_provider_fetches_a_known_isbn_without_the_cache_even_if_the_provider_is_
         .block(rig.state.test_provider(ProviderId::Openbd))
         .unwrap();
     assert!(matches!(down.outcome, ProviderOutcome::NetworkError { .. }));
+    assert_eq!(down.verdict, ProviderTestVerdict::NetworkError);
     assert_eq!(down.title, None);
+    assert_eq!(down.tried.len(), 1, "通信できなければ、次の本は試さない");
+}
+
+#[test]
+fn test_isbns_are_valid_distinct_and_at_most_three_per_provider() {
+    use bibcontainer_metadata::isbn::to_isbn13;
+    for id in [ProviderId::Openbd, ProviderId::Ndl, ProviderId::Google] {
+        let isbns = test_isbns(id);
+        assert!((1..=3).contains(&isbns.len()), "{id:?}");
+        for isbn in isbns {
+            assert_eq!(
+                to_isbn13(isbn).as_deref(),
+                Some(*isbn),
+                "{id:?}: {isbn} はチェックデジットが正しい ISBN-13"
+            );
+        }
+        let mut sorted = isbns.to_vec();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(sorted.len(), isbns.len(), "{id:?}: 重複がない");
+    }
+    // Google は、和書と洋書の両方を試す（978-4 は日本の ISBN）
+    let google = test_isbns(ProviderId::Google);
+    assert!(google.iter().any(|i| i.starts_with("9784")));
+    assert!(google.iter().any(|i| !i.starts_with("9784")));
+    // openBD・NDL は和書だけの取得元なので、和書だけ
+    for id in [ProviderId::Openbd, ProviderId::Ndl] {
+        assert!(test_isbns(id).iter().all(|i| i.starts_with("9784")));
+    }
+}
+
+/// Google を、決めた応答で動かす（キーは入れる）。ほかの取得元は、ふだんのフィクスチャのまま。
+fn rig_with_google(
+    google: impl Fn(&str) -> Result<HttpResponse, TransportError> + Send + Sync + 'static,
+) -> Rig {
+    let rig = Rig::new();
+    rig.block(rig.state.set_api_key(ProviderId::Google, "AIza-key"))
+        .unwrap();
+    let base = online_handler();
+    rig.http.set_handler(Box::new(move |url| {
+        if url.contains("googleapis.com") {
+            google(url)
+        } else {
+            base(url)
+        }
+    }));
+    rig
+}
+
+/// ISBN に合う 1 冊だけを返す Google の応答（`industryIdentifiers` が合わないと該当なしになる）。
+fn google_body_for(isbn: &str, title: &str) -> String {
+    json!({
+        "kind": "books#volumes",
+        "totalItems": 1,
+        "items": [{
+            "volumeInfo": {
+                "title": title,
+                "industryIdentifiers": [{ "type": "ISBN_13", "identifier": isbn }],
+            }
+        }]
+    })
+    .to_string()
+}
+
+fn google_json(status: u16, body: impl Into<String>) -> Result<HttpResponse, TransportError> {
+    response(
+        status,
+        "application/json; charset=UTF-8",
+        body.into().into_bytes(),
+    )
+}
+
+#[test]
+fn test_provider_tries_the_next_book_when_one_is_not_found() {
+    // 1 冊目（こころ）は Google にない。2 冊目（吾輩は猫である）で取れる
+    let isbns = test_isbns(ProviderId::Google);
+    let second = isbns[1];
+    let rig = rig_with_google(move |url| {
+        if url.contains(&format!("isbn:{second}")) {
+            google_json(200, google_body_for(second, "吾輩は猫である"))
+        } else {
+            google_json(200, fixture("google_synthetic_notfound.json"))
+        }
+    });
+    let r = rig
+        .block(rig.state.test_provider(ProviderId::Google))
+        .unwrap();
+    assert_eq!(r.verdict, ProviderTestVerdict::Found);
+    assert_eq!(r.isbn13, second);
+    assert_eq!(r.tried, vec![isbns[0], isbns[1]]);
+    assert_eq!(r.title.as_deref(), Some("吾輩は猫である"));
+    assert_eq!(
+        rig.http.count("googleapis.com"),
+        2,
+        "取れたら、そこで止める"
+    );
+}
+
+#[test]
+fn test_provider_reports_success_when_the_key_works_but_no_test_book_is_found() {
+    // 200 で、3 冊とも該当なし。通信できていて、キーも有効（無効なら 400・403）なので、失敗ではない
+    let rig = rig_with_google(|_| google_json(200, fixture("google_synthetic_notfound.json")));
+    let r = rig
+        .block(rig.state.test_provider(ProviderId::Google))
+        .unwrap();
+    assert_eq!(r.outcome, ProviderOutcome::NotFound);
+    assert_eq!(r.verdict, ProviderTestVerdict::NotFound);
+    assert_eq!(r.tried, test_isbns(ProviderId::Google));
+    assert_eq!(r.isbn13, *test_isbns(ProviderId::Google).last().unwrap());
+    assert_eq!(r.title, None);
+    assert!(!r.has_cover);
+    assert_eq!(rig.http.count("googleapis.com"), 3, "最大 3 件で止める");
+}
+
+#[test]
+fn test_provider_tells_an_invalid_key_from_a_quota_problem() {
+    let zero = fixture("google_quota_exceeded.json");
+    let daily = zero.replace(
+        "\"quota_limit_value\": \"0\"",
+        "\"quota_limit_value\": \"1000\"",
+    );
+    let invalid_key = r#"{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID"}]}}"#;
+    let disabled = r#"{"error":{"code":403,"message":"Books API has not been used in project 123 before or it is disabled.","status":"PERMISSION_DENIED"}}"#;
+    let unauthenticated = r#"{"error":{"code":401,"message":"Request had invalid authentication credentials.","status":"UNAUTHENTICATED"}}"#;
+    let teapot = r#"{"error":{"code":418,"message":"I am a teapot"}}"#;
+
+    let cases: Vec<(u16, String, ProviderTestVerdict)> = vec![
+        (400, invalid_key.to_owned(), ProviderTestVerdict::InvalidKey),
+        (403, disabled.to_owned(), ProviderTestVerdict::InvalidKey),
+        (
+            401,
+            unauthenticated.to_owned(),
+            ProviderTestVerdict::InvalidKey,
+        ),
+        (429, daily, ProviderTestVerdict::QuotaExceeded),
+        (429, zero, ProviderTestVerdict::QuotaZero),
+        (418, teapot.to_owned(), ProviderTestVerdict::HttpError),
+    ];
+    for (status, body, expected) in cases {
+        let rig = rig_with_google(move |_| google_json(status, body.clone()));
+        let r = rig
+            .block(rig.state.test_provider(ProviderId::Google))
+            .unwrap();
+        assert_eq!(r.verdict, expected, "{status}");
+        assert!(
+            matches!(&r.outcome, ProviderOutcome::HttpError { status: s, .. } if *s == status),
+            "{status}: {:?}",
+            r.outcome
+        );
+        assert_eq!(r.title, None);
+        assert_eq!(
+            rig.http.count("googleapis.com"),
+            1,
+            "{status}: エラーなら、次の本は試さない"
+        );
+    }
+}
+
+#[test]
+fn test_provider_gives_the_http_status_as_is_for_providers_without_a_key() {
+    // 401・403 を「API キーが無効」と読むのは、キーを使う取得元（Google）だけ
+    let rig = Rig::new();
+    rig.http.set_handler(Box::new(|_| {
+        response(403, "text/plain", b"forbidden".to_vec())
+    }));
+    let r = rig
+        .block(rig.state.test_provider(ProviderId::Openbd))
+        .unwrap();
+    assert!(matches!(
+        r.outcome,
+        ProviderOutcome::HttpError { status: 403, .. }
+    ));
+    assert_eq!(r.verdict, ProviderTestVerdict::HttpError);
+
+    // NDL: 該当なしが続けば、3 冊で止めて、通信とも成功として返す
+    rig.http.set_handler(Box::new(|url| {
+        if url.contains("ndlsearch") {
+            response(
+                200,
+                "text/xml;charset=UTF-8",
+                fixture("ndl_notfound.xml").into_bytes(),
+            )
+        } else {
+            response(404, "text/plain", Vec::new())
+        }
+    }));
+    let r = rig.block(rig.state.test_provider(ProviderId::Ndl)).unwrap();
+    assert_eq!(r.verdict, ProviderTestVerdict::NotFound);
+    assert_eq!(r.tried.len(), 3);
 }
 
 // ---------------------------------------------------------------------------

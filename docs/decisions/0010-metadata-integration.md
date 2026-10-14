@@ -154,7 +154,7 @@ type BookDraft = {
 ### 10. 取得元の一覧と接続テスト
 
 - `list_providers()` → `ProviderStatus[]`: 能力情報（`ProviderInfo`: 表示名・認証・取れる項目・レート制限・クレジット表記）と同じ階層に、`enabled`（設定）、`hasKey`、`active`（実際に使う）を足したもの。クレジット表記は FR-CONF-07 の「このアプリについて」にそのまま使う。
-- `test_provider(id)` → `ProviderTestResult { provider, isbn13, outcome, title, publisher, cCode, hasCover, elapsedMs }`: 既知の ISBN `9784780802047` を、キャッシュを使わずに取得する。無効にしている取得元でも試せる。認証が必須でキーがなければ `validation`。通信できないときは、エラーではなく `outcome`（`networkError` など）で返す。
+- `test_provider(id)` → `ProviderTestResult { provider, isbn13, tried, outcome, verdict, title, publisher, cCode, hasCover, elapsedMs }`: 取得元ごとの既知の ISBN（最大 3 件）を、キャッシュを使わずに順に取得する。無効にしている取得元でも試せる。認証が必須でキーがなければ `validation`。通信できないときは、エラーではなく `outcome`・`verdict`（`networkError` など）で返す。ISBN・結果の決め方・画面の文言は §15。
 
 ### 11. 書影の取り込み
 
@@ -207,6 +207,38 @@ type BookDraft = {
 **判定**（目標: 物理フットプリントの合計で 300MB 以下）: 改善前は、落ち着いた値では満たし、描画中の最大で超える（305〜323MB）。改善後は、最大でも 268〜283MB で、すべての時点で満たす。**前の担当が測った 422〜444MB は、この手順では再現しなかった**（WebContent は 295MB ではなく、落ち着いた値で 142〜165MB）。ウィンドウの大きさ、スクロールの速さ、画面がロックされていたかなど、測り方の違いとみられるが、特定できていない。2 倍の画面（Retina）、60Hz の画面での確認は、実機（`phase1.md` の C01）で行う。
 
 **書影の種類がもっと多いとき**: 5,000 冊のダミーは、書影のある本が 2,823 冊（書影の種類も 2,823）。種類がもっと多い蔵書では、表示した種類の数に応じて増えると考えられる（実測していない。2 万冊のダミーは書影が 500 種）。`no-store` は、その増え方も約半分にする見込み。
+
+### 15. 接続テストは取得元ごとの ISBN で、「通信とキーが有効か」を中心に伝える（2026-10-15 追記）
+
+**背景**: Google Books のキーを保存して接続テストを押すと、「接続できましたが、テスト用の本は見つかりませんでした」と出た。キーも通信も有効だったが、全取得元で同じ ISBN（AT-10 の `9784780802047`。openBD・NDL にはあるが、Google にはない）を使っていたため、失敗のように読めた。
+
+**決定**:
+
+1. **テスト用の ISBN を取得元ごとに最大 3 件持ち**（`providers::test_isbns`）、**見つかるまで順に試す**。「該当なし」なら次の本へ。取れたか、エラー（通信・HTTP・解析）になったら、そこで止める。レート制限は、ふだんの取得と同じ（`service.fetch`。Google は 1 秒に 1 件）。キャッシュは使わない。
+
+| 取得元 | ISBN（順） |
+|---|---|
+| openBD・NDL | `9784780802047` おにぎりレシピ101（AT-10）、`9784003101117` 岩波文庫『こころ』、`9784101001012` 新潮文庫『雪国』 |
+| Google Books | `9784003101117` 岩波文庫『こころ』、`9784101010014` 新潮文庫『吾輩は猫である』、`9780141439518` Penguin Classics『Pride and Prejudice』（洋書） |
+
+   どれも実在し、ISBN-13 のチェックデジットは正しい（テストで確かめる）。和書 4 冊（おにぎりレシピ・こころ・吾輩は猫である・雪国）は、実際の openBD で書誌が取れ、NDL サーチにも該当があることを確かめた（2026-10-15）。洋書は Open Library で確かめた。Google 自体は、キーなしで 429 のため、収録を確かめていない（定番の古典・文庫から選んで、確度を上げた）。
+
+2. **`ProviderTestResult` に `verdict`（`ProviderTestVerdict`）と `tried`（試した ISBN）を足した**。`outcome` は、取得元の応答そのまま（`httpError` のステータスとメッセージなど）で変えない。`verdict` は、そこから「利用者が知りたいこと」を決めたもの。`isbn13` は、結果を決めた本（取れた本、取れなければ最後に試した本）。`elapsedMs` は、試した全部の合計。
+
+| `verdict` | 条件 | 画面（色） |
+|---|---|---|
+| `found` | 書誌が取れた | 「接続できました（○○ を取得、N ミリ秒）」（成功） |
+| `notFound` | 200 で、試したどの本も見つからない | キーを使う取得元は「接続できました。API キーは有効です（テスト用の本はこの取得元に見つかりませんでした）」、使わない取得元は「API キーは有効です」を除く（成功） |
+| `invalidKey` | Google の 401・403、または 400 でキーが無効・期限切れ（`API_KEY_INVALID`） | 「API キーが無効か、Books API が有効になっていません」（失敗） |
+| `quotaExceeded` | Google の 429 で、1 日の上限（`Queries per day`、上限が 0 ではない） | 「1 日の利用上限に達しています」（注意） |
+| `quotaZero` | Google の 429 で、`quota_limit_value` が `"0"`（キーなし、または割り当てのないプロジェクト） | 「割り当てが 0 です（API キーが使われていないか…）」（失敗） |
+| `networkError` | 通信できない・タイムアウト | 「接続できませんでした（ネットワークを確認してください）」（失敗） |
+| `httpError`・`parseError` | 上のどれでもない | ステータスと理由をそのまま（失敗） |
+
+3. **Google の HTTP エラーの意味づけは `crates/metadata` の `providers::google::classify_failure`**（`GoogleFailure`）。`ProviderOutcome::HttpError` の形を変えないため、429 で上限が 0 のときは、`google_http_error` がメッセージの末尾に `ZERO_QUOTA_NOTE`（「（割り当ての上限は 0 です）」）を付け、`classify_failure` がそれを見る。openBD・NDL の HTTP エラーは意味づけせず、`httpError` のまま（401・403 を「キーが無効」と読むのは、キーを使う取得元だけ）。
+4. 画面の文言と色は `src/features/settings/testResult.ts`（`describeTestResult(result, usesKey)`）、文言は `src/i18n/ja/settings.ts`。結果は、キーを保存・削除したら消す（前のキーでの結果は当てはまらないため）。
+
+**注意**: キーが無効のとき Google は 401 ではなく **400（`INVALID_ARGUMENT`、reason `API_KEY_INVALID`）** を返す（Google の API の共通の挙動。検索で確認した）。そのため、400 でメッセージにキーの無効・期限切れが出るものも `invalidKey` にした。Books API が有効でないときは 403（`SERVICE_DISABLED`）。**400・403 の応答の本文は、Google の共通のエラーの形に合わせた合成（テストの fixture）で、実際のキーで返る応答は未確認。** 1 日の上限（上限が 0 でない 429）も、実際の応答は未確認で、キーなしで返った応答（`google_quota_exceeded.json`）の `quota_limit_value` を差し替えて確かめた。実機で、有効なキー・無効なキー・Books API を無効にしたキーで確かめる。
 
 ## 理由
 

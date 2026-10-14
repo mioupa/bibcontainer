@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownIcon, ArrowUpIcon, PlugZapIcon } from "lucide-react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
-import type { ProviderOutcome } from "@/bindings/ProviderOutcome";
 import type { ProviderSettings } from "@/bindings/ProviderSettings";
 import type { ProviderStatus } from "@/bindings/ProviderStatus";
 import type { ProviderTestResult } from "@/bindings/ProviderTestResult";
@@ -20,11 +19,18 @@ import {
   orderOf,
   withGroupOrder,
 } from "@/features/settings/priorities";
+import { type TestTone, describeTestResult } from "@/features/settings/testResult";
 import { ja } from "@/i18n/ja";
 import { errorMessage } from "@/lib/errors";
 import { ipc } from "@/lib/ipc";
 import { inTauri } from "@/lib/runtime";
 import { cn } from "@/lib/utils";
+
+const TONE_CLASS: Record<TestTone, string> = {
+  success: "text-success",
+  warning: "text-warning",
+  error: "text-destructive",
+};
 
 export function ProvidersSection() {
   const settings = useProviderSettings();
@@ -98,12 +104,15 @@ function ProviderCard({
   const keyRequired = provider.auth.kind === "required";
 
   const refresh = () => client.invalidateQueries({ queryKey: settingsKeys.providers });
+  const described = testResult === null ? null : describeTestResult(testResult, needsKey);
 
   const saveKey = useMutation({
     mutationFn: (key: string) => ipc.setApiKey(provider.id, key),
     onSuccess: async () => {
       // 入力欄は、保存したら空に戻す（キーを画面に残さない）
       setKeyText("");
+      // 前のキーでの接続テストの結果は、もう当てはまらない
+      setTestResult(null);
       toast.success(p.apiKey.savedToast);
       await refresh();
     },
@@ -113,6 +122,7 @@ function ProviderCard({
     mutationFn: () => ipc.deleteApiKey(provider.id),
     onSuccess: async () => {
       setKeyText("");
+      setTestResult(null);
       toast.success(p.apiKey.deletedToast);
       await refresh();
     },
@@ -200,34 +210,19 @@ function ProviderCard({
           <PlugZapIcon />
           {test.isPending ? p.test.running : p.test.button}
         </Button>
-        {testResult !== null && (
-          <p className="text-sm" role="status" data-testid={`test-result-${provider.id}`}>
-            {describeTest(testResult)}
+        {described !== null && (
+          <p
+            className={cn("text-sm", TONE_CLASS[described.tone])}
+            role="status"
+            data-testid={`test-result-${provider.id}`}
+            data-tone={described.tone}
+          >
+            {described.text}
           </p>
         )}
       </div>
     </Group>
   );
-}
-
-function describeOutcome(outcome: ProviderOutcome, result: ProviderTestResult): string {
-  const t = ja.settings.providers.test;
-  switch (outcome.kind) {
-    case "found":
-      return t.found(result.title, result.elapsedMs);
-    case "notFound":
-      return t.notFound(result.elapsedMs);
-    case "networkError":
-      return t.networkError(outcome.message);
-    case "httpError":
-      return t.httpError(outcome.status, outcome.message);
-    case "parseError":
-      return t.parseError(outcome.message);
-  }
-}
-
-function describeTest(result: ProviderTestResult): string {
-  return describeOutcome(result.outcome, result);
 }
 
 function PrioritiesGroup({

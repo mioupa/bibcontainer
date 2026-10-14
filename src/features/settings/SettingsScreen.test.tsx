@@ -7,6 +7,7 @@ import type { BackupInfo } from "@/bindings/BackupInfo";
 import type { MetaPriorities } from "@/bindings/MetaPriorities";
 import type { ProviderSettings } from "@/bindings/ProviderSettings";
 import type { ProviderStatus } from "@/bindings/ProviderStatus";
+import type { ProviderTestResult } from "@/bindings/ProviderTestResult";
 import { DEFAULT_SCAN_SETTINGS, DEFAULT_SOUND_SETTINGS } from "@/features/scan/config";
 import { SettingsScreen } from "@/features/settings/SettingsScreen";
 import { ja } from "@/i18n/ja";
@@ -78,6 +79,22 @@ function provider(overrides: Partial<ProviderStatus> & Pick<ProviderStatus, "id"
   };
 }
 
+function testResult(overrides: Partial<ProviderTestResult> = {}): ProviderTestResult {
+  return {
+    provider: "openbd",
+    isbn13: "9784780802047",
+    tried: ["9784780802047"],
+    outcome: { kind: "found" },
+    verdict: "found",
+    title: "おにぎりレシピ101",
+    publisher: "ポット出版",
+    cCode: "0077",
+    hasCover: true,
+    elapsedMs: 321,
+    ...overrides,
+  };
+}
+
 let providers: ProviderStatus[];
 let providerSettings: ProviderSettings;
 let backups: BackupInfo[];
@@ -144,16 +161,7 @@ function route(extra: Record<string, unknown> = {}) {
       );
       return null;
     },
-    test_provider: {
-      provider: "openbd",
-      isbn13: "9784780802047",
-      outcome: { kind: "found" },
-      title: "おにぎりレシピ101",
-      publisher: "ポット出版",
-      cCode: "0077",
-      hasCover: true,
-      elapsedMs: 321,
-    },
+    test_provider: testResult(),
     get_price_settings: { showTaxIncluded: false, taxRatePercent: 10 },
     set_price_settings: (args: { settings: unknown } | undefined) => args!.settings,
     get_backup_settings: { directory: "/data/backups", dailyKeep: 7, weeklyKeep: 4 },
@@ -376,33 +384,172 @@ describe("取得元（FR-CONF-02、FR-META-03）", () => {
 
     await waitFor(() => expect(calls("test_provider")).toHaveLength(1));
     expect(calls("test_provider")[0]![1]).toEqual({ id: "openbd" });
-    expect(await screen.findByTestId("test-result-openbd")).toHaveTextContent(
-      ja.settings.providers.test.found("おにぎりレシピ101", 321),
-    );
+    const result = await screen.findByTestId("test-result-openbd");
+    expect(result).toHaveTextContent("接続できました（おにぎりレシピ101 を取得、321 ミリ秒）");
+    expect(result).toHaveAttribute("data-tone", "success");
+    expect(result).toHaveClass("text-success");
   });
 
-  it("接続テストが通信エラーなら、その旨を出す", async () => {
-    route({
-      test_provider: {
-        provider: "ndl",
-        isbn13: "9784780802047",
-        outcome: { kind: "networkError", message: "接続できません" },
+  /** 取得元（0: openBD、1: NDL、2: Google）の接続テストを、`result` が返る状態で押す。 */
+  async function runTest(index: number, id: string, result: ProviderTestResult) {
+    route({ test_provider: result });
+    installInvoke();
+    renderSettings("providers");
+    const buttons = await screen.findAllByRole("button", {
+      name: ja.settings.providers.test.button,
+    });
+    fireEvent.click(buttons[index]!);
+    return screen.findByTestId(`test-result-${id}`);
+  }
+
+  it("接続テスト: 200 でテスト用の本がなかっただけなら、成功として出す（キーを使う取得元は「キーは有効」）", async () => {
+    const google = await runTest(
+      2,
+      "google",
+      testResult({
+        provider: "google",
+        isbn13: "9780141439518",
+        tried: ["9784003101117", "9784101010014", "9780141439518"],
+        outcome: { kind: "notFound" },
+        verdict: "notFound",
         title: null,
         publisher: null,
         cCode: null,
         hasCover: false,
+        elapsedMs: 393,
+      }),
+    );
+    expect(google).toHaveTextContent(
+      "接続できました。API キーは有効です（テスト用の本はこの取得元に見つかりませんでした）",
+    );
+    expect(google).toHaveAttribute("data-tone", "success");
+    expect(google).toHaveClass("text-success");
+  });
+
+  it("接続テスト: キーを使わない取得元では「API キーは有効」と言わない", async () => {
+    const ndl = await runTest(
+      1,
+      "ndl",
+      testResult({
+        provider: "ndl",
+        outcome: { kind: "notFound" },
+        verdict: "notFound",
+        title: null,
+      }),
+    );
+    expect(ndl).toHaveTextContent(
+      "接続できました（テスト用の本はこの取得元に見つかりませんでした）",
+    );
+    expect(ndl).not.toHaveTextContent("API キー");
+    expect(ndl).toHaveAttribute("data-tone", "success");
+  });
+
+  it("接続テスト: キーが無効（401・403・400）なら、そう伝える", async () => {
+    const google = await runTest(
+      2,
+      "google",
+      testResult({
+        provider: "google",
+        outcome: { kind: "httpError", status: 400, message: "API key not valid." },
+        verdict: "invalidKey",
+        title: null,
+      }),
+    );
+    expect(google).toHaveTextContent("API キーが無効か、Books API が有効になっていません");
+    expect(google).toHaveAttribute("data-tone", "error");
+    expect(google).toHaveClass("text-destructive");
+  });
+
+  it("接続テスト: 429 は、1 日の上限と、割り当て 0 を区別して出す", async () => {
+    const daily = await runTest(
+      2,
+      "google",
+      testResult({
+        provider: "google",
+        outcome: { kind: "httpError", status: 429, message: "Queries per day" },
+        verdict: "quotaExceeded",
+        title: null,
+      }),
+    );
+    expect(daily).toHaveTextContent("1 日の利用上限に達しています");
+    expect(daily).toHaveAttribute("data-tone", "warning");
+    expect(daily).toHaveClass("text-warning");
+  });
+
+  it("接続テスト: 割り当てが 0 の 429 は、上限とは別の文言", async () => {
+    const zero = await runTest(
+      2,
+      "google",
+      testResult({
+        provider: "google",
+        outcome: {
+          kind: "httpError",
+          status: 429,
+          message: "Queries per day（割り当ての上限は 0 です）",
+        },
+        verdict: "quotaZero",
+        title: null,
+      }),
+    );
+    expect(zero).toHaveTextContent("割り当てが 0 です");
+    expect(zero).not.toHaveTextContent("1 日の利用上限に達しています");
+    expect(zero).toHaveAttribute("data-tone", "error");
+  });
+
+  it("接続テストが通信エラーなら、ネットワークの確認を促す", async () => {
+    const ndl = await runTest(
+      1,
+      "ndl",
+      testResult({
+        provider: "ndl",
+        outcome: { kind: "networkError", message: "接続できません" },
+        verdict: "networkError",
+        title: null,
         elapsedMs: 10,
-      },
+      }),
+    );
+    expect(ndl).toHaveTextContent("接続できませんでした（ネットワークを確認してください）");
+    expect(ndl).toHaveAttribute("data-tone", "error");
+  });
+
+  it("接続テスト: 上のどれでもない HTTP エラーは、ステータスと理由をそのまま出す", async () => {
+    const openbd = await runTest(
+      0,
+      "openbd",
+      testResult({
+        outcome: { kind: "httpError", status: 503, message: "busy" },
+        verdict: "httpError",
+        title: null,
+      }),
+    );
+    expect(openbd).toHaveTextContent("HTTP エラー（503）: busy");
+    expect(openbd).toHaveAttribute("data-tone", "error");
+  });
+
+  it("API キーを保存したら、前の接続テストの結果は消える", async () => {
+    route({
+      test_provider: testResult({
+        provider: "google",
+        outcome: { kind: "httpError", status: 400, message: "API key not valid." },
+        verdict: "invalidKey",
+        title: null,
+      }),
     });
     installInvoke();
     renderSettings("providers");
     const buttons = await screen.findAllByRole("button", {
       name: ja.settings.providers.test.button,
     });
-    fireEvent.click(buttons[1]!);
-    expect(await screen.findByTestId("test-result-ndl")).toHaveTextContent(
-      ja.settings.providers.test.networkError("接続できません"),
+    fireEvent.click(buttons[2]!);
+    expect(await screen.findByTestId("test-result-google")).toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByLabelText(new RegExp(`^${ja.settings.providers.apiKey.label("Google Books")}`)),
+      { target: { value: "new-key" } },
     );
+    fireEvent.click(screen.getByRole("button", { name: ja.settings.providers.apiKey.save }));
+    await waitFor(() => expect(calls("set_api_key")).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByTestId("test-result-google")).not.toBeInTheDocument());
   });
 
   it("キーがなくて接続テストが失敗したら、Rust の理由を通知する", async () => {

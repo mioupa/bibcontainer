@@ -75,11 +75,17 @@ export const settings = {
     test: {
       button: "接続テスト",
       running: "テスト中…",
+      // 知りたいのは「通信できたか、キーは有効か」。テスト用の本が取得元にないことは、失敗として出さない
       found: (title: string | null, elapsedMs: number) =>
-        `接続できました: ${title ?? "（書名なし）"}（${elapsedMs} ミリ秒）`,
-      notFound: (elapsedMs: number) =>
-        `接続できましたが、テスト用の本は見つかりませんでした（${elapsedMs} ミリ秒）`,
-      networkError: (message: string) => `通信できませんでした: ${message}`,
+        `接続できました（${title === null ? "書誌" : `${title} `}を取得、${elapsedMs} ミリ秒）`,
+      notFoundKeyValid:
+        "接続できました。API キーは有効です（テスト用の本はこの取得元に見つかりませんでした）",
+      notFound: "接続できました（テスト用の本はこの取得元に見つかりませんでした）",
+      invalidKey: "API キーが無効か、Books API が有効になっていません",
+      quotaExceeded: "1 日の利用上限に達しています（日をあらためてもう一度試してください）",
+      quotaZero:
+        "割り当てが 0 です（API キーが使われていないか、キーのプロジェクトに割り当てがありません）",
+      networkError: "接続できませんでした（ネットワークを確認してください）",
       httpError: (status: number, message: string) => `HTTP エラー（${status}）: ${message}`,
       parseError: (message: string) => `応答を読み取れませんでした: ${message}`,
     },

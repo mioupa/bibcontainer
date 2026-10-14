@@ -133,20 +133,76 @@ impl Provider for GoogleBooks {
     }
 }
 
+/// 429 で、割り当ての上限が 0 のとき（キーなしの共有プロジェクトなど）に、メッセージの末尾へ付ける印。
+/// 応答の `error.details[].metadata.quota_limit_value` が `"0"` のとき。待っても回復しないので、
+/// 「1 日の上限に達した」（上限が 0 より大きい）と区別できるようにする（`classify_failure`）。
+pub const ZERO_QUOTA_NOTE: &str = "（割り当ての上限は 0 です）";
+
+/// Google Books の HTTP エラーの意味づけ（設定画面の接続テストの表示用）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GoogleFailure {
+    /// API キーが無効・期限切れ（400 `API_KEY_INVALID`）、または認証・権限のエラー（401・403。Books API が
+    /// 有効になっていない、キーの利用制限に当たった、など）
+    InvalidKey,
+    /// 429 で、1 日あたりの上限に達した（キーは通っている。待てば戻る）
+    DailyQuota,
+    /// 429 で、割り当ての上限が 0（キーなし、または割り当てのないプロジェクト）
+    ZeroQuota,
+    /// 上のどれでもない
+    Other,
+}
+
+/// `FetchError::Http` の `status` と `message`（`google_http_error` が作ったもの）から、意味を決める。
+pub fn classify_failure(status: u16, message: &str) -> GoogleFailure {
+    let lower = message.to_ascii_lowercase();
+    match status {
+        429 if message.contains(ZERO_QUOTA_NOTE) => GoogleFailure::ZeroQuota,
+        429 if lower.contains("per day") => GoogleFailure::DailyQuota,
+        // 403 でも、1 日の上限（旧形式の `dailyLimitExceeded` など）なら上限として扱う
+        403 if lower.contains("per day") || lower.contains("daily limit") => {
+            GoogleFailure::DailyQuota
+        }
+        401 | 403 => GoogleFailure::InvalidKey,
+        // キーが無効だと、401 ではなく 400（`INVALID_ARGUMENT`、reason `API_KEY_INVALID`）が返る
+        400 if lower.contains("api key not valid")
+            || lower.contains("api key expired")
+            || lower.contains("api_key_invalid") =>
+        {
+            GoogleFailure::InvalidKey
+        }
+        _ => GoogleFailure::Other,
+    }
+}
+
 /// 429・403 のとき、API キーの案内を付ける。メッセージは応答の `error.message`。
+/// 429 で割り当ての上限が 0 のときは、`ZERO_QUOTA_NOTE` も付ける。
 fn google_http_error(resp: &crate::http::HttpResponse, has_key: bool) -> FetchError {
-    let message = serde_json::from_slice::<Value>(&resp.body)
-        .ok()
-        .and_then(|v| {
-            v.pointer("/error/message")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-        });
+    let body = serde_json::from_slice::<Value>(&resp.body).ok();
+    let message = body.as_ref().and_then(|v| {
+        v.pointer("/error/message")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+    });
+    let zero_quota = resp.status == 429
+        && body
+            .as_ref()
+            .and_then(|v| v.pointer("/error/details"))
+            .and_then(Value::as_array)
+            .is_some_and(|details| {
+                details.iter().any(|d| {
+                    d.pointer("/metadata/quota_limit_value")
+                        .and_then(Value::as_str)
+                        == Some("0")
+                })
+            });
     match message {
         Some(m) => {
             let mut m: String = m.chars().take(200).collect();
             if matches!(resp.status, 429 | 403) && !has_key {
                 m.push_str("（API キーを設定すると解消する場合があります）");
+            }
+            if zero_quota {
+                m.push_str(ZERO_QUOTA_NOTE);
             }
             FetchError::Http {
                 status: resp.status,

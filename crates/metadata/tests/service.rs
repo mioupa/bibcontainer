@@ -10,6 +10,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use bibcontainer_metadata::http::{HttpClient, HttpRequest, HttpResponse, TransportError};
 use bibcontainer_metadata::provider::{CacheEntry, CacheError, MemoryRawCache, Provider, RawCache};
+use bibcontainer_metadata::providers::google::{GoogleFailure, ZERO_QUOTA_NOTE, classify_failure};
 use bibcontainer_metadata::providers::{GoogleBooks, Ndl, OpenBd, default_providers};
 use bibcontainer_metadata::service::{
     DEFAULT_CACHE_TTL, DEFAULT_NOT_FOUND_TTL, FetchRequest, MetadataService, ProviderOutcome,
@@ -465,6 +466,11 @@ async fn google_daily_quota_is_reported_at_once_with_a_hint_about_the_api_key() 
             assert_eq!(status, 429);
             assert!(message.contains("Queries per day"), "{message}");
             assert!(message.contains("API キー"), "{message}");
+            assert!(
+                message.contains(ZERO_QUOTA_NOTE),
+                "上限が 0（quota_limit_value）の印が付く: {message}"
+            );
+            assert_eq!(classify_failure(status, &message), GoogleFailure::ZeroQuota);
         }
         other => panic!("{other:?}"),
     }
@@ -493,6 +499,65 @@ async fn google_daily_quota_is_reported_at_once_with_a_hint_about_the_api_key() 
             assert!(!message.contains("API キーを設定"), "{message}")
         }
         other => panic!("{other:?}"),
+    }
+}
+
+/// Google がエラーを返したとき、`classify_failure` が、利用者に伝えるべき意味（キーが無効か、1 日の上限か、
+/// 割り当て 0 か）を取り出せる。400・403 の本文は、Google の API の標準のエラーの形（`error.status`・
+/// `error.details[].reason`）に合わせた合成（実際のキーで確かめたものではない）。
+#[tokio::test(start_paused = true)]
+async fn google_http_errors_are_classified_by_what_the_user_needs_to_know() {
+    let zero = fixture("google_quota_exceeded.json");
+    // 1 日の上限に達したときは、上限が 0 ではない（実際の応答の `quota_limit_value` を差し替えた合成）
+    let daily = zero.replace(
+        "\"quota_limit_value\": \"0\"",
+        "\"quota_limit_value\": \"1000\"",
+    );
+    assert_ne!(daily, zero);
+    let invalid_key = r#"{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","errors":[{"message":"API key not valid. Please pass a valid API key.","domain":"global","reason":"badRequest"}],"status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com","metadata":{"service":"books.googleapis.com"}}]}}"#;
+    let expired = r#"{"error":{"code":400,"message":"API key expired. Please renew the API key.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID"}]}}"#;
+    let disabled = r#"{"error":{"code":403,"message":"Books API has not been used in project 123 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/books.googleapis.com/overview?project=123 then retry.","status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"service":"books.googleapis.com"}}]}}"#;
+    let restricted = r#"{"error":{"code":403,"message":"Requests from referer <empty> are blocked.","status":"PERMISSION_DENIED"}}"#;
+    let unauthenticated = r#"{"error":{"code":401,"message":"Request had invalid authentication credentials.","status":"UNAUTHENTICATED"}}"#;
+    let per_minute = r#"{"error":{"code":429,"message":"Quota exceeded for quota metric 'Queries' and limit 'Queries per minute' of service 'books.googleapis.com'","status":"RESOURCE_EXHAUSTED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"RATE_LIMIT_EXCEEDED","metadata":{"quota_limit_value":"60"}}]}}"#;
+    let server_error = r#"{"error":{"code":503,"message":"The service is currently unavailable.","status":"UNAVAILABLE"}}"#;
+
+    let cases: Vec<(u16, String, GoogleFailure)> = vec![
+        (429, zero, GoogleFailure::ZeroQuota),
+        (429, daily, GoogleFailure::DailyQuota),
+        (400, invalid_key.to_owned(), GoogleFailure::InvalidKey),
+        (400, expired.to_owned(), GoogleFailure::InvalidKey),
+        (403, disabled.to_owned(), GoogleFailure::InvalidKey),
+        (403, restricted.to_owned(), GoogleFailure::InvalidKey),
+        (401, unauthenticated.to_owned(), GoogleFailure::InvalidKey),
+        (429, per_minute.to_owned(), GoogleFailure::Other),
+        (503, server_error.to_owned(), GoogleFailure::Other),
+    ];
+    for (status, body, expected) in cases {
+        let base = fixtures_handler();
+        let http = FakeHttp::new(Box::new(move |url| {
+            if url.contains("googleapis.com") {
+                response(status, "application/json; charset=UTF-8", body.clone())
+            } else {
+                base(url)
+            }
+        }));
+        let r = rig_with(http, Some("KEY"));
+        let result = r.service.fetch(&FetchRequest::new(ONIGIRI)).await;
+        match outcome(&result, ProviderId::Google) {
+            ProviderOutcome::HttpError {
+                status: got,
+                message,
+            } => {
+                assert_eq!(got, status);
+                assert_eq!(
+                    classify_failure(got, &message),
+                    expected,
+                    "{status}: {message}"
+                );
+            }
+            other => panic!("{status}: {other:?}"),
+        }
     }
 }
 
