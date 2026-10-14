@@ -43,7 +43,7 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0 # rust-toolchain.toml と合わせる
         with:
           components: rustfmt, clippy
 

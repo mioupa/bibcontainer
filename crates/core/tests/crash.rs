@@ -47,7 +47,9 @@ fn crash_child_writer() {
             .unwrap(),
     )
     .unwrap();
-    for n in start.. {
+    // 親に kill されるまで続ける
+    let mut n = start;
+    loop {
         // 5 冊を 1 つのトランザクションで作る（途中で止まれば、全部あるか全部ない）
         let batch: Vec<Vec<FieldChange>> = (0..BATCH)
             .map(|i| {
@@ -82,6 +84,7 @@ fn crash_child_writer() {
             library::purge_books(&mut conn, &env, &ids[..1]).unwrap();
             tell(&conn);
         }
+        n += 1;
     }
 }
 

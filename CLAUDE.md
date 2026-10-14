@@ -64,3 +64,4 @@
 ## この Mac での注意
 - macOS 27 + Xcode beta では、リリースビルドで rustc の strip が proc-macro の dylib を壊す。ルートの `Cargo.toml` の `[profile.release.build-override] strip = "none"` が回避策なので、消さない（0001 参照）。
 - TypeScript は 6.0 系に固定している（typescript-eslint が 6.1 未満まで）。上げないこと。
+- Rust は `rust-toolchain.toml` で版を固定している（手元と CI で clippy の lint をそろえるため）。上げるときは `.github/workflows/ci.yml` の `dtolnay/rust-toolchain` の版も合わせる。

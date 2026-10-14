@@ -1,3 +1,5 @@
+# 手元と CI で同じ版を使う（"stable" のままだと、CI だけ新しい clippy の lint で落ちることがある）。
+# 上げるときは .github/workflows/ci.yml の dtolnay/rust-toolchain の版も合わせる。
 [toolchain]
-channel = "stable"
+channel = "1.99.0"
 components = ["rustfmt", "clippy"]
