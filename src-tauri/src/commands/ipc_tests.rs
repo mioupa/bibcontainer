@@ -114,7 +114,14 @@ impl Harness {
             cmd: cmd.into(),
             callback: CallbackFn(0),
             error: CallbackFn(1),
-            url: "tauri://localhost".parse().unwrap(),
+            // アプリのページの URL は OS で違う（WebView2 は http://tauri.localhost）。違うと権限の確認で拒否される
+            url: if cfg!(windows) {
+                "http://tauri.localhost"
+            } else {
+                "tauri://localhost"
+            }
+            .parse()
+            .unwrap(),
             body: InvokeBody::Json(body),
             headers: Default::default(),
             invoke_key: INVOKE_KEY.to_string(),

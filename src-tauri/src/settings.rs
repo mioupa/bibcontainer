@@ -651,28 +651,35 @@ mod tests {
 
     #[test]
     fn backup_directory_defaults_and_is_validated() {
-        let default_dir = Path::new("/data/app/backups");
+        // 絶対パスの形は OS で違う（Windows はドライブ名が要る）
+        fn abs(unix: &str) -> String {
+            if cfg!(windows) {
+                format!("C:{}", unix.replace('/', "\\"))
+            } else {
+                unix.to_owned()
+            }
+        }
+        let default_str = abs("/data/app/backups");
+        let default_dir = Path::new(&default_str);
         let unset = BackupSettings::default();
         assert_eq!(unset.resolve_dir(default_dir), default_dir);
         assert_eq!(
             unset.clone().for_display(default_dir).directory,
-            "/data/app/backups"
+            default_str
         );
 
+        let custom_str = abs("/Volumes/Backup/bib");
         let custom = BackupSettings {
-            directory: "  /Volumes/Backup/bib  ".into(),
+            directory: format!("  {custom_str}  "),
             ..BackupSettings::default()
         };
         let stored = custom.for_storage(default_dir).unwrap();
-        assert_eq!(stored.directory, "/Volumes/Backup/bib");
-        assert_eq!(
-            stored.resolve_dir(default_dir),
-            Path::new("/Volumes/Backup/bib")
-        );
+        assert_eq!(stored.directory, custom_str);
+        assert_eq!(stored.resolve_dir(default_dir), Path::new(&custom_str));
 
         // 既定の場所と同じなら「未設定」として保存する
         let same = BackupSettings {
-            directory: "/data/app/backups".into(),
+            directory: default_str.clone(),
             ..BackupSettings::default()
         };
         assert_eq!(same.for_storage(default_dir).unwrap().directory, "");

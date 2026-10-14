@@ -76,7 +76,8 @@ jobs:
         run: rm -f src/bindings/*.ts
 
       - name: Rust tests
-        run: cargo test --workspace
+        # 1 つのテストバイナリが失敗しても、残りも走らせて失敗をまとめて見られるようにする
+        run: cargo test --workspace --no-fail-fast
 
       # ts-rs が書き出した src/bindings/ が、コミット済みの内容と一致することを確かめる
       - name: Check generated bindings are committed
