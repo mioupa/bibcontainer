@@ -61,6 +61,7 @@
 - `pnpm install`: 依存を入れる。
 - `pnpm tauri dev`: アプリを開発モードで起動する。
 - `pnpm check`: lint・format・typecheck・Vitest と、`cargo fmt`・`clippy -D warnings`・`cargo test --workspace` をまとめて実行する。コミット前に通す。
+- CI（`.github/workflows/ci.yml`）: 検査・テストの `check` と、アプリのビルド（成果物にインストーラー）の `build` が、macOS・Windows で並行に走る。`docs/` と Markdown だけの変更では走らない（その書式はローカルの `pnpm check` で確かめる）。
 - `cargo test -p bibcontainer-core`: コアだけを速くテストする。
 - bindings の再生成: `cargo test --workspace`（`#[ts(export)]` の型が `src/bindings/` に出る）。差分が出たらコミットする。CI は差分があると落ちる。
 - `pnpm tauri build --bundles app`: macOS の .app を作る（`target/release/bundle/macos/`）。
@@ -74,7 +75,7 @@
 ## この Mac での注意
 - macOS 27 + Xcode beta では、リリースビルドで rustc の strip が proc-macro の dylib を壊す。ルートの `Cargo.toml` の `[profile.release.build-override] strip = "none"` が回避策なので、消さない（0001 参照）。
 - TypeScript は 6.0 系に固定している（typescript-eslint が 6.1 未満まで）。上げないこと。
-- Rust は `rust-toolchain.toml` で版を固定している（手元と CI で clippy の lint をそろえるため）。上げるときは `.github/workflows/ci.yml` の `dtolnay/rust-toolchain` の版も合わせる。
+- Rust は `rust-toolchain.toml` で版を固定している（手元と CI で clippy の lint をそろえるため）。上げるときは `.github/workflows/ci.yml` の `dtolnay/rust-toolchain` の版（`check` と `build` の 2 か所）も合わせる。
 
 ## Windows で落ちやすいテスト（手元の Mac では気づけない。CI で確かめる）
 - 絶対パスを書くときは `/tmp/...` などではなく `std::env::temp_dir()` や `tempfile` を使う（Windows はドライブ名がないと絶対パスにならない）。

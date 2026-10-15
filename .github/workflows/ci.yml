@@ -3,7 +3,17 @@ name: CI
 on:
   push:
     branches: [main]
+    # 文書だけの変更では走らせない（走っている実行を取り消さないためでもある）。
+    # Markdown の書式（Prettier）は、ローカルの pnpm check で確かめる
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - "**/*.md"
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - "**/*.md"
   workflow_dispatch:
 
 # 同じブランチ（PR）の古い実行は、新しい実行が始まったらキャンセルする
@@ -17,9 +27,11 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
 
+# 検査・テスト（check）と、アプリのビルド（build）は、別のジョブで並行に走らせる
+# （Windows で直列だと 30 分近くかかったため）。rust-cache のキャッシュはジョブごとに分かれる
 jobs:
-  check-and-build:
-    name: ${{ matrix.name }}
+  check:
+    name: Check (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -28,10 +40,8 @@ jobs:
         include:
           - name: macOS (arm64)
             os: macos-latest
-            bundles: app
           - name: Windows (x64)
             os: windows-latest
-            bundles: nsis
 
     steps:
       - uses: actions/checkout@v7
@@ -89,6 +99,38 @@ jobs:
             git --no-pager diff -- src/bindings
             exit 1
           fi
+
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (arm64)
+            os: macos-latest
+            bundles: app
+          - name: Windows (x64)
+            os: windows-latest
+            bundles: nsis
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@1.99.0 # rust-toolchain.toml と合わせる
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build app (Tauri)
         run: pnpm tauri build --bundles ${{ matrix.bundles }}
