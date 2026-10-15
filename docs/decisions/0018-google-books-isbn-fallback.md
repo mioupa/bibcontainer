@@ -2,7 +2,7 @@
 
 ## 状態
 
-採用（ユーザー指示、2026-10-16。実際のキーでの `volumes/<ID>` の応答は、この作業では確かめられていない。「影響・今後」を参照）
+採用（ユーザー指示、2026-10-16。要件書は 0.5 で 11.3 に反映した。実際のキーでの `volumes/<ID>` の応答は、この作業では確かめられていない。「影響・今後」を参照）
 
 ## 日付
 
@@ -75,7 +75,7 @@
    `env GOOGLE_BOOKS_API_KEY=(security find-generic-password -s io.github.mioupa.bibcontainer -a google -w) cargo test -p bibcontainer-metadata --test live -- --ignored --test-threads=1 --nocapture live_google_books_finds_a_book_even_while_isbn_search_is_broken`必要なら、合成のフィクスチャを実際の応答に置き換え、内容紹介の文字列を比べるテストを直す。
 2. アプリでの確認: 洋書（Clean Code など）と和書（こころなど）をスキャン登録し、Google の書影・書誌が入るか。設定画面の Google の接続テストが「接続できました」になるか（回避策で 3 回の通信、2 秒ほど）。
 
-### 要件書の修正案
+### 要件書の修正案（0.5 で反映済み、2026-10-16）
 
 - 11.3 Google Books に「`q=isbn:` が 0 件のときは、Dynamic Links（`https://books.google.com/books?bibkeys=ISBN:<ISBN>&jscmd=viewapi`、キー不要）で volume ID を得て、`volumes/<ID>` を取る（2026-10 の障害への回避策。`docs/decisions/0018`）。volume の `industryIdentifiers` の ISBN が合うものだけを使う。書影は `books/content?id=<ID>&printsec=frontcover&img=1&zoom=0`（ダミーなら `zoom=1`）」を足す。
 

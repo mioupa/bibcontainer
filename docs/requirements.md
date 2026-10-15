@@ -1,6 +1,7 @@
 # 蔵書管理アプリ「bibcontainer」要件定義書
 
-- 版: 0.4（2026-10-16）
+- 版: 0.5（2026-10-16）
+  - 0.5（2026-10-16）: 統合の優先順位を ISBN の国番号で和書・洋書などの 2 組にした（`docs/decisions/0020`）。洋書の著者名の正規化（`docs/decisions/0019`）と、Google Books の ISBN 検索の回避策（`docs/decisions/0018`）を反映。FR-META-04／06、FR-CONF-02、11.3 を修正
   - 0.4（2026-10-16）: Open Library を書誌の取得元に加えた（`docs/decisions/0017`。Google Books の ISBN 検索の障害への対応）。2 章、6 章の構成図、FR-META-02（表の途中の注記で表が切れていたのも直した）／04／08、10.6、11 章（11.4 を追加し、楽天・Amazon を 11.5・11.6 に繰り下げ）を修正
   - 0.3（2026-10-15）: フェーズ2の実装時の決定（`docs/decisions/0013`・`0014`・`0016`）に合わせて、FR-SYNC-04／07／13 と 8.3（スナップショットのファイル名と適用のしかた、自分のセグメントの統合）を修正
   - 0.2: 実装時の決定（`docs/decisions/0003`〜`0005`）に合わせて 8.1〜8.3、FR-SYNC-03 を修正。付録 A を原本と照合して修正。13 章の決まった項目を更新。外部 API の確認結果（`docs/decisions/0007`）とユーザーの判断に合わせて、2 章、FR-META-02／04、FR-COVER-02、11 章を修正（NDL の書影 API は使わない、Google Books は API キー必須）。性能の改善に合わせて FR-COVER-04 と 8.2 の `field_clocks` を修正
@@ -281,27 +282,30 @@ Open Library は、Google Books の ISBN 検索が 2026-10 初めから 0 件を
 
 #### 統合（マージ）
 
-- **FR-META-04 [MUST]** 1 冊について、有効な取得元に並行して問い合わせ（取得元ごとのレート制限は守る）、項目ごとに優先順位に従って値を選ぶ。既定の優先順位は次のとおりで、設定画面で項目ごとに並べ替えられる。
+- **FR-META-04 [MUST]** 1 冊について、有効な取得元に並行して問い合わせ（取得元ごとのレート制限は守る）、項目ごとに優先順位に従って値を選ぶ。優先順位は、ISBN が 978-4 で始まる本（和書。ISBN のない本も含む）と、それ以外の本（洋書など）の 2 組を持つ。既定の優先順位は次のとおりで、設定画面で組ごと・項目ごとに並べ替えられる。
 
-| 項目 | 既定の優先順位 |
-|---|---|
-| 書名・副書名 | openBD > NDL > 楽天 > Google > Open Library |
-| 書名のヨミ | NDL > 楽天 |
-| 著者（役割付き） | openBD > NDL > 楽天 > Google > Open Library |
-| 出版社 | openBD > NDL > 楽天 > Google > Open Library |
-| 発行日 | openBD > 楽天 > NDL > Google > Open Library |
-| 本体価格 | **2段目** > openBD > NDL（楽天の税込価格は参考値として別に保持） |
-| Cコード | **2段目** > openBD |
-| NDC | NDL |
-| ページ数・大きさ | NDL > openBD > Google > Open Library |
-| シリーズ・巻次 | openBD > NDL > 楽天 |
-| 内容紹介 | openBD > 楽天 > Google > Open Library |
-| 書影 | openBD > 楽天 > Google > Open Library > Amazon |
+| 項目 | 和書（978-4、ISBN なし） | 洋書など（それ以外） |
+|---|---|---|
+| 書名・副書名 | openBD > NDL > 楽天 > Google > Open Library | Google > Open Library > NDL > openBD > 楽天 |
+| 書名のヨミ | NDL > 楽天 | 同じ |
+| 著者（役割付き） | openBD > NDL > 楽天 > Google > Open Library | Google > Open Library > NDL > openBD > 楽天 |
+| 出版社 | openBD > NDL > 楽天 > Google > Open Library | Google > Open Library > NDL > openBD > 楽天 |
+| 発行日 | openBD > 楽天 > NDL > Google > Open Library | Google > Open Library > NDL > openBD > 楽天 |
+| 本体価格 | **2段目** > openBD > NDL（楽天の税込価格は参考値として別に保持） | 同じ |
+| Cコード | **2段目** > openBD | 同じ |
+| NDC | NDL | 同じ |
+| ページ数・大きさ | NDL > openBD > Google > Open Library | 同じ |
+| シリーズ・巻次 | openBD > NDL > 楽天 | NDL > openBD > 楽天 |
+| 内容紹介 | openBD > 楽天 > Google > Open Library | Google > Open Library > openBD > 楽天 |
+| 書影 | openBD > 楽天 > Google > Open Library > Amazon | Google > Open Library > openBD > 楽天 > Amazon |
+
+洋書などの組は、NDL（CiNii 由来）の書名が小文字になり、内容紹介・書影もないため、Google と Open Library を先にする（2026-10 ユーザー判断。`docs/decisions/0020`）。
 
 - **FR-META-05 [MUST]** 編集フォームでは、各項目に「他の取得元の値」を候補として表示し、選び直せる。
 - **FR-META-06 [MUST]** 取得した値を正規化する。
   - 前後の空白を除く。英数字と記号は NFKC で半角にそろえる。
   - 著者名の「／著」「訳」「編」などは役割として分離する（例:「山田玲子／著 水野菜生／英訳」→ 山田玲子〔著〕、水野菜生〔英訳〕）。
+  - 洋書は NDL の構造化された名前を使い、`名 姓` の形にそろえる（例: `Martin, Robert C.` → Robert C. Martin〔著〕、`foreword by James O. Coplien` → James O. Coplien〔序文〕）。詳細は `docs/decisions/0019`。
   - 日付は `YYYY`、`YYYY-MM`、`YYYY-MM-DD` のいずれかにそろえる。
 - **FR-META-07 [MUST]** 一度手で直した項目は、再取得しても上書きしない（上書きするかはユーザーが選ぶ）。
 
@@ -394,7 +398,7 @@ Open Library は、Google Books の ISBN 検索が 2026-10 初めから 0 件を
 ### 7.10 設定（FR-CONF）
 
 - **FR-CONF-01 [MUST]** 同期: 同期フォルダ、端末名、同期状態の詳細
-- **FR-CONF-02 [MUST]** 取得元: 有効・無効、項目ごとの優先順位、API キー（OS のキーチェーンに保存し、同期しない）、接続テストボタン
+- **FR-CONF-02 [MUST]** 取得元: 有効・無効、項目ごとの優先順位（和書・洋書などの 2 組）、API キー（OS のキーチェーンに保存し、同期しない）、接続テストボタン
 - **FR-CONF-03 [MUST]** スキャン: 末尾キー、ペアリングのタイムアウト、キー間隔の閾値、音の種類と音量
 - **FR-CONF-04 [MUST]** 表示: テーマ（OS に連動／ライト／ダーク）、フォント（既定は OS の日本語フォント）、文字サイズ、一覧の列
   - 既定の配色: ライトは Catppuccin Latte、ダークは Catppuccin Mocha
@@ -724,7 +728,8 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 - API キーが必要。キーなしでは常に 429（`Queries per day`、割り当て 0）になる（2026-10 確認）。キーは Google Cloud Console で Books API を有効にして作り、アプリの設定画面で入力する。
 - 使う項目: `items[0].volumeInfo` の `title` / `subtitle` / `authors[]` / `publisher` / `publishedDate` / `description` / `pageCount` / `imageLinks.thumbnail` / `language`
 - 書影 URL が `http://` の場合は `https://` に置き換える。`edge=curl` を外し、`zoom=0` にすると大きい画像が取れる。
-- 和書は収録が不揃いで、出版社が空のことが多い。補完用として使う。
+- `q=isbn:` が 0 件のときは、Dynamic Links（`https://books.google.com/books?bibkeys=ISBN:<ISBN>&jscmd=viewapi`、キー不要）で volume ID を得て、`volumes/<ID>` を取る（2026-10 の障害への回避策。`docs/decisions/0018`）。volume の `industryIdentifiers` の ISBN が合うものだけを使う。書影は `books/content?id=<ID>&printsec=frontcover&img=1&zoom=0`（ダミーなら `zoom=1`）。
+- 和書は収録が不揃いで、出版社が空のことが多い。和書では補完用として使う（洋書などでは優先する。FR-META-04）。
 
 ### 11.4 Open Library
 
