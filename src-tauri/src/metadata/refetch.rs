@@ -3,7 +3,9 @@
 //! 流れ（1 冊ごと）:
 //! 1. 本の ISBN と、2段目由来（`field_sources` が `barcode`）の Cコード・本体価格を読む。
 //! 2. その ISBN で取得する（2段目由来の値は最優先の値として統合に渡すので、取得元の値に置き換わらない）。
-//! 3. 書影がまだなければ取得する。
+//! 3. 書影がまだなければ取得する。取得元由来の書影が、書影として使えない形（長辺が小さすぎる・細長い帯状。
+//!    `cover::is_usable_auto_cover`）のときも取り直す。取り直して使える書影がなければ、その書影は外す（`unusable_cover_clear`）。
+//!    手動で選んだ書影には触らない。
 //! 4. `update_book` を、取得元の由来（`Provider`）で呼ぶ。手で直した項目は、`override_manual` が偽なら上書きされない
 //!    （コアが守る。FR-META-07、AT-16）。取得状態（`meta_status`）も更新する。
 //!    取得元が値を返さなくなった項目の古い値は消す（`stale_clears`）: 今の値の由来がその取得元で、今回その取得元が
@@ -21,7 +23,9 @@ use bibcontainer_core::library::{
     pending_book_ids, update_book_in,
 };
 use bibcontainer_core::rows::find_book_detail;
+use bibcontainer_core::values::{SOURCE_BARCODE, SOURCE_IMPORT, SOURCE_MANUAL};
 use bibcontainer_core::{SystemClock, write_tx};
+use bibcontainer_metadata::cover::{is_usable_auto_cover, stored_cover_dimensions};
 use bibcontainer_metadata::{MetaFetchResult, MetaSecondTier, ProviderOutcome};
 use rusqlite::Connection;
 use serde::Serialize;
@@ -145,6 +149,8 @@ struct Target {
     isbn13: Option<String>,
     status: MetaStatus,
     has_cover: bool,
+    /// 書影のハッシュ（`books.cover_hash`）
+    cover_hash: Option<String>,
     manual: BTreeSet<String>,
     /// 項目名 → 今の値の由来（`openbd`・`ndl`・`barcode`・`manual` など）
     field_sources: BTreeMap<String, String>,
@@ -178,6 +184,7 @@ fn load_targets(conn: &Connection, ids: &[String]) -> Result<Vec<Target>, AppErr
             isbn13: d.isbn13.clone(),
             status: MetaStatus::from_db(&d.meta_status),
             has_cover: d.cover_hash.is_some(),
+            cover_hash: d.cover_hash.clone(),
             manual: d.manual_fields.iter().cloned().collect(),
             field_sources: d.field_sources.clone(),
             second_tier: (tier.c_code.is_some() || tier.list_price.is_some()).then_some(tier),
@@ -187,6 +194,20 @@ fn load_targets(conn: &Connection, ids: &[String]) -> Result<Vec<Target>, AppErr
 }
 
 impl Target {
+    /// 取得元が付けた書影の、ハッシュと取得元の名前。書影がない・手動で選んだ書影（手修正の印がある、または由来が
+    /// `manual`）・バーコード/取り込み由来・由来の記録がない書影は `None`（再取得では触らない）。
+    fn provider_cover(&self) -> Option<(&str, &str)> {
+        let hash = self.cover_hash.as_deref()?;
+        if self.manual.contains("cover_hash") {
+            return None;
+        }
+        let source = self.field_sources.get("cover_hash")?.as_str();
+        if matches!(source, SOURCE_MANUAL | SOURCE_BARCODE | SOURCE_IMPORT) {
+            return None;
+        }
+        Some((hash, source))
+    }
+
     fn ineligible(id: &str, eligibility: Eligibility) -> Self {
         Target {
             id: id.to_owned(),
@@ -194,6 +215,7 @@ impl Target {
             isbn13: None,
             status: MetaStatus::Ok,
             has_cover: true,
+            cover_hash: None,
             manual: BTreeSet::new(),
             field_sources: BTreeMap::new(),
             second_tier: None,
@@ -210,8 +232,8 @@ struct Plan {
     status: MetaStatus,
 }
 
-/// 取得元が値を返さなくなっても消してよい項目（下書きの項目名）。書名（なくしてはいけない）・書影（再取得では、
-/// 書影のない本だけ取る）・ISBN・取得状態は含めない。巻次を消すと、並べ替え用の数値（`volume_sort`）も、コアが一緒に消す。
+/// 取得元が値を返さなくなっても消してよい項目（下書きの項目名）。書名（なくしてはいけない）・書影（使えない形の書影だけ、
+/// `unusable_cover_clear` が別に外す）・ISBN・取得状態は含めない。巻次を消すと、並べ替え用の数値（`volume_sort`）も、コアが一緒に消す。
 const CLEARABLE_FIELDS: &[&str] = &[
     "title_kana",
     "subtitle",
@@ -271,6 +293,32 @@ fn stale_clears(
                 .then(|| FieldChange::new(*field, Value::Null, Origin::Provider(source.clone())))
         })
         .collect()
+}
+
+/// 取得元が付けた書影が使えない形のとき、取り直しても使える書影が見つからなかったなら、その書影を外す変更。
+///
+/// 値は null、由来は今の書影の取得元（`Target::provider_cover` の取得元）。コアが `UpdateOptions::clear_stale` のときだけ、
+/// 今の由来が同じ取得元のときに消す（`stale_clears` と同じ仕組み）。ファイルは消さない（使われなくなったファイルの
+/// 整理は別の作業）。
+fn unusable_cover_clear(source: &str) -> FieldChange {
+    FieldChange::new(
+        "cover_hash",
+        Value::Null,
+        Origin::Provider(source.to_owned()),
+    )
+}
+
+/// 保存済みの書影のファイルが、自動取得で使える形（`is_usable_auto_cover`）でないか。
+/// ファイルがない・読めないとき（同期で書影が届く前など）は、わからないので `false`。
+/// ファイルを読むので、非同期の処理の中では別のスレッドで呼ぶ。
+fn stored_cover_is_unusable(covers_dir: &std::path::Path, hash: &str) -> bool {
+    match stored_cover_dimensions(covers_dir, hash) {
+        Ok((width, height)) => !is_usable_auto_cover(width, height),
+        Err(err) => {
+            tracing::debug!(hash, error = %err, "保存済みの書影の大きさを読めません。そのままにします");
+            false
+        }
+    }
 }
 
 /// 下書きから、再取得で書く変更を決める。
@@ -489,6 +537,7 @@ impl MetadataState {
             .iter()
             .filter(|t| t.eligibility == Eligibility::Yes)
             .collect();
+        let unusable_covers = self.unusable_provider_covers(&eligible).await?;
         let requests: Vec<_> = eligible
             .iter()
             .map(|t| {
@@ -541,14 +590,23 @@ impl MetadataState {
                 );
                 continue;
             }
-            let cover = if target.has_cover {
+            // 書影がない本と、取得元由来の書影が使えない形の本は、書影を取り直す
+            let unusable_source = unusable_covers.get(&target.id);
+            let cover = if target.has_cover && unusable_source.is_none() {
                 super::fetch::CoverOutcome::default()
             } else {
                 self.fetch_cover(active, &result.merged).await
             };
             let decided = decide_status(&result, cover.offline);
             let draft = build_draft(&result.merged, None, cover.saved(), decided);
-            let stale = stale_clears(&target.field_sources, &result, &draft);
+            let mut stale = stale_clears(&target.field_sources, &result, &draft);
+            // 取り直しても使える書影がなかった（通信エラーで試せなかったときは、あとで取り直すので外さない）
+            if let Some(source) = unusable_source
+                && cover.hash.is_none()
+                && !cover.offline
+            {
+                stale.push(unusable_cover_clear(source));
+            }
             prepared.push(Prepared {
                 id: target.id.clone(),
                 plan: plan(
@@ -635,6 +693,34 @@ impl MetadataState {
             (self.notifier)(changed_books, series_touched);
         }
         Ok((ordered, covers_saved))
+    }
+
+    /// 取得元由来の書影が、使えない形（`is_usable_auto_cover`）の本。本の ID → その書影の取得元の名前。
+    /// ファイルの大きさはヘッダだけを読み、非同期の処理を止めないよう別のスレッドで調べる。
+    async fn unusable_provider_covers(
+        &self,
+        targets: &[&Target],
+    ) -> Result<std::collections::HashMap<String, String>, AppError> {
+        let candidates: Vec<(String, String, String)> = targets
+            .iter()
+            .filter_map(|t| {
+                let (hash, source) = t.provider_cover()?;
+                Some((t.id.clone(), hash.to_owned(), source.to_owned()))
+            })
+            .collect();
+        if candidates.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let covers = self.dirs.covers.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            candidates
+                .into_iter()
+                .filter(|(_, hash, _)| stored_cover_is_unusable(&covers, hash))
+                .map(|(id, _, source)| (id, source))
+                .collect()
+        })
+        .await
+        .map_err(|e| AppError::Internal(format!("書影の確認が中断されました: {e}")))
     }
 
     /// 取得待ちの再取得を 1 回行い、結果をログに残す（失敗しても続ける）。

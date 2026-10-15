@@ -3,6 +3,8 @@
 //! - 取得: 書影の URL を優先順位の順に試し、最初に使える画像を保存する（`acquire_cover`）。
 //! - ダミー画像の判定: 画像がないときに XML などを返す取得元があるので、`Content-Type` が `image/*` かどうかで判定する。
 //!   Google Books の「image not available」は、確認した実際の画像（SHA-256 と寸法）と一致するかで判定する。
+//!   長辺 40px 未満の画像と、高さ / 幅が 0.5 未満・3.0 超の画像（本文の帯など、書影の形でないもの）も使わない
+//!   （`is_usable_auto_cover`。手動の取り込みには使わない）。
 //! - 変換: 長辺 800px 以下の JPEG（品質 85）にして EXIF などのメタデータを残さない（デコードして再エンコードする）。
 //!   EXIF の向きは先に画像へ反映する（向きの情報だけ消すと、スマホの写真が横倒しになるため）。
 //!   透過のある画像は白地に重ねる。ファイル名は変換後の JPEG の SHA-256。
@@ -44,6 +46,15 @@ pub const THUMBNAIL_SIZES: [u32; 3] = [LIST_THUMBNAIL_SIZE, 160, 320];
 pub const THUMBNAIL_QUALITY: u8 = 80;
 /// 自動取得で、これより小さい画像（1px の追跡画像など）は書影として使わない。
 pub const MIN_AUTO_EDGE: u32 = 40;
+/// 自動取得で、書影として使う画像の「高さ / 幅」の下限。これより横長の画像は書影ではない。
+///
+/// 書影の縦横比（高さ / 幅）は、縦長の本が 1.2〜1.6、正方形の絵本が 1.0、横長の絵本が 0.7 ほど。
+/// 図書館がスキャンした本では、Google Books の `zoom=0` が、本文の 1 行を切り出した帯（575x92 = 0.16）を
+/// 200 で返すことがある。この下限（0.5）は、横長の絵本（0.7）を通し、その帯を止める。
+pub const MIN_AUTO_ASPECT: f64 = 0.5;
+/// 自動取得で、書影として使う画像の「高さ / 幅」の上限。これより縦長の画像は書影ではない（帯状の画像）。
+/// 縦長の本（1.2〜1.6）には余裕をもたせ、細長い帯だけを止める。
+pub const MAX_AUTO_ASPECT: f64 = 3.0;
 /// デコードする画像の幅・高さの上限（巨大な画像でメモリを使い切らないため）。
 const MAX_DECODE_EDGE: u32 = 16_384;
 const MAX_DECODE_ALLOC: u64 = 512 * 1024 * 1024;
@@ -93,6 +104,35 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 /// 画像のヘッダだけを読んで、寸法を返す。
 fn dimensions(bytes: &[u8]) -> Result<(u32, u32), CoverError> {
     ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(|e| CoverError::Io(e.to_string()))?
+        .into_dimensions()
+        .map_err(|e| CoverError::Decode(e.to_string()))
+}
+
+/// 自動取得（取得元の書影の URL）で、この寸法の画像を書影として使ってよいか。
+///
+/// 使えないのは、長辺が `MIN_AUTO_EDGE` 未満（追跡用の小さい画像）か、高さ / 幅が `MIN_AUTO_ASPECT` 未満・
+/// `MAX_AUTO_ASPECT` 超（本文の帯のような、書影の形でない画像）のとき。
+/// 利用者が自分で選んだ画像（`import_cover_bytes` など）には使わない。
+pub fn is_usable_auto_cover(width: u32, height: u32) -> bool {
+    if width == 0 || width.max(height) < MIN_AUTO_EDGE {
+        return false;
+    }
+    let ratio = f64::from(height) / f64::from(width);
+    (MIN_AUTO_ASPECT..=MAX_AUTO_ASPECT).contains(&ratio)
+}
+
+/// 保存済みの書影（`cover_path`）の寸法を、ヘッダだけ読んで返す。ファイルがない・読めないときはエラー。
+/// ファイルを読むので、非同期の処理の中では別のスレッドで呼ぶ。
+pub fn stored_cover_dimensions(dir: &Path, hash: &str) -> Result<(u32, u32), CoverError> {
+    if !is_valid_hash(hash) {
+        return Err(CoverError::Io(
+            "書影のハッシュが正しくありません".to_string(),
+        ));
+    }
+    ImageReader::open(cover_path(dir, hash))
+        .map_err(|e| CoverError::Io(e.to_string()))?
         .with_guessed_format()
         .map_err(|e| CoverError::Io(e.to_string()))?
         .into_dimensions()
@@ -395,11 +435,12 @@ pub enum CoverDownload {
     Image(Vec<u8>),
     /// 画像ではない応答（画像がないときに XML や HTML のエラーを返す取得元がある）
     NotAnImage { content_type: String },
-    /// 「画像なし」のダミー画像、または小さすぎる画像
+    /// 「画像なし」のダミー画像、小さすぎる画像、または書影の形でない（細長い帯状の）画像
+    /// （`is_usable_auto_cover`）
     Placeholder,
 }
 
-/// 書影の URL からダウンロードして、ダミー画像かどうかを判定する。
+/// 書影の URL からダウンロードして、ダミー画像・小さすぎる画像・書影の形でない画像かどうかを判定する。
 /// HTTP のステータスが 2xx 以外なら `FetchError::Http`（403・404 など）。
 pub async fn download_cover(
     transport: &Transport,
@@ -423,7 +464,7 @@ pub async fn download_cover(
         return Ok(CoverDownload::Placeholder);
     }
     match dimensions(&resp.body) {
-        Ok((w, h)) if w.max(h) >= MIN_AUTO_EDGE => Ok(CoverDownload::Image(resp.body)),
+        Ok((w, h)) if is_usable_auto_cover(w, h) => Ok(CoverDownload::Image(resp.body)),
         Ok(_) => Ok(CoverDownload::Placeholder),
         Err(_) => Ok(CoverDownload::NotAnImage {
             content_type: format!("{mime}（画像として読めません）"),
@@ -483,7 +524,8 @@ pub struct MetaCoverResult {
 }
 
 /// 書影の URL を順に試し、最初に使えた画像を変換して `dir` に保存する（FR-COVER-01〜03）。
-/// ダミー画像・画像でない応答・HTTP エラーなら次の URL へ進む。
+/// ダミー画像・小さすぎる画像・書影の形でない画像（`is_usable_auto_cover`。結果は `placeholder`）・
+/// 画像でない応答・HTTP エラーなら次の URL へ進む。
 pub async fn acquire_cover(
     transport: &Transport,
     covers: &[CandidateCover],

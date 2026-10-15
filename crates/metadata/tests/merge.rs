@@ -1105,3 +1105,240 @@ fn the_sets_roundtrip_through_json_in_the_shape_the_ui_sees() {
     let back: MetaPrioritySets = serde_json::from_value(v).unwrap();
     assert_eq!(back, sets);
 }
+
+// ---------------------------------------------------------------------------
+// 全部大文字の著者名は、ほかの取得元の綴りを使う
+// ---------------------------------------------------------------------------
+
+/// Fundamentals of Radiation Materials Science（洋書。Google が著者の最優先）。
+const ISBN_FUNDAMENTALS: &str = "9781493934362";
+
+/// 著者だけを持つ候補。
+fn with_authors(provider: ProviderId, names: &[&str]) -> Candidate {
+    let mut c = Candidate::empty(provider, ISBN_FUNDAMENTALS);
+    c.title = Some("Fundamentals of Radiation Materials Science".into());
+    c.authors = names
+        .iter()
+        .map(|n| CandidateAuthor {
+            name: (*n).into(),
+            kana: None,
+            role: None,
+        })
+        .collect();
+    c
+}
+
+fn author_names(m: &MetaMerged) -> Vec<&str> {
+    m.authors().iter().map(|a| a.name.as_str()).collect()
+}
+
+#[test]
+fn an_all_caps_google_author_takes_the_spelling_of_open_library() {
+    // Google: `GARY S. WAS`、Open Library: `Gary S. Was`（NDL の `Was, Gary S.` も `Gary S. Was` になる）
+    let cands = vec![
+        with_authors(ProviderId::Google, &["GARY S. WAS"]),
+        with_authors(ProviderId::OpenLibrary, &["Gary S. Was"]),
+    ];
+    let m = merge_by_isbn(ISBN_FUNDAMENTALS, &cands, None);
+    assert_eq!(author_names(&m), vec!["Gary S. Was"]);
+    assert_eq!(
+        m.source(MetaField::Authors),
+        Some(MetaSource::Google),
+        "採用した取得元は Google のまま（名前の綴りだけを借りる）"
+    );
+    // NDL の綴りでも同じ
+    let cands = vec![
+        with_authors(ProviderId::Google, &["GARY S. WAS"]),
+        with_authors(ProviderId::Ndl, &["Gary S. Was"]),
+    ];
+    let m = merge_by_isbn(ISBN_FUNDAMENTALS, &cands, None);
+    assert_eq!(author_names(&m), vec!["Gary S. Was"]);
+    assert_eq!(m.source(MetaField::Authors), Some(MetaSource::Google));
+}
+
+#[test]
+fn only_the_name_is_replaced_and_role_and_kana_stay() {
+    let mut google = with_authors(ProviderId::Google, &["GARY S. WAS", "Jane Doe"]);
+    google.authors[0].role = Some("著".into());
+    google.authors[0].kana = Some("ワス".into());
+    let mut ol = with_authors(ProviderId::OpenLibrary, &["Gary S. Was"]);
+    ol.authors[0].role = Some("編".into());
+    ol.authors[0].kana = Some("ガリー".into());
+    let m = merge_by_isbn(ISBN_FUNDAMENTALS, &[google, ol.clone()], None);
+    assert_eq!(
+        m.authors(),
+        &[
+            CandidateAuthor {
+                name: "Gary S. Was".into(),
+                kana: Some("ワス".into()),
+                role: Some("著".into()),
+            },
+            // 大文字でない著者はそのまま
+            CandidateAuthor {
+                name: "Jane Doe".into(),
+                kana: None,
+                role: None,
+            },
+        ]
+    );
+    // ほかの取得元の値（`others`）は、その取得元の値のまま
+    let choice = m.choice(MetaField::Authors).unwrap();
+    assert_eq!(choice.others.len(), 1);
+    assert_eq!(choice.others[0].source, MetaSource::OpenLibrary);
+    assert_eq!(choice.others[0].value, MetaValue::Authors(ol.authors));
+}
+
+#[test]
+fn others_keep_the_spelling_of_their_own_source() {
+    // 優先順位を Open Library 先にすると、Google の `GARY S. WAS` は「ほかの取得元の値」としてそのまま残る
+    let mut priorities = MetaPriorities::default_for(Foreign);
+    priorities.set(
+        MetaGroup::Authors,
+        vec![MetaSource::OpenLibrary, MetaSource::Google],
+    );
+    let cands = vec![
+        with_authors(ProviderId::Google, &["GARY S. WAS"]),
+        with_authors(ProviderId::OpenLibrary, &["Gary S. Was"]),
+    ];
+    let m = merge(ISBN_FUNDAMENTALS, &cands, None, &priorities);
+    assert_eq!(author_names(&m), vec!["Gary S. Was"]);
+    assert_eq!(m.source(MetaField::Authors), Some(MetaSource::OpenLibrary));
+    let others = &m.choice(MetaField::Authors).unwrap().others;
+    assert_eq!(others.len(), 1);
+    assert_eq!(others[0].source, MetaSource::Google);
+    let MetaValue::Authors(list) = &others[0].value else {
+        panic!("著者の値");
+    };
+    assert_eq!(list[0].name, "GARY S. WAS");
+}
+
+#[test]
+fn an_all_caps_name_stays_when_no_other_source_has_a_cased_spelling() {
+    // ほかの取得元がない
+    let m = merge_by_isbn(
+        ISBN_FUNDAMENTALS,
+        &[with_authors(ProviderId::Google, &["GARY S. WAS"])],
+        None,
+    );
+    assert_eq!(author_names(&m), vec!["GARY S. WAS"]);
+    // ほかの取得元の綴りも全部大文字（小文字を含まない）
+    let cands = vec![
+        with_authors(ProviderId::Google, &["GARY S. WAS"]),
+        with_authors(ProviderId::OpenLibrary, &["GARY S. WAS"]),
+    ];
+    let m = merge_by_isbn(ISBN_FUNDAMENTALS, &cands, None);
+    assert_eq!(author_names(&m), vec!["GARY S. WAS"]);
+    // ほかの取得元に著者がない
+    let cands = vec![
+        with_authors(ProviderId::Google, &["GARY S. WAS"]),
+        with_authors(ProviderId::OpenLibrary, &[]),
+    ];
+    let m = merge_by_isbn(ISBN_FUNDAMENTALS, &cands, None);
+    assert_eq!(author_names(&m), vec!["GARY S. WAS"]);
+}
+
+#[test]
+fn a_different_person_or_spelling_key_does_not_replace_the_name() {
+    // 照合キーが違う（`garyswas` と `garywas`、`garyswas` と `garyswass`）
+    for other in ["Gary Was", "Gary S. Wass", "Jane Doe"] {
+        let cands = vec![
+            with_authors(ProviderId::Google, &["GARY S. WAS"]),
+            with_authors(ProviderId::OpenLibrary, &[other]),
+        ];
+        let m = merge_by_isbn(ISBN_FUNDAMENTALS, &cands, None);
+        assert_eq!(author_names(&m), vec!["GARY S. WAS"], "{other}");
+    }
+}
+
+#[test]
+fn a_name_that_is_not_all_caps_is_never_replaced() {
+    for chosen in ["Gary S. WAS", "Gary S. was", "MacArthur", "Gary S. Was"] {
+        let key_mate = "Gary S. Was";
+        let cands = vec![
+            with_authors(ProviderId::Google, &[chosen]),
+            with_authors(ProviderId::OpenLibrary, &[key_mate, "Mac Arthur"]),
+        ];
+        let m = merge_by_isbn(ISBN_FUNDAMENTALS, &cands, None);
+        assert_eq!(author_names(&m), vec![chosen], "{chosen}");
+    }
+    // 英字が 1 字だけの名前は、全部大文字とは見ない
+    let cands = vec![
+        with_authors(ProviderId::Google, &["X"]),
+        with_authors(ProviderId::OpenLibrary, &["x"]),
+    ];
+    let m = merge_by_isbn(ISBN_FUNDAMENTALS, &cands, None);
+    assert_eq!(author_names(&m), vec!["X"]);
+}
+
+#[test]
+fn japanese_names_are_left_alone() {
+    // 和書: openBD の日本語の著者が先。Google の大文字のローマ字は別の取得元の値として残るだけ
+    let isbn = "9784780802047";
+    let mut openbd = Candidate::empty(ProviderId::Openbd, isbn);
+    openbd.authors = vec![CandidateAuthor {
+        name: "山田玲子".into(),
+        kana: None,
+        role: Some("著".into()),
+    }];
+    let mut google = Candidate::empty(ProviderId::Google, isbn);
+    google.authors = vec![CandidateAuthor {
+        name: "Reiko Yamada".into(),
+        kana: None,
+        role: None,
+    }];
+    let m = merge_by_isbn(isbn, &[openbd, google], None);
+    assert_eq!(m.authors()[0].name, "山田玲子");
+
+    // 日本語を含む名前は、大文字の英字を含んでも変えない
+    let mut a = Candidate::empty(ProviderId::Openbd, isbn);
+    a.authors = vec![CandidateAuthor {
+        name: "山田 TARO".into(),
+        kana: None,
+        role: None,
+    }];
+    let mut b = Candidate::empty(ProviderId::Google, isbn);
+    b.authors = vec![CandidateAuthor {
+        name: "山田 Taro".into(),
+        kana: None,
+        role: None,
+    }];
+    let m = merge_by_isbn(isbn, &[a, b], None);
+    assert_eq!(m.authors()[0].name, "山田 TARO");
+
+    // 全部大文字の名前に、日本語を含む綴りは使わない
+    let cands = vec![
+        with_authors(ProviderId::Google, &["GARY S. WAS"]),
+        with_authors(ProviderId::OpenLibrary, &["Gary S. Was ゲイリー"]),
+    ];
+    let m = merge_by_isbn(ISBN_FUNDAMENTALS, &cands, None);
+    assert_eq!(author_names(&m), vec!["GARY S. WAS"]);
+}
+
+#[test]
+fn acronym_like_names_are_replaced_by_the_cased_spelling() {
+    let cands = vec![
+        with_authors(ProviderId::Google, &["J.R.R. TOLKIEN"]),
+        with_authors(ProviderId::OpenLibrary, &["J.R.R. Tolkien"]),
+    ];
+    let m = merge_by_isbn(ISBN_FUNDAMENTALS, &cands, None);
+    assert_eq!(author_names(&m), vec!["J.R.R. Tolkien"]);
+    // 空白・ピリオドの違いがあっても、照合キーが同じなら同じ人（綴りは相手のものを使う）
+    let cands = vec![
+        with_authors(ProviderId::Google, &["J.R.R. TOLKIEN"]),
+        with_authors(ProviderId::OpenLibrary, &["J. R. R. Tolkien"]),
+    ];
+    let m = merge_by_isbn(ISBN_FUNDAMENTALS, &cands, None);
+    assert_eq!(author_names(&m), vec!["J. R. R. Tolkien"]);
+}
+
+#[test]
+fn the_first_cased_spelling_in_priority_order_is_used() {
+    // 洋書の著者の順は Google > Open Library > NDL > openBD
+    let cands = vec![
+        with_authors(ProviderId::Ndl, &["gary s. was"]),
+        with_authors(ProviderId::Google, &["GARY S. WAS"]),
+        with_authors(ProviderId::OpenLibrary, &["Gary S. Was"]),
+    ];
+    let m = merge_by_isbn(ISBN_FUNDAMENTALS, &cands, None);
+    assert_eq!(author_names(&m), vec!["Gary S. Was"]);
+}

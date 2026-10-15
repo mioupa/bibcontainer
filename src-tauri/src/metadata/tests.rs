@@ -862,6 +862,299 @@ fn refetch_fetches_a_cover_only_when_the_book_has_none() {
     assert_eq!(rig.http.count("cover.openbd.jp"), 1);
 }
 
+// ---------------------------------------------------------------------------
+// 再取得: 取得元由来の書影が使えない形のとき
+// ---------------------------------------------------------------------------
+
+fn test_image(w: u32, h: u32, format: image::ImageFormat) -> Vec<u8> {
+    let img = image::RgbImage::from_fn(w, h, |x, y| {
+        image::Rgb([(x % 251) as u8, (y % 241) as u8, 90])
+    });
+    let mut out = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgb8(img)
+        .write_to(&mut out, format)
+        .unwrap();
+    out.into_inner()
+}
+
+/// Google が `zoom=0`・`zoom=1` の書影の URL を持つ洋書（Clean Code）。
+const GOOGLE_COVER_URLS: &str = "books.google.com/books/content";
+
+/// Google が返す書影の様子。
+#[derive(Clone, Copy)]
+enum GoogleCovers {
+    /// `zoom=0` は 575x92 の帯、`zoom=1` は 128x181 の書影（図書館がスキャンした本）
+    StripThenGood,
+    /// どちらも帯
+    OnlyStrips,
+    /// どちらも通信エラー
+    Offline,
+}
+
+/// Google の応答（Clean Code。著者と、`zoom=1` の thumbnail つき）と、書影の応答を決める。
+fn install_google(rig: &Rig, covers: GoogleCovers, authors: &[&str]) {
+    let base = online_handler();
+    let body = json!({
+        "kind": "books#volumes",
+        "totalItems": 1,
+        "items": [{
+            "id": "NKdLAAAAMAAJ",
+            "volumeInfo": {
+                "title": "Clean Code",
+                "authors": authors,
+                "language": "en",
+                "industryIdentifiers": [{ "type": "ISBN_13", "identifier": CLEAN_CODE }],
+                "imageLinks": {
+                    "thumbnail": "http://books.google.com/books/content?id=NKdLAAAAMAAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"
+                },
+            }
+        }]
+    })
+    .to_string();
+    let strip = test_image(575, 92, image::ImageFormat::Png);
+    let good = test_image(128, 181, image::ImageFormat::Jpeg);
+    rig.http.set_handler(Box::new(move |url| {
+        if url.contains("googleapis.com") {
+            return if url.contains(&format!("q=isbn:{CLEAN_CODE}")) {
+                google_json(200, body.clone())
+            } else {
+                google_json(200, r#"{"kind":"books#volumes","totalItems":0}"#)
+            };
+        }
+        if url.contains(GOOGLE_COVER_URLS) {
+            let zoom0 = url.contains("zoom=0");
+            return match (covers, zoom0) {
+                (GoogleCovers::Offline, _) => Err(TransportError::Connect("offline".into())),
+                (GoogleCovers::StripThenGood, false) => response(200, "image/jpeg", good.clone()),
+                _ => response(200, "image/png", strip.clone()),
+            };
+        }
+        base(url)
+    }));
+}
+
+/// Google だけが書影を持つように（Open Library の書影を使わない）、Google を使えるようにした道具。
+fn rig_for_cover_refetch(covers: GoogleCovers, authors: &[&str]) -> Rig {
+    let rig = Rig::new();
+    rig.block(rig.state.set_api_key(ProviderId::Google, "AIza-key"))
+        .unwrap();
+    set_enabled(&rig, &[(ProviderId::OpenLibrary, false)]);
+    install_google(&rig, covers, authors);
+    rig
+}
+
+/// 書影を保存して、その書影をもつ本（ISBN は Clean Code）を作る。`origin` が書影の由来。本の ID と書影のハッシュを返す。
+fn book_with_cover(rig: &Rig, image: &[u8], origin: Origin) -> (String, String) {
+    let stored =
+        bibcontainer_metadata::cover::import_cover_bytes(&rig.state.dirs().covers, image).unwrap();
+    let id = rig
+        .block(rig.state.create_books_from_drafts(vec![NewBookDraft {
+            changes: vec![
+                FieldChange::new("meta_status", "ok", Origin::Barcode),
+                FieldChange::barcode("isbn13", CLEAN_CODE),
+                FieldChange::new("cover_hash", stored.hash.clone(), origin),
+            ],
+            series_name: None,
+        }]))
+        .unwrap()
+        .remove(0);
+    (id, stored.hash)
+}
+
+fn stored_size(rig: &Rig, hash: &str) -> (u32, u32) {
+    bibcontainer_metadata::cover::stored_cover_dimensions(&rig.state.dirs().covers, hash).unwrap()
+}
+
+/// 取得元由来の書影が 575x92 の帯（Google の `zoom=0` が返した、本文の切り出し）なら、再取得で取り直す。
+/// 最初の URL（`zoom=0`）は帯なので使わず、次の URL（`zoom=1`、128x181）を書影にする。古いファイルは消さない。
+#[test]
+fn refetch_replaces_a_provider_cover_that_is_a_strip_with_the_next_url() {
+    let rig = rig_for_cover_refetch(GoogleCovers::StripThenGood, &["Robert C. Martin"]);
+    let strip = test_image(575, 92, image::ImageFormat::Png);
+    let (id, bad) = book_with_cover(&rig, &strip, Origin::Provider("google".into()));
+    assert_eq!(stored_size(&rig, &bad), (575, 92));
+    assert_eq!(rig.book(&id).field_sources["cover_hash"], "google");
+
+    let summary = rig
+        .block(rig.state.refetch_books(vec![id.clone()], false))
+        .unwrap();
+    let it = item(&summary, &id);
+    assert_eq!(it.outcome, RefetchOutcome::Updated, "{it:?}");
+    assert!(it.written.contains(&"cover_hash".to_owned()), "{it:?}");
+    assert_eq!(summary.covers_saved, 1);
+    let book = rig.book(&id);
+    let new = book.cover_hash.clone().expect("書影が付く");
+    assert_ne!(new, bad);
+    assert_eq!(stored_size(&rig, &new), (128, 181));
+    assert_eq!(book.field_sources["cover_hash"], "google");
+    assert!(!book.manual_fields.contains(&"cover_hash".to_owned()));
+    assert!(
+        cover_path(&rig.state.dirs().covers, &bad).is_file(),
+        "古いファイルは消さない"
+    );
+    assert_eq!(rig.http.count("zoom=0"), 1);
+    assert_eq!(rig.http.count("zoom=1"), 1);
+
+    // 書影が使える形になったので、次の再取得では取り直さない
+    let before = rig.http.count(GOOGLE_COVER_URLS);
+    let summary = rig
+        .block(rig.state.refetch_books(vec![id.clone()], false))
+        .unwrap();
+    assert_eq!(summary.covers_saved, 0);
+    assert_eq!(rig.http.count(GOOGLE_COVER_URLS), before);
+    assert_eq!(rig.book(&id).cover_hash.as_deref(), Some(new.as_str()));
+}
+
+/// 手動で選んだ書影は、同じ帯の形でも触らない（上書きを選んでも）。
+#[test]
+fn refetch_never_touches_a_manual_cover_even_if_it_is_a_strip() {
+    let rig = rig_for_cover_refetch(GoogleCovers::StripThenGood, &["Robert C. Martin"]);
+    let strip = test_image(575, 92, image::ImageFormat::Png);
+    let (id, hash) = book_with_cover(&rig, &strip, Origin::Manual);
+    for override_manual in [false, true] {
+        let summary = rig
+            .block(rig.state.refetch_books(vec![id.clone()], override_manual))
+            .unwrap();
+        assert_eq!(summary.covers_saved, 0);
+        let book = rig.book(&id);
+        assert_eq!(book.cover_hash.as_deref(), Some(hash.as_str()));
+        assert_eq!(book.field_sources["cover_hash"], "manual");
+        assert!(book.manual_fields.contains(&"cover_hash".to_owned()));
+    }
+    assert_eq!(rig.http.count(GOOGLE_COVER_URLS), 0, "書影は取りに行かない");
+}
+
+/// 使える形の取得元由来の書影（縦長・横長の絵本）は、取り直さない。
+#[test]
+fn refetch_does_not_download_again_when_the_stored_provider_cover_is_fine() {
+    let rig = rig_for_cover_refetch(GoogleCovers::StripThenGood, &["Robert C. Martin"]);
+    let mut ids = Vec::new();
+    for (w, h) in [(300, 450), (300, 200)] {
+        let image = test_image(w, h, image::ImageFormat::Jpeg);
+        let (id, hash) = book_with_cover(&rig, &image, Origin::Provider("openbd".into()));
+        ids.push((id, hash));
+    }
+    let summary = rig
+        .block(
+            rig.state
+                .refetch_books(ids.iter().map(|(id, _)| id.clone()).collect(), false),
+        )
+        .unwrap();
+    assert_eq!(summary.covers_saved, 0);
+    assert_eq!(rig.http.count(GOOGLE_COVER_URLS), 0);
+    assert_eq!(rig.http.count("cover.openbd.jp"), 0);
+    for (id, hash) in &ids {
+        let book = rig.book(id);
+        assert_eq!(book.cover_hash.as_deref(), Some(hash.as_str()));
+        assert_eq!(book.field_sources["cover_hash"], "openbd");
+    }
+}
+
+/// 使えない形の書影を取り直しても、使える書影がなければ、その書影を外す（取得元由来だけ）。ファイルは残す。
+/// 通信できなくて試せなかったときは、あとで取り直すので外さない。
+#[test]
+fn refetch_clears_an_unusable_provider_cover_when_nothing_usable_is_found() {
+    let rig = rig_for_cover_refetch(GoogleCovers::OnlyStrips, &["Robert C. Martin"]);
+    let strip = test_image(575, 92, image::ImageFormat::Png);
+    let (id, bad) = book_with_cover(&rig, &strip, Origin::Provider("google".into()));
+
+    // 書影の URL がすべて通信エラー: 試せなかったので、そのまま（取得待ちになる）
+    install_google(&rig, GoogleCovers::Offline, &["Robert C. Martin"]);
+    let summary = rig
+        .block(rig.state.refetch_books(vec![id.clone()], false))
+        .unwrap();
+    assert_eq!(summary.covers_saved, 0);
+    assert!(
+        !item(&summary, &id)
+            .written
+            .contains(&"cover_hash".to_owned())
+    );
+    let book = rig.book(&id);
+    assert_eq!(book.cover_hash.as_deref(), Some(bad.as_str()));
+    assert_eq!(book.field_sources["cover_hash"], "google");
+
+    // どれも帯: 書影を外す
+    install_google(&rig, GoogleCovers::OnlyStrips, &["Robert C. Martin"]);
+    let summary = rig
+        .block(rig.state.refetch_books(vec![id.clone()], false))
+        .unwrap();
+    let it = item(&summary, &id);
+    assert_eq!(it.outcome, RefetchOutcome::Updated, "{it:?}");
+    assert!(it.written.contains(&"cover_hash".to_owned()), "{it:?}");
+    assert_eq!(summary.covers_saved, 0);
+    let book = rig.book(&id);
+    assert_eq!(book.cover_hash, None);
+    assert!(!book.field_sources.contains_key("cover_hash"));
+    assert!(
+        cover_path(&rig.state.dirs().covers, &bad).is_file(),
+        "古いファイルは消さない"
+    );
+}
+
+/// 今の書影の由来が取得元でない（バーコード・取り込み・由来の記録がない）ときも、触らない。
+#[test]
+fn refetch_leaves_a_strip_cover_alone_when_it_was_not_set_by_a_provider() {
+    let rig = rig_for_cover_refetch(GoogleCovers::StripThenGood, &["Robert C. Martin"]);
+    let strip = test_image(575, 92, image::ImageFormat::Png);
+    let (id, hash) = book_with_cover(&rig, &strip, Origin::Import);
+    let summary = rig
+        .block(rig.state.refetch_books(vec![id.clone()], false))
+        .unwrap();
+    assert_eq!(summary.covers_saved, 0);
+    assert_eq!(rig.book(&id).cover_hash.as_deref(), Some(hash.as_str()));
+    assert_eq!(rig.http.count(GOOGLE_COVER_URLS), 0);
+}
+
+/// 保存済みの書影のファイルがない（同期で書影がまだ届いていない）ときは、使えない形かわからないので、そのまま。
+#[test]
+fn refetch_keeps_a_provider_cover_whose_file_is_missing() {
+    let rig = rig_for_cover_refetch(GoogleCovers::StripThenGood, &["Robert C. Martin"]);
+    let good = test_image(300, 450, image::ImageFormat::Jpeg);
+    let (id, hash) = book_with_cover(&rig, &good, Origin::Provider("google".into()));
+    std::fs::remove_file(cover_path(&rig.state.dirs().covers, &hash)).unwrap();
+    let summary = rig
+        .block(rig.state.refetch_books(vec![id.clone()], false))
+        .unwrap();
+    assert_eq!(summary.covers_saved, 0);
+    assert_eq!(rig.book(&id).cover_hash.as_deref(), Some(hash.as_str()));
+    assert_eq!(rig.http.count(GOOGLE_COVER_URLS), 0);
+}
+
+// ---------------------------------------------------------------------------
+// 再取得: 全部大文字の著者名
+// ---------------------------------------------------------------------------
+
+/// Google が全部大文字の著者名（`ROBERT C. MARTIN`）を返しても、NDL の綴りを使う。大文字で保存された本は、再取得で直る。
+#[test]
+fn refetch_rewrites_an_all_caps_google_author_with_another_sources_spelling() {
+    let rig = rig_for_cover_refetch(GoogleCovers::StripThenGood, &["ROBERT C. MARTIN"]);
+    let id = bare_book(&rig, Some(CLEAN_CODE), "ok");
+    // 以前の版で、Google の大文字の名前が保存されていた
+    rig.update(
+        &id,
+        vec![FieldChange::new(
+            "authors",
+            json!([{ "name": "ROBERT C. MARTIN" }]),
+            Origin::Provider("google".into()),
+        )],
+        UpdateOptions::default(),
+    );
+    assert_eq!(rig.book(&id).authors[0].name, "ROBERT C. MARTIN");
+
+    let summary = rig
+        .block(rig.state.refetch_books(vec![id.clone()], false))
+        .unwrap();
+    let it = item(&summary, &id);
+    assert!(it.written.contains(&"authors".to_owned()), "{it:?}");
+    let book = rig.book(&id);
+    assert_eq!(book.authors.len(), 1, "{:?}", book.authors);
+    assert_eq!(book.authors[0].name, "Robert C. Martin");
+    assert_eq!(
+        book.field_sources["authors"], "google",
+        "採用した取得元は Google のまま"
+    );
+}
+
 #[test]
 fn refetch_reports_books_it_cannot_refetch_and_continues_with_the_rest() {
     let rig = Rig::new();

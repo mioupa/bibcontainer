@@ -11,6 +11,8 @@
 //!   採用した書名の取得元に副書名がなければ、副書名は空になり、ほかの取得元の副書名は候補に回る。
 //! - 2段目のバーコードは `MetaSource::Barcode` として、Cコードと本体価格の最優先の取得元になる。
 //! - 採用した書名が、採用した巻次で終わっているとき（`One piece 巻1` と巻次 `巻1`）は、書名から巻次を除く。
+//! - 採用した著者の名前が全部大文字の英字（Google の `GARY S. WAS`）のとき、ほかの取得元に、同じ人（`latin_name_key` が
+//!   同じ）の小文字を含む綴り（`Gary S. Was`）があれば、名前だけをその綴りにする（`respell_all_caps_authors`）。
 
 use std::collections::BTreeMap;
 
@@ -18,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::isbn::to_isbn13;
+use crate::normalize::{has_cjk_or_kana, latin_name_key};
 use crate::types::{
     Candidate, CandidateAuthor, CandidateCover, MetaField, MetaGroup, MetaSecondTier, MetaSource,
     MetaValue,
@@ -325,6 +328,12 @@ pub fn merge(
             .collect();
 
         let mut chosen: Option<MetaPick> = all.first().cloned();
+        if field == MetaField::Authors
+            && let Some(pick) = chosen.as_mut()
+            && let MetaValue::Authors(authors) = &mut pick.value
+        {
+            respell_all_caps_authors(authors, pick.source, &all);
+        }
         if field == MetaField::Title {
             title_source = chosen.as_ref().map(|p| p.source);
         }
@@ -355,6 +364,53 @@ pub fn merge(
     MetaMerged {
         isbn13: isbn13.to_string(),
         fields,
+    }
+}
+
+/// 全部大文字の英字の名前か（日本語を含まず、ASCII の英字が 2 字以上あり、小文字がない）。
+/// `GARY S. WAS`・`J.R.R. TOLKIEN` は真、`Gary S. Was`（小文字がある）・`X`（英字が 1 字だけ）・日本語の名前は偽。
+fn is_all_caps_latin(name: &str) -> bool {
+    !has_cjk_or_kana(name)
+        && name.chars().filter(char::is_ascii_alphabetic).count() >= 2
+        && !name.chars().any(char::is_lowercase)
+}
+
+/// 採用した著者のうち、名前が全部大文字の英字のものを、ほかの取得元の綴りで置き換える。
+///
+/// Google Books は、洋書の著者名を `GARY S. WAS` と大文字で返すことがある。優先順位の順に、ほかの取得元
+/// （`all` のうち、採用した取得元 `chosen_source` 以外）の著者から、同じ人（`latin_name_key` が同じ）で、
+/// 小文字を含む綴り（日本語を含まないもの）を探し、最初に見つかったものに名前だけを置き換える。
+/// 役割とヨミは採用した著者のまま。見つからなければそのまま（大文字小文字を推測で直さない）。
+/// 全部大文字でない名前（`Gary S. WAS` のような混在も）は変えない。
+fn respell_all_caps_authors(
+    authors: &mut [CandidateAuthor],
+    chosen_source: MetaSource,
+    all: &[MetaPick],
+) {
+    let others: Vec<&CandidateAuthor> = all
+        .iter()
+        .filter(|p| p.source != chosen_source)
+        .filter_map(|p| match &p.value {
+            MetaValue::Authors(list) => Some(list),
+            _ => None,
+        })
+        .flatten()
+        .collect();
+    for author in authors.iter_mut() {
+        if !is_all_caps_latin(&author.name) {
+            continue;
+        }
+        let key = latin_name_key(&author.name);
+        if key.is_empty() {
+            continue;
+        }
+        if let Some(better) = others.iter().find(|o| {
+            !has_cjk_or_kana(&o.name)
+                && o.name.chars().any(char::is_lowercase)
+                && latin_name_key(&o.name) == key
+        }) {
+            author.name = better.name.clone();
+        }
     }
 }
 

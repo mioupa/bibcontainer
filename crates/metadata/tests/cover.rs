@@ -668,6 +668,123 @@ async fn tiny_images_and_fake_image_content_types_are_not_covers() {
     );
 }
 
+/// 本文の帯のような、書影の形でない画像（Google の `zoom=0` が返すことがある 575x92）は書影にせず、次の URL へ進む。
+#[tokio::test]
+async fn strip_shaped_images_are_skipped_and_the_next_url_is_saved() {
+    let dir = tempfile::tempdir().unwrap();
+    let http = FakeHttp::new(Box::new(|url| match url {
+        "https://a.example/strip.png" => ok("image/png", png(575, 92)),
+        "https://a.example/cover.jpg" => ok("image/jpeg", jpeg(128, 181)),
+        _ => ok("text/plain", Vec::new()),
+    }));
+    let covers = [
+        cover(ProviderId::Google, "https://a.example/strip.png"),
+        cover(ProviderId::Google, "https://a.example/cover.jpg"),
+    ];
+    let result = acquire_cover(&http.transport(), &covers, dir.path()).await;
+    // 帯は、小さすぎる画像と同じ `placeholder` として数える
+    assert_eq!(
+        result.attempts[0].result,
+        MetaCoverAttemptResult::Placeholder
+    );
+    assert_eq!(result.attempts[1].result, MetaCoverAttemptResult::Saved);
+    let saved = result.saved.expect("2 つ目が保存される");
+    assert_eq!((saved.width, saved.height), (128, 181));
+    assert_eq!(http.urls.lock().unwrap().len(), 2);
+    assert_eq!(walk(dir.path()).len(), 1, "帯は保存しない");
+
+    // 帯しかなければ、何も保存しない（通信エラーではないのでオフラインではない）
+    let dir = tempfile::tempdir().unwrap();
+    let result = acquire_cover(&http.transport(), &covers[..1], dir.path()).await;
+    assert!(result.saved.is_none());
+    assert!(!result.offline);
+    assert!(walk(dir.path()).is_empty());
+}
+
+#[tokio::test]
+async fn wide_picture_books_are_covers_but_extreme_shapes_are_not() {
+    let dir = tempfile::tempdir().unwrap();
+    let http = FakeHttp::new(Box::new(|url| match url {
+        // 横長の絵本（0.67）は書影
+        "https://a.example/wide.jpg" => ok("image/jpeg", jpeg(300, 200)),
+        // 縦に細長い（4.0）のは書影ではない
+        "https://a.example/tall.jpg" => ok("image/jpeg", jpeg(100, 400)),
+        _ => ok("text/plain", Vec::new()),
+    }));
+    let covers = [
+        cover(ProviderId::Openbd, "https://a.example/tall.jpg"),
+        cover(ProviderId::Openbd, "https://a.example/wide.jpg"),
+    ];
+    let result = acquire_cover(&http.transport(), &covers, dir.path()).await;
+    assert_eq!(
+        result.attempts[0].result,
+        MetaCoverAttemptResult::Placeholder
+    );
+    let saved = result.saved.expect("横長の絵本は保存される");
+    assert_eq!((saved.width, saved.height), (300, 200));
+}
+
+#[test]
+fn auto_cover_shape_limits_are_inclusive_at_the_boundaries() {
+    assert_eq!((MIN_AUTO_ASPECT, MAX_AUTO_ASPECT), (0.5, 3.0));
+    // 高さ / 幅がちょうど 0.5・3.0 は使える
+    assert!(is_usable_auto_cover(600, 300));
+    assert!(is_usable_auto_cover(100, 300));
+    // わずかに外れると使えない
+    assert!(!is_usable_auto_cover(601, 300));
+    assert!(!is_usable_auto_cover(100, 301));
+    // ふつうの書影の形
+    assert!(is_usable_auto_cover(128, 181));
+    assert!(is_usable_auto_cover(500, 500));
+    assert!(is_usable_auto_cover(300, 200));
+    // 本文の帯
+    assert!(!is_usable_auto_cover(575, 92));
+    // 長辺 40px 未満は、形が合っても使えない
+    assert!(is_usable_auto_cover(40, 40));
+    assert!(!is_usable_auto_cover(39, 39));
+    assert!(!is_usable_auto_cover(1, 1));
+    assert!(!is_usable_auto_cover(0, 100));
+}
+
+/// 形の規則は自動取得だけ。利用者が選んだ画像（バイト列・ファイル・入力した URL）は、細長くても取り込む。
+#[tokio::test]
+async fn the_shape_rule_does_not_apply_to_user_imports() {
+    let dir = tempfile::tempdir().unwrap();
+    let stored = import_cover_bytes_async(dir.path().to_path_buf(), png(575, 92))
+        .await
+        .unwrap();
+    assert_eq!((stored.width, stored.height), (575, 92));
+    assert_eq!(
+        stored_cover_dimensions(dir.path(), &stored.hash).unwrap(),
+        (575, 92)
+    );
+
+    let http = FakeHttp::new(Box::new(|_| ok("image/png", png(100, 400))));
+    let stored = import_cover_url(&http.transport(), dir.path(), "https://a.example/tall.png")
+        .await
+        .unwrap();
+    assert_eq!((stored.width, stored.height), (100, 400));
+}
+
+#[test]
+fn stored_cover_dimensions_reads_the_header_and_rejects_missing_files_and_bad_hashes() {
+    let dir = tempfile::tempdir().unwrap();
+    let stored = import_cover_bytes(dir.path(), &jpeg(300, 450)).unwrap();
+    assert_eq!(
+        stored_cover_dimensions(dir.path(), &stored.hash).unwrap(),
+        (300, 450)
+    );
+    let missing = "0".repeat(64);
+    assert!(matches!(
+        stored_cover_dimensions(dir.path(), &missing),
+        Err(CoverError::Io(_))
+    ));
+    assert!(matches!(
+        stored_cover_dimensions(dir.path(), "../../etc/passwd"),
+        Err(CoverError::Io(_))
+    ));
+}
+
 #[tokio::test]
 async fn download_cover_reports_http_errors() {
     let http = FakeHttp::new(covers_handler());
