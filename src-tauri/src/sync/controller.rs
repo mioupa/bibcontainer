@@ -74,6 +74,8 @@ pub struct Hooks {
     /// 本の ID の一覧、本以外（シリーズなど）も変わったか。**書き出しの合図は送らない**
     /// （他の端末から取り込んだ変更を、また書き出さないため）。
     pub library_changed: Box<dyn Fn(Vec<String>, bool) + Send + Sync>,
+    /// 同期フォルダから写した書影のハッシュ（本の行より遅れて届いた書影を、画面に読み込み直させる）。
+    pub covers_arrived: Box<dyn Fn(Vec<String>) + Send + Sync>,
 }
 
 /// 実行環境に依る設定。
@@ -540,6 +542,17 @@ impl SyncController {
         }))
     }
 
+    /// 取り込みの結果を、画面に知らせる（本の変更は `library-changed`、写した書影は `covers-arrived`）。
+    /// `books` が false なら、書影だけ（DB を入れ替えて、画面が全部取り直すとき）。
+    fn announce_import(&self, import: &ImportReport, books: bool) {
+        if books && import.changed_anything() {
+            (self.hooks.library_changed)(import.changed_book_ids.clone(), import.other_changed);
+        }
+        if !import.covers_fetched_hashes.is_empty() {
+            (self.hooks.covers_arrived)(import.covers_fetched_hashes.clone());
+        }
+    }
+
     /// 周期を実行して、結果（本の変更の通知、取り込みの続き、状態）を反映する。
     async fn cycle(
         self: &Arc<Self>,
@@ -553,9 +566,7 @@ impl SyncController {
         drop(guard);
         let outcome = result??;
         if let Some(import) = &outcome.import {
-            if import.changed_anything() {
-                (self.hooks.library_changed)(import.changed_book_ids.clone(), import.other_changed);
-            }
+            self.announce_import(import, true);
             if import.remaining_files > 0 {
                 self.signal(Signal::ImportMore);
             }
@@ -701,14 +712,8 @@ impl SyncController {
         }
         match attempt.result {
             Ok(report) => {
-                if attempt.replaced.is_none()
-                    && let Some(import) = &report.import
-                    && import.changed_anything()
-                {
-                    (self.hooks.library_changed)(
-                        import.changed_book_ids.clone(),
-                        import.other_changed,
-                    );
+                if let Some(import) = &report.import {
+                    self.announce_import(import, attempt.replaced.is_none());
                 }
                 // 設定の直後の取り込み・書き出しの続きと、最終の取り込みの時刻を整える
                 self.signal(Signal::ImportMore);
@@ -875,12 +880,7 @@ impl SyncController {
                     if imported {
                         let report = engine.import_all(SYNC_ROUNDS)?;
                         t.with_live(|live| live.apply_import(&report));
-                        if report.changed_anything() {
-                            (t.hooks.library_changed)(
-                                report.changed_book_ids.clone(),
-                                report.other_changed,
-                            );
-                        }
+                        t.announce_import(&report, true);
                     }
                     let gc = engine.gc_covers()?;
                     Ok(gc.local_removed + gc.remote_removed)

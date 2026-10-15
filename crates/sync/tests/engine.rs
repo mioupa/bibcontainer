@@ -1145,12 +1145,20 @@ fn covers_are_verified_by_hash_and_missing_ones_are_counted_until_they_arrive() 
         backend.write_raw(&cover_path, &full[..4]);
         let report = import(&b);
         assert_eq!((report.covers_fetched, report.missing_covers), (0, 1));
+        assert!(report.covers_fetched_hashes.is_empty());
         assert!(!b.has_cover(&hash));
         // 届いた
         backend.write_raw(&cover_path, &full);
         let report = import(&b);
         assert_eq!((report.covers_fetched, report.missing_covers), (1, 0));
+        assert_eq!(
+            report.covers_fetched_hashes,
+            std::slice::from_ref(&hash),
+            "写した書影のハッシュを返す（アプリが画面に知らせる）"
+        );
         assert!(b.has_cover(&hash));
+        // 次の取り込みでは、もう写すものがない
+        assert!(import(&b).covers_fetched_hashes.is_empty());
         assert_eq!(b.engine().local_counters().unwrap().missing_covers, 0);
     });
 }

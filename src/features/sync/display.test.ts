@@ -7,7 +7,7 @@ import {
   latestOf,
   osLabel,
 } from "@/features/sync/format";
-import { planSetup } from "@/features/sync/setupPlan";
+import { planChangeFolder, planSetup } from "@/features/sync/setupPlan";
 import type { FolderInspection, SyncStatus } from "@/features/sync/types";
 import { ja } from "@/i18n/ja";
 
@@ -284,5 +284,51 @@ describe("planSetup: フォルダの判定 × 手元のデータ → 設定の�
         kind: "updateRequired",
       });
     }
+  });
+});
+
+describe("planChangeFolder: 設定済みで選び直したフォルダの判定 → 付け替えられるか（0016）", () => {
+  const inspection = (overrides: Partial<FolderInspection>): FolderInspection => ({
+    kind: "library",
+    libraryFolder: "/Drive/bibcontainer-library",
+    libraryId: "lib-1",
+    devices: [],
+    localHasData: true,
+    localLibraryId: "lib-1",
+    ...overrides,
+  });
+
+  it("同じライブラリ（フォルダの ID が、手元の ID と同じ）: 付け替える", () => {
+    expect(planChangeFolder(inspection({}))).toEqual({ kind: "reconnect" });
+    for (const localHasData of [false, true]) {
+      expect(planChangeFolder(inspection({ localHasData }))).toEqual({ kind: "reconnect" });
+    }
+  });
+
+  it("別のライブラリ（判定が otherLibrary、または ID が違う）: 付け替えない", () => {
+    expect(planChangeFolder(inspection({ kind: "otherLibrary", libraryId: "lib-2" }))).toEqual({
+      kind: "otherLibrary",
+    });
+    expect(planChangeFolder(inspection({ libraryId: "lib-2" }))).toEqual({
+      kind: "otherLibrary",
+    });
+  });
+
+  it("ライブラリがない（空）・書き込めない・更新が必要: 付け替えない", () => {
+    expect(planChangeFolder(inspection({ kind: "empty", libraryId: null }))).toEqual({
+      kind: "empty",
+    });
+    expect(planChangeFolder(inspection({ kind: "notWritable" }))).toEqual({
+      kind: "notWritable",
+    });
+    expect(planChangeFolder(inspection({ kind: "updateRequired" }))).toEqual({
+      kind: "updateRequired",
+    });
+  });
+
+  it("手元がどのライブラリにも属していない（解除された）: 付け替えない", () => {
+    expect(planChangeFolder(inspection({ localLibraryId: null }))).toEqual({
+      kind: "notJoined",
+    });
   });
 });

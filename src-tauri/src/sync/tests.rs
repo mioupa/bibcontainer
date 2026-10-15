@@ -532,6 +532,257 @@ fn choosing_the_same_library_at_another_path_only_moves_the_folder() {
     assert_eq!(titles(&a), ["B の本", "本"]);
 }
 
+/// 設定済みの端末が、同じライブラリのフォルダを選び直す（Windows のドライブ文字が変わった、Drive の場所を移した、など）。
+/// 解除せずに `join` で場所だけ付け替える。エラー状態（同期フォルダが見つからない）からも戻れる。
+#[test]
+fn a_configured_device_moves_to_the_same_library_at_another_path_without_leaving() {
+    let parent = tempfile::tempdir().unwrap();
+    let first = parent.path().join("drive-e");
+    let second = parent.path().join("drive-f");
+    std::fs::create_dir_all(&first).unwrap();
+    let a = Harness::new();
+    let backups = pin_backup_dir(&a);
+    let st = setup(&a, &first, "create");
+    let library_id = st["libraryId"].clone();
+    let device = st["deviceId"].clone();
+    new_book(&a, "本 1");
+    export(&a);
+
+    // ドライブ文字が変わって、同期フォルダが見つからなくなった（エラー状態）。別のパスに同じ中身がある
+    copy_dir(&library_root(&first), &library_root(&second));
+    a.sync.drop_watcher();
+    std::fs::rename(&first, parent.path().join("drive-e-gone")).unwrap();
+    assert_eq!(a.err_kind("sync_now", json!({})), "io");
+    assert_eq!(status(&a)["state"], "error");
+
+    // 設定済みのまま調べると、同じライブラリで、手元の参加の記録もある
+    let found = inspect(&a, &second);
+    assert_eq!(found["kind"], "library");
+    assert_eq!(found["libraryId"], library_id);
+    assert_eq!(found["localLibraryId"], library_id);
+
+    // 解除せずに付け替える。DB は作り直さず、スナップショットも書かず、エラーが消える
+    let st = setup(&a, &second, "join");
+    assert_eq!(st["state"], "idle");
+    assert_eq!(st["error"], Value::Null);
+    assert_eq!(st["folder"], path_str(&library_root(&second)));
+    assert_eq!(st["libraryId"], library_id);
+    assert_eq!(st["deviceId"], device);
+    assert_eq!(st["pendingOps"], 0);
+    assert_eq!(titles(&a), ["本 1"]);
+    assert!(
+        !library_root(&second)
+            .join("snapshots")
+            .join(device.as_str().unwrap())
+            .exists()
+    );
+    assert!(!backups.exists(), "バックアップも作らない");
+    assert!(a.sync.is_configured());
+
+    // 新しい場所を読み書きしている（監視も張り直している）
+    let b = Harness::new();
+    setup(&b, &second, "join");
+    new_book(&b, "本 2");
+    export(&b);
+    import(&a);
+    assert_eq!(titles(&a), ["本 1", "本 2"]);
+    new_book(&a, "本 3");
+    export(&a);
+    import(&b);
+    assert_eq!(titles(&b), ["本 1", "本 2", "本 3"]);
+}
+
+/// 設定済みの端末は、空のフォルダ・別のライブラリのフォルダへは付け替えられない（何も変わらない）。
+#[test]
+fn a_configured_device_cannot_move_to_an_empty_or_other_librarys_folder() {
+    let first = tempfile::tempdir().unwrap();
+    let a = Harness::new();
+    let backups = pin_backup_dir(&a);
+    let st = setup(&a, first.path(), "create");
+    let folder = st["folder"].clone();
+    let device = st["deviceId"].clone();
+    new_book(&a, "本 1");
+    export(&a);
+
+    // 空のフォルダ: 判定は「空」で、手元の参加の記録も返る（画面は、付け替えられないと伝える）
+    let empty = tempfile::tempdir().unwrap();
+    let found = inspect(&a, empty.path());
+    assert_eq!(found["kind"], "empty");
+    assert!(found["localLibraryId"].is_string());
+    for mode in ["create", "join", "joinMerge", "joinReplace"] {
+        assert_eq!(
+            a.err_kind(
+                "setup_sync",
+                json!({ "path": path_str(empty.path()), "mode": mode })
+            ),
+            "conflict",
+            "{mode}"
+        );
+    }
+    assert!(!library_root(empty.path()).exists());
+
+    // 別のライブラリのフォルダ
+    let other = tempfile::tempdir().unwrap();
+    setup(&Harness::new(), other.path(), "create");
+    let found = inspect(&a, other.path());
+    assert_eq!(found["kind"], "otherLibrary");
+    for mode in ["join", "joinMerge", "joinReplace"] {
+        assert_eq!(
+            a.err_kind(
+                "setup_sync",
+                json!({ "path": path_str(other.path()), "mode": mode })
+            ),
+            "conflict",
+            "{mode}"
+        );
+    }
+
+    // どれも、設定も蔵書も変えない
+    let st = status(&a);
+    assert_eq!(st["state"], "idle");
+    assert_eq!(st["folder"], folder);
+    assert_eq!(st["deviceId"], device);
+    assert_eq!(titles(&a), ["本 1"]);
+    assert!(manual_backups(&a).is_empty());
+    assert!(!backups.exists());
+    assert!(a.sync.is_configured());
+}
+
+fn cover_bytes(label: &str) -> (String, Vec<u8>) {
+    let bytes = format!("cover of {label}").into_bytes();
+    (sha256_hex(&bytes), bytes)
+}
+
+fn put_cover(h: &Harness, hash: &str, bytes: &[u8]) {
+    let path = cover_local_path(&h.dir.join("covers"), hash);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, bytes).unwrap();
+}
+
+fn has_cover(h: &Harness, hash: &str) -> bool {
+    cover_local_path(&h.dir.join("covers"), hash).is_file()
+}
+
+fn cover_hashes_announced(h: &Harness) -> Vec<String> {
+    let mut hashes: Vec<String> = h
+        .cover_events
+        .lock()
+        .unwrap()
+        .iter()
+        .flat_map(|e| e["hashes"].as_array().unwrap().clone())
+        .map(|v| v.as_str().unwrap().to_owned())
+        .collect();
+    hashes.sort();
+    hashes
+}
+
+/// 本の行が先に届き、書影があとから届いたとき（同期フォルダに書影のファイルがまだなかった）、
+/// 写した書影のハッシュを `covers-arrived` で知らせる（画面は仮の表紙から読み込み直す）。
+#[test]
+fn covers_that_arrive_after_their_books_are_announced() {
+    let folder = tempfile::tempdir().unwrap();
+    let a = Harness::new();
+    let b = Harness::new();
+    setup(&a, folder.path(), "create");
+    setup(&b, folder.path(), "join");
+    let (hash, bytes) = cover_bytes("1");
+    put_cover(&a, &hash, &bytes);
+    create(
+        &a,
+        vec![
+            manual("title", json!("書影つきの本")),
+            manual("cover_hash", json!(hash)),
+        ],
+    );
+    export(&a);
+    let remote = library_root(folder.path())
+        .join("covers")
+        .join(&hash[..2])
+        .join(format!("{hash}.jpg"));
+    assert!(remote.is_file(), "書き出しで、書影も同期フォルダへ写る");
+
+    // 書影の本体が、Drive にまだ届いていない（本の行だけが先に届く）
+    let kept = std::fs::read(&remote).unwrap();
+    std::fs::remove_file(&remote).unwrap();
+    import(&b);
+    assert_eq!(titles(&b), ["書影つきの本"]);
+    assert!(!has_cover(&b, &hash));
+    assert_eq!(status(&b)["missingCovers"], 1);
+    assert!(
+        cover_hashes_announced(&b).is_empty(),
+        "届いていない間は知らせない"
+    );
+
+    // 書影が届いたあとの取り込みで、写して、知らせる
+    std::fs::write(&remote, kept).unwrap();
+    b.cover_events.lock().unwrap().clear();
+    import(&b);
+    assert!(has_cover(&b, &hash));
+    assert_eq!(status(&b)["missingCovers"], 0);
+    assert_eq!(
+        b.cover_events.lock().unwrap().clone(),
+        [json!({ "hashes": [hash.clone()] })]
+    );
+
+    // 次の取り込みでは、もう知らせない
+    b.cover_events.lock().unwrap().clear();
+    import(&b);
+    assert!(b.cover_events.lock().unwrap().is_empty());
+}
+
+/// 本の行と書影が同じ取り込みで届いたときも、書影を知らせる（画面が行を取り直したあと、書影の版が進む）。
+#[test]
+fn covers_fetched_together_with_their_books_are_announced_too_and_setup_announces_them() {
+    let folder = tempfile::tempdir().unwrap();
+    let a = Harness::new();
+    setup(&a, folder.path(), "create");
+    let (hash1, bytes1) = cover_bytes("1");
+    let (hash2, bytes2) = cover_bytes("2");
+    put_cover(&a, &hash1, &bytes1);
+    put_cover(&a, &hash2, &bytes2);
+    for (title, hash) in [("本 1", &hash1), ("本 2", &hash2)] {
+        create(
+            &a,
+            vec![
+                manual("title", json!(title)),
+                manual("cover_hash", json!(hash)),
+            ],
+        );
+    }
+    export(&a);
+
+    // 参加の設定の取り込みで写した書影も、知らせる
+    let c = Harness::new();
+    setup(&c, folder.path(), "join");
+    let mut expected = vec![hash1.clone(), hash2.clone()];
+    expected.sort();
+    assert_eq!(cover_hashes_announced(&c), expected);
+    assert!(has_cover(&c, &hash1) && has_cover(&c, &hash2));
+}
+
+/// 最初の同期で書影が数千個届いても、1 つのイベントを大きくしない（500 個ずつ）。
+#[test]
+fn many_covers_are_announced_in_chunks() {
+    let h = Harness::new();
+    let hashes: Vec<String> = (0..1200).map(|i| format!("{i:064x}")).collect();
+    crate::events::emit_covers_arrived(h.app_handle(), hashes.clone());
+    wait_until("covers-arrived", Duration::from_secs(5), || {
+        h.cover_events.lock().unwrap().len() == 3
+    });
+    let events = h.cover_events.lock().unwrap().clone();
+    let sizes: Vec<usize> = events
+        .iter()
+        .map(|e| e["hashes"].as_array().unwrap().len())
+        .collect();
+    assert_eq!(sizes, [500, 500, 200]);
+    drop(events);
+    assert_eq!(cover_hashes_announced(&h), {
+        let mut sorted = hashes;
+        sorted.sort();
+        sorted
+    });
+}
+
 #[test]
 fn an_empty_folder_while_attached_to_a_library_is_refused_without_creating_anything() {
     let first = tempfile::tempdir().unwrap();

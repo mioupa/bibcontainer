@@ -553,6 +553,191 @@ describe("同期の節: 警告（FR-SYNC-10／11、更新が必要、エラー�
   });
 });
 
+describe("同期の節: 設定済み — 同期フォルダを選び直す（0016）", () => {
+  const changeButton = () => screen.getByTestId("change-folder-button");
+
+  /** フォルダを選んで、判定の結果（付け替えの表示）が出るまで待つ。 */
+  async function chooseNewFolder() {
+    fireEvent.click(await screen.findByTestId("change-folder-button"));
+    return screen.findByTestId("change-folder");
+  }
+
+  it("状態の欄に「同期フォルダを選び直す」がある。選ぶまで、結果は出さない", async () => {
+    mockSync.control.setScenario("idle");
+    renderSection();
+    await screen.findByTestId("sync-folder");
+    expect(changeButton()).toHaveTextContent(ja.sync.changeFolder.action);
+    expect(changeButton()).toBeEnabled();
+    expect(screen.queryByTestId("change-folder")).not.toBeInTheDocument();
+    // 問題がなければ、警告の中には出ない
+    expect(screen.queryByTestId("change-folder-in-error")).not.toBeInTheDocument();
+  });
+
+  it("エラー（同期フォルダが見つからないなど）のときは、エラーの警告の中にも置く。同じ操作を始める", async () => {
+    mockSync.control.setScenario("error");
+    mockSync.control.setInspect({ kind: "library" });
+    const inspect = vi.spyOn(mockSync.api, "inspectSyncFolder");
+    renderSection();
+    const warning = await screen.findByTestId("warning-error");
+    expect(warning).toHaveTextContent(ja.sync.changeFolder.hint);
+    fireEvent.click(within(warning).getByTestId("change-folder-in-error"));
+    expect(await screen.findByTestId("change-folder")).toBeInTheDocument();
+    expect(chooseDirectory).toHaveBeenCalledWith({ title: ja.sync.setup.dialogTitle });
+    expect(inspect).toHaveBeenCalledExactlyOnceWith(CHOSEN);
+  });
+
+  it("ライブラリの不一致のときも、警告の中に置く（同じライブラリの正しいフォルダを選び直せる）", async () => {
+    mockSync.control.setScenario("mismatch");
+    renderSection();
+    const warning = await screen.findByTestId("warning-mismatch");
+    expect(within(warning).getByTestId("change-folder-in-mismatch")).toBeEnabled();
+  });
+
+  it("同じライブラリなら、解除せずに join で場所だけ付け替える。エラーが消えて、設定済みのまま", async () => {
+    mockSync.control.setScenario("error");
+    mockSync.control.setInspect({ kind: "library" });
+    const setup = vi.spyOn(mockSync.api, "setupSync");
+    const leave = vi.spyOn(mockSync.api, "leaveSync");
+    renderSection();
+    await screen.findByTestId("warning-error");
+    const panel = await chooseNewFolder();
+
+    expect(within(panel).getByTestId("change-folder-chosen")).toHaveTextContent(CHOSEN);
+    expect(within(panel).getByTestId("change-folder-library")).toHaveTextContent(LIBRARY_FOLDER);
+    expect(within(panel).getByTestId("change-folder-reconnect")).toHaveTextContent(
+      ja.sync.changeFolder.reconnect.title,
+    );
+    // 見つかった端末で、フォルダが正しいか確かめられる
+    expect(within(panel).getByTestId("change-folder-devices")).toHaveTextContent("iMac");
+    expect(setup).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      within(panel).getByRole("button", { name: ja.sync.changeFolder.reconnect.action }),
+    );
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(ja.sync.changeFolder.done));
+    expect(setup).toHaveBeenCalledExactlyOnceWith(CHOSEN, "join");
+    expect(leave).not.toHaveBeenCalled();
+    // 場所が変わり、エラーが消え、設定済みのまま（解除していない）
+    expect(await screen.findByTestId("sync-folder")).toHaveTextContent(LIBRARY_FOLDER);
+    await waitFor(() => expect(screen.queryByTestId("warning-error")).not.toBeInTheDocument());
+    expect(screen.getByTestId("sync-state")).toHaveTextContent("待機中");
+    expect(screen.queryByTestId("change-folder")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: ja.sync.setup.chooseFolder }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("付け替えている間は、ボタンを押せなくして「付け替えています…」を出す。失敗したら理由を通知し、表示は残る", async () => {
+    mockSync.control.setScenario("idle");
+    mockSync.control.setInspect({ kind: "library" });
+    let rejectSetup: (reason: unknown) => void = () => {};
+    vi.spyOn(mockSync.api, "setupSync").mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectSetup = reject;
+        }),
+    );
+    renderSection();
+    const panel = await chooseNewFolder();
+    fireEvent.click(
+      within(panel).getByRole("button", { name: ja.sync.changeFolder.reconnect.action }),
+    );
+    expect(await within(panel).findByText(ja.sync.changeFolder.working)).toBeInTheDocument();
+    expect(changeButton()).toBeDisabled();
+    expect(within(panel).getByRole("button", { name: ja.sync.changeFolder.cancel })).toBeDisabled();
+
+    rejectSetup(new IpcError({ kind: "io", message: "フォルダを読めません" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("フォルダを読めません"));
+    expect(screen.getByTestId("change-folder")).toBeInTheDocument();
+    expect(changeButton()).toBeEnabled();
+    expect(screen.getByTestId("sync-folder")).not.toHaveTextContent(LIBRARY_FOLDER);
+  });
+
+  it("ライブラリのないフォルダ: 付け替えず、理由を出す", async () => {
+    mockSync.control.setScenario("error");
+    mockSync.control.setInspect({ kind: "empty" });
+    const setup = vi.spyOn(mockSync.api, "setupSync");
+    renderSection();
+    const panel = await chooseNewFolder();
+    const notice = within(panel).getByTestId("change-folder-empty");
+    expect(notice).toHaveTextContent(ja.sync.changeFolder.empty.title);
+    expect(notice).toHaveTextContent("付け替えていません");
+    expect(
+      within(panel).queryByRole("button", { name: ja.sync.changeFolder.reconnect.action }),
+    ).not.toBeInTheDocument();
+    expect(setup).not.toHaveBeenCalled();
+  });
+
+  it("別のライブラリのフォルダ: 付け替えず、解除してから選び直す案内を出す", async () => {
+    mockSync.control.setScenario("idle");
+    mockSync.control.setInspect({ kind: "otherLibrary" });
+    const setup = vi.spyOn(mockSync.api, "setupSync");
+    renderSection();
+    const panel = await chooseNewFolder();
+    const notice = within(panel).getByTestId("change-folder-other-library");
+    expect(notice).toHaveAttribute("role", "alert");
+    expect(notice).toHaveTextContent(ja.sync.changeFolder.otherLibrary.title);
+    expect(notice).toHaveTextContent("先に「同期を解除…」してから、フォルダを選び直してください");
+    expect(
+      within(panel).queryByRole("button", { name: ja.sync.changeFolder.reconnect.action }),
+    ).not.toBeInTheDocument();
+    expect(setup).not.toHaveBeenCalled();
+  });
+
+  it("書き込めない・更新が必要: 付け替えず、理由を出す", async () => {
+    mockSync.control.setScenario("idle");
+    const setup = vi.spyOn(mockSync.api, "setupSync");
+    renderSection();
+    mockSync.control.setInspect({ kind: "notWritable" });
+    let panel = await chooseNewFolder();
+    expect(within(panel).getByTestId("change-folder-not-writable")).toHaveTextContent(
+      ja.sync.setup.notWritable.title,
+    );
+    fireEvent.click(within(panel).getByRole("button", { name: ja.sync.changeFolder.cancel }));
+    expect(screen.queryByTestId("change-folder")).not.toBeInTheDocument();
+
+    mockSync.control.setInspect({ kind: "updateRequired" });
+    panel = await chooseNewFolder();
+    expect(within(panel).getByTestId("change-folder-update-required")).toHaveTextContent(
+      ja.sync.setup.updateRequired.title,
+    );
+    expect(setup).not.toHaveBeenCalled();
+  });
+
+  it("「やめる」で閉じる。ダイアログをキャンセルしたら、何もしない", async () => {
+    mockSync.control.setScenario("idle");
+    mockSync.control.setInspect({ kind: "library" });
+    const inspect = vi.spyOn(mockSync.api, "inspectSyncFolder");
+    renderSection();
+    const panel = await chooseNewFolder();
+    fireEvent.click(within(panel).getByRole("button", { name: ja.sync.changeFolder.cancel }));
+    expect(screen.queryByTestId("change-folder")).not.toBeInTheDocument();
+
+    chooseDirectory.mockResolvedValue(null);
+    inspect.mockClear();
+    fireEvent.click(changeButton());
+    await waitFor(() => expect(chooseDirectory).toHaveBeenCalledTimes(2));
+    expect(inspect).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("change-folder")).not.toBeInTheDocument();
+  });
+
+  it("判定に失敗したら、理由を通知する（結果は出さない）", async () => {
+    mockSync.control.setScenario("error");
+    vi.spyOn(mockSync.api, "inspectSyncFolder").mockRejectedValue(
+      new IpcError({ kind: "io", message: "フォルダを読めません" }),
+    );
+    renderSection();
+    fireEvent.click(await screen.findByTestId("change-folder-button"));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        `${ja.sync.changeFolder.inspectFailed}: フォルダを読めません`,
+      ),
+    );
+    expect(screen.queryByTestId("change-folder")).not.toBeInTheDocument();
+    expect(changeButton()).toBeEnabled();
+  });
+});
+
 describe("同期の節: 今すぐ同期・同期の解除", () => {
   it("今すぐ同期: syncNow を呼び、終わったら通知する。同期中は押せない", async () => {
     mockSync.control.setScenario("pending");

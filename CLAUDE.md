@@ -47,7 +47,7 @@
 - フロントから Rust を呼ぶのは `src/lib/ipc.ts` だけ。コンポーネントから `invoke` を直接呼ばない。
 - UI の文字列は `src/i18n/ja/` に機能ごとのファイル（`common`・`list`・`scan`・`edit`・`settings`・`errors`）で置き、`src/i18n/ja.ts` が 1 つの `ja` にまとめる。コンポーネントに日本語を直接書かない。
 - IPC のエラーは `{ kind, message }`（`AppError`。種類は 12。0009 の 1）。DB に触るコマンドは async にして `Database::run` 経由で呼ぶ。
-- データを変えるコマンドは、成功したあとに `events::emit_library_changed` を呼ぶ（同期の書き出しの合図も兼ねる）。他の端末から取り込んだ変更を知らせるときは `emit_remote_library_changed`（合図を送らない）。フロントは `library-changed` を受けて、変わった行だけ取り直す（`src/features/library/sync.ts`）。
+- データを変えるコマンドは、成功したあとに `events::emit_library_changed` を呼ぶ（同期の書き出しの合図も兼ねる）。他の端末から取り込んだ変更を知らせるときは `emit_remote_library_changed`（合図を送らない）。同期で書影があとから届いたときは `covers-arrived`（`{ hashes }`。画面は `BookCover` が、版つきの URL で読み込み直す）。フロントは `library-changed` を受けて、変わった行だけ取り直す（`src/features/library/sync.ts`）。
 - フロントのデータの取得・変更は `src/features/library/api.ts` を通す。同期は `src/features/sync/api.ts`（どちらを使うかは `selectBackend()` の 1 か所）。どちらも、Tauri の外（ブラウザの `pnpm dev`）では、モック（`src/dev/`）で動く。
 
 ## 開発コマンド

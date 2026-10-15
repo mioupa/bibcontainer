@@ -2,6 +2,7 @@
 // WebView へは独自の URI スキーム `cover` で渡す。URL の形は OS で違う。
 //   macOS   : cover://localhost/<hash>?size=80
 //   Windows : http://cover.localhost/<hash>?size=80
+// 同期で書影があとから届いたときは、`&v=<版>` を足して URL を変え、読み込み直させる（0016）。
 // 実装（Rust 側のスキーム登録）と CSP の img-src への追記は統合作業で行う。
 import { detectPlatform, type Platform } from "@/lib/platform";
 
@@ -17,11 +18,17 @@ export const LIST_COVER_SIZE: CoverSize = 80;
 /** 詳細ペインとフォームの書影に使う大きさ。 */
 export const DETAIL_COVER_SIZE: CoverSize = 320;
 
+/**
+ * 書影の URL。`version` は、その書影が同期で届いた回数（`covers-arrived`。0 なら付けない）。
+ * 書影が手元になかったとき（404）の読み込みを、同じ URL のままだとブラウザが取り直さないことがあるので、
+ * 届いたら版を進めて URL を変える（Rust 側は、`v` を読み捨てる）。
+ */
 export function coverUrl(
   hash: string,
   size: CoverSize,
   platform: Platform = detectPlatform(),
+  version = 0,
 ): string {
-  const path = `${encodeURIComponent(hash)}?size=${size}`;
+  const path = `${encodeURIComponent(hash)}?size=${size}${version > 0 ? `&v=${version}` : ""}`;
   return platform === "windows" ? `http://cover.localhost/${path}` : `cover://localhost/${path}`;
 }

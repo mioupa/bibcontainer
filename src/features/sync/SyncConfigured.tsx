@@ -5,12 +5,14 @@ import { RefreshCwIcon, UnlinkIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Group } from "@/features/settings/fields";
+import { ChangeFolderButton, ChangeFolderPanel } from "@/features/sync/ChangeFolder";
 import { ConfirmDialog } from "@/features/sync/ConfirmDialog";
 import { DeviceList } from "@/features/sync/DeviceList";
 import { skewTitle } from "@/features/sync/display";
 import { formatDateTime } from "@/features/sync/format";
 import { useSyncActions } from "@/features/sync/hooks";
 import { Notice } from "@/features/sync/Notice";
+import { useChangeFolder, type ChangeFolderControl } from "@/features/sync/useChangeFolder";
 import type { SyncState, SyncStatus } from "@/features/sync/types";
 import { ja } from "@/i18n/ja";
 import { formatInteger } from "@/lib/format";
@@ -27,10 +29,12 @@ const STATE_TONE: Record<SyncState, string> = {
 
 /** 設定済みの同期の画面。 */
 export function SyncConfigured({ status }: { status: SyncStatus }) {
+  // 同期フォルダの選び直し。ボタンは、エラーの警告の近くと状態の欄の 2 か所にあり、結果は状態の欄に出す
+  const changeFolder = useChangeFolder();
   return (
     <>
-      <SyncWarnings status={status} />
-      <StatusGroup status={status} />
+      <SyncWarnings status={status} changeFolder={changeFolder} />
+      <StatusGroup status={status} changeFolder={changeFolder} />
       <DevicesGroup status={status} />
       <CoversGroup />
     </>
@@ -38,7 +42,13 @@ export function SyncConfigured({ status }: { status: SyncStatus }) {
 }
 
 /** 警告（ライブラリの不一致、更新が必要、時計のずれ、エラー）。 */
-function SyncWarnings({ status }: { status: SyncStatus }) {
+function SyncWarnings({
+  status,
+  changeFolder,
+}: {
+  status: SyncStatus;
+  changeFolder: ChangeFolderControl;
+}) {
   const w = ja.sync.warnings;
   const skew = skewTitle(status);
   return (
@@ -46,6 +56,9 @@ function SyncWarnings({ status }: { status: SyncStatus }) {
       {status.state === "mismatch" && (
         <Notice tone="danger" title={w.mismatch.title} testId="warning-mismatch">
           <p>{w.mismatch.description}</p>
+          <div>
+            <ChangeFolderButton control={changeFolder} testId="change-folder-in-mismatch" />
+          </div>
         </Notice>
       )}
       {status.state === "updateRequired" && (
@@ -57,6 +70,10 @@ function SyncWarnings({ status }: { status: SyncStatus }) {
         <Notice tone="danger" title={w.error.title} testId="warning-error">
           {status.error !== null && <p className="text-foreground">{status.error}</p>}
           <p>{w.error.description}</p>
+          <p>{ja.sync.changeFolder.hint}</p>
+          <div>
+            <ChangeFolderButton control={changeFolder} testId="change-folder-in-error" />
+          </div>
         </Notice>
       )}
       {skew !== null && (
@@ -68,7 +85,13 @@ function SyncWarnings({ status }: { status: SyncStatus }) {
   );
 }
 
-function StatusGroup({ status }: { status: SyncStatus }) {
+function StatusGroup({
+  status,
+  changeFolder,
+}: {
+  status: SyncStatus;
+  changeFolder: ChangeFolderControl;
+}) {
   const t = ja.sync.status;
   const actions = useSyncActions();
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -132,7 +155,10 @@ function StatusGroup({ status }: { status: SyncStatus }) {
           <UnlinkIcon />
           {ja.sync.actions.leave}
         </Button>
+        <ChangeFolderButton control={changeFolder} testId="change-folder-button" />
       </div>
+
+      <ChangeFolderPanel control={changeFolder} />
 
       <ConfirmDialog
         open={confirmLeave}

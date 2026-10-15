@@ -224,7 +224,8 @@ export function createMockSync(options: MockSyncOptions = {}) {
         ? otherDevices(now())
         : [],
     localHasData: inspect.localHasData,
-    localLibraryId: inspect.localLibraryId,
+    // 設定済みなら、手元は参加しているライブラリに属している（エンジンも、手元のライブラリ ID を返す）
+    localLibraryId: status.state === "disabled" ? inspect.localLibraryId : status.libraryId,
   });
 
   const api: SyncApi = {
@@ -234,10 +235,26 @@ export function createMockSync(options: MockSyncOptions = {}) {
 
     setupSync: async (path, mode: SetupMode) => {
       const inspection = buildInspection(path);
-      if (status.state !== "disabled") throw conflict("すでに同期フォルダが設定されています");
       if (inspection.kind === "otherLibrary") throw conflict("別のライブラリのフォルダです");
       if (inspection.kind === "notWritable") throw conflict("このフォルダには書き込めません");
       if (inspection.kind === "updateRequired") throw conflict("アプリの更新が必要です");
+      if (status.state !== "disabled") {
+        // 設定済み: 同じライブラリのフォルダへ、場所だけを付け替える（join）。ほかは断る（エンジンと同じ）
+        if (inspection.kind !== "library") {
+          throw conflict("このフォルダには、参加しているライブラリがありません");
+        }
+        if (mode !== "join")
+          throw validation(`設定済みでは「${mode}」は選べません（付け替えは join）`);
+        // 場所だけ変わる。取り込み済みの内容は引き継ぎ、エラーは消える（取り込み直す）
+        set({
+          ...status,
+          state: "idle",
+          folder: inspection.libraryFolder,
+          error: null,
+          lastImportAt: now().toISOString(),
+        });
+        return snapshot();
+      }
       if (inspection.kind === "empty" && inspection.localLibraryId !== null) {
         // エンジンと同じ: 手元がライブラリに属しているまま、新しく作らせない
         throw conflict("この端末は既にライブラリに参加しています。先に同期を解除してください");

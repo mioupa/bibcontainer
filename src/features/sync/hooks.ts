@@ -83,6 +83,16 @@ export function useSyncActions() {
     onError,
   });
 
+  // 設定済みで、同期フォルダを選び直す（同じライブラリのフォルダへ、解除せずに場所だけ付け替える）
+  const changeFolder = useMutation({
+    mutationFn: (path: string) => api.setupSync(path, "join"),
+    onSuccess: (status) => {
+      putStatus(client, status);
+      toast.success(ja.sync.changeFolder.done);
+    },
+    onError,
+  });
+
   const leave = useMutation({
     mutationFn: api.leaveSync,
     onSuccess: (status) => {
@@ -116,5 +126,5 @@ export function useSyncActions() {
     onError,
   });
 
-  return { setup, leave, syncNow, rename, gcCovers };
+  return { setup, changeFolder, leave, syncNow, rename, gcCovers };
 }

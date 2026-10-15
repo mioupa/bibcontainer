@@ -2,6 +2,7 @@ import { useState } from "react";
 import { coverAccentVar } from "@/lib/coverColor";
 import { DETAIL_COVER_SIZE, LIST_COVER_SIZE, coverUrl } from "@/lib/cover";
 import { cn } from "@/lib/utils";
+import { useCoverVersion } from "@/stores/coverVersionStore";
 
 export type CoverVariant = "sm" | "lg";
 
@@ -36,21 +37,30 @@ export function BookCover({
   variant = "sm",
   className,
 }: BookCoverProps) {
-  // 読み込みに失敗した書影の hash。同じ hash のあいだは仮の表紙を出す
-  const [failedHash, setFailedHash] = useState<string | null>(null);
-  const showImage = coverHash !== null && coverHash !== failedHash;
+  // 同期であとから届いた回数。届くたびに、URL を変えて画像の要素を作り直し、読み込み直す
+  const version = useCoverVersion(coverHash);
+  // 読み込みに失敗した書影（hash と版）。同じ hash・同じ版のあいだは仮の表紙を出す。版が進めば、また読み込む
+  const [failed, setFailed] = useState<{ hash: string; version: number } | null>(null);
+  const showImage =
+    coverHash !== null && !(failed?.hash === coverHash && failed.version === version);
 
   if (showImage) {
     return (
       <div className={frameClass(variant, className)}>
         <img
-          src={coverUrl(coverHash, variant === "sm" ? LIST_COVER_SIZE : DETAIL_COVER_SIZE)}
+          key={version}
+          src={coverUrl(
+            coverHash,
+            variant === "sm" ? LIST_COVER_SIZE : DETAIL_COVER_SIZE,
+            undefined,
+            version,
+          )}
           alt=""
           loading="lazy"
           decoding="async"
           draggable={false}
           className="size-full object-cover"
-          onError={() => setFailedHash(coverHash)}
+          onError={() => setFailed({ hash: coverHash, version })}
         />
       </div>
     );

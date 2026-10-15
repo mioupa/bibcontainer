@@ -11,6 +11,7 @@ import type { BookDetail } from "@/bindings/BookDetail";
 import type { CCodeInfo } from "@/bindings/CCodeInfo";
 import type { CCodeTable } from "@/bindings/CCodeTable";
 import type { ChangeReport } from "@/bindings/ChangeReport";
+import type { CoversArrived } from "@/bindings/CoversArrived";
 import type { DisplaySettings } from "@/bindings/DisplaySettings";
 import type { ErrorKind } from "@/bindings/ErrorKind";
 import type { FetchMetadataResult } from "@/bindings/FetchMetadataResult";
@@ -337,4 +338,9 @@ export function onLibraryChanged(handler: (change: LibraryChanged) => void): Pro
 /** 同期の状態の通知（`sync-status`）を受ける。返した関数で購読をやめる。 */
 export function onSyncStatus(handler: (status: SyncStatus) => void): Promise<UnlistenFn> {
   return listen<SyncStatus>("sync-status", (event) => handler(event.payload));
+}
+
+/** 同期で書影が手元に届いた通知（`covers-arrived`）を受ける。返した関数で購読をやめる。 */
+export function onCoversArrived(handler: (arrived: CoversArrived) => void): Promise<UnlistenFn> {
+  return listen<CoversArrived>("covers-arrived", (event) => handler(event.payload));
 }

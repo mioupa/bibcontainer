@@ -149,7 +149,10 @@ impl<D: SyncDb, T: SyncTransport + ?Sized> SyncEngine<'_, D, T> {
             match self.transport.read(&cover_remote_path(hash)) {
                 Ok(bytes) if sha256_hex(&bytes) == **hash => {
                     match write_local_cover(&self.covers_dir, hash, &bytes) {
-                        Ok(()) => out.fetched += 1,
+                        Ok(()) => {
+                            out.fetched += 1;
+                            out.fetched_hashes.push((*hash).clone());
+                        }
                         Err(e) => {
                             tracing::warn!(hash = %hash, error = %e, "書影を手元に保存できなかった");
                         }
@@ -178,6 +181,8 @@ impl<D: SyncDb, T: SyncTransport + ?Sized> SyncEngine<'_, D, T> {
 pub(crate) struct CoverFetch {
     /// 同期フォルダから写した数。
     pub fetched: usize,
+    /// 同期フォルダから写した書影のハッシュ（写した順。`fetched` と同じ数）。
+    pub fetched_hashes: Vec<String>,
     /// 上限のため次の回に回した、同期フォルダにある書影の数。
     pub deferred: usize,
     /// まだ手元にない書影の数。

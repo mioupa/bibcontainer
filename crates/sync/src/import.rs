@@ -43,6 +43,9 @@ pub struct ImportReport {
     pub clock_skew: Option<ClockSkew>,
     /// 同期フォルダから写した書影の数。
     pub covers_fetched: usize,
+    /// 同期フォルダから写した書影のハッシュ（重複なし、昇順）。アプリは、これを画面に知らせて、
+    /// 読み込めなかった（まだ手元になかった）書影を読み込み直させる。
+    pub covers_fetched_hashes: Vec<String>,
     /// まだ手元に届いていない書影の数。
     pub missing_covers: u64,
     /// 上限のため次の回に回した、読むべきファイル（セグメントと書影）の数。0 でなければ、もう一度 `import` を呼ぶ。
@@ -81,6 +84,11 @@ impl ImportReport {
             self.clock_skew = other.clock_skew;
         }
         self.covers_fetched += other.covers_fetched;
+        let mut hashes: BTreeSet<String> = std::mem::take(&mut self.covers_fetched_hashes)
+            .into_iter()
+            .collect();
+        hashes.extend(other.covers_fetched_hashes);
+        self.covers_fetched_hashes = hashes.into_iter().collect();
         self.missing_covers = other.missing_covers;
         self.remaining_files = other.remaining_files;
         self.errors.extend(other.errors);
@@ -134,6 +142,12 @@ impl<D: SyncDb, T: SyncTransport + ?Sized> SyncEngine<'_, D, T> {
 
         let covers = self.fetch_missing_covers()?;
         report.covers_fetched = covers.fetched;
+        report.covers_fetched_hashes = {
+            let mut hashes = covers.fetched_hashes;
+            hashes.sort();
+            hashes.dedup();
+            hashes
+        };
         report.missing_covers = covers.still_missing;
         report.remaining_files += covers.deferred;
         if let Some(e) = covers.error {

@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { EditorHost } from "@/features/editor/EditorHost";
 import { MainScreen } from "@/features/layout/MainScreen";
+import { useCoverArrivalSync } from "@/features/library/coverArrivals";
 import { useLibraryChangeSync } from "@/features/library/sync";
 import { useSoundUnlock } from "@/features/scan/useSoundUnlock";
 import { ScanScreen } from "@/features/scanScreen/ScanScreen";
@@ -34,10 +35,11 @@ function Screens() {
  * （登録・編集フォーム）。トーストは、エラー画面でも出せるよう、App が持つ。
  * 画面全体のショートカット（⌘N・⇧⌘N・⌘,）も、ここで受ける（どの画面でも効く）。
  * `library-changed` の購読は、どの画面を出していても続ける（スキャン登録や設定の画面で本を変えたあと、
- * メイン画面に戻ったときに一覧が古くならないように）。`sync-status`（同期の状態）の購読も同じ。
+ * メイン画面に戻ったときに一覧が古くならないように）。`sync-status`（同期の状態）と `covers-arrived`（同期で届いた書影）の購読も同じ。
  */
 function AppShell() {
   useLibraryChangeSync();
+  useCoverArrivalSync();
   // 同期の状態（上部バーの表示、設定の同期の節）。`sync-status` を、どの画面でも受け続ける
   useSyncStatusSubscription();
   // ⌘N（手動登録）・⇧⌘N（スキャン登録）・⌘,（設定）は、どの画面でも効く（9.5）

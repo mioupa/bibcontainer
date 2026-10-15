@@ -90,7 +90,9 @@ describe("App（Tauri の中）", () => {
     listen.mockImplementation((name: string, callback: (event: { payload: never }) => void) => {
       const sync = listenToMockSync(name, callback as never);
       if (sync !== null) return sync;
-      emitLibraryChanged = (payload) => callback({ payload: payload as never });
+      if (name === "library-changed") {
+        emitLibraryChanged = (payload) => callback({ payload: payload as never });
+      }
       return Promise.resolve(() => {});
     });
     isTauri.mockReturnValue(true);

@@ -10,6 +10,12 @@ use ts_rs::TS;
 /// 蔵書の変更を知らせるイベントの名前。
 pub const LIBRARY_CHANGED: &str = "library-changed";
 
+/// 書影が手元に届いたことを知らせるイベントの名前。
+pub const COVERS_ARRIVED: &str = "covers-arrived";
+
+/// 1 つの `covers-arrived` に入れるハッシュの数の上限（最初の同期で数千個届いても、1 つのイベントを大きくしない）。
+pub const COVERS_ARRIVED_CHUNK: usize = 500;
+
 /// `library-changed` のペイロード。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -19,6 +25,18 @@ pub struct LibraryChanged {
     pub books: Vec<String>,
     /// 本以外（保管場所・タグ・シリーズ）や、DB 全体が変わった。
     pub others: bool,
+}
+
+/// `covers-arrived` のペイロード（同期フォルダから写した書影）。
+///
+/// 本の行が先に届き、書影があとから届くことがある（同期フォルダに書影のファイルがまだない）。そのとき画面は、
+/// 書影が読み込めずに仮の表紙を出している。届いた書影のハッシュを知らせて、読み込み直させる。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct CoversArrived {
+    /// 手元に届いた書影のハッシュ（`cover_hash`。小文字の 16 進 64 桁）。
+    pub hashes: Vec<String>,
 }
 
 /// `library-changed` を出す。送れなくても処理は止めず、ログに残す。
@@ -38,6 +56,18 @@ pub fn emit_remote_library_changed<R: Runtime>(
     others: bool,
 ) {
     send(app, books, others);
+}
+
+/// 同期フォルダから書影を写したことを `covers-arrived` で知らせる（`COVERS_ARRIVED_CHUNK` 個ずつ）。
+pub fn emit_covers_arrived<R: Runtime>(app: &AppHandle<R>, hashes: Vec<String>) {
+    for chunk in hashes.chunks(COVERS_ARRIVED_CHUNK) {
+        let payload = CoversArrived {
+            hashes: chunk.to_vec(),
+        };
+        if let Err(err) = app.emit(COVERS_ARRIVED, &payload) {
+            tracing::warn!(error = %err, "covers-arrived を送れませんでした");
+        }
+    }
 }
 
 fn send<R: Runtime>(app: &AppHandle<R>, books: Vec<String>, others: bool) {
@@ -63,5 +93,17 @@ mod tests {
             serde_json::json!({ "books": ["a", "b"], "others": true })
         );
         assert_eq!(LIBRARY_CHANGED, "library-changed");
+    }
+
+    #[test]
+    fn covers_arrived_has_the_documented_shape_and_name() {
+        let payload = CoversArrived {
+            hashes: vec!["ab".repeat(32)],
+        };
+        assert_eq!(
+            serde_json::to_value(&payload).unwrap(),
+            serde_json::json!({ "hashes": ["ab".repeat(32)] })
+        );
+        assert_eq!(COVERS_ARRIVED, "covers-arrived");
     }
 }

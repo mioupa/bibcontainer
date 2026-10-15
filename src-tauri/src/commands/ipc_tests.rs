@@ -31,6 +31,8 @@ pub(crate) struct Harness {
     events: Arc<Mutex<Vec<Value>>>,
     /// 届いた `sync-status` のペイロード。
     pub(crate) status_events: Arc<Mutex<Vec<Value>>>,
+    /// 届いた `covers-arrived` のペイロード。
+    pub(crate) cover_events: Arc<Mutex<Vec<Value>>>,
     pub(crate) db: Arc<Database>,
     pub(crate) sync: Arc<SyncController>,
 }
@@ -138,6 +140,12 @@ impl Harness {
             let payload: Value = serde_json::from_str(event.payload()).unwrap();
             status_sink.lock().unwrap().push(payload);
         });
+        let cover_events = Arc::new(Mutex::new(Vec::new()));
+        let cover_sink = Arc::clone(&cover_events);
+        app.listen(crate::events::COVERS_ARRIVED, move |event| {
+            let payload: Value = serde_json::from_str(event.payload()).unwrap();
+            cover_sink.lock().unwrap().push(payload);
+        });
         Harness {
             dir: dir.path().to_owned(),
             _dir: dir,
@@ -145,6 +153,7 @@ impl Harness {
             webview,
             events,
             status_events,
+            cover_events,
             db,
             sync,
         }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { IpcError, ipc, onLibraryChanged, onSyncStatus } from "@/lib/ipc";
+import { IpcError, ipc, onCoversArrived, onLibraryChanged, onSyncStatus } from "@/lib/ipc";
 
 const invoke = vi.hoisted(() => vi.fn());
 const listen = vi.hoisted(() => vi.fn());
@@ -205,6 +205,26 @@ describe("ipc", () => {
         state: "idle",
         folder: "/Drive/bibcontainer-library",
       });
+      stop();
+      expect(unlisten).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("covers-arrived", () => {
+    it("届いた書影のハッシュをハンドラに渡し、購読を解除する関数を返す", async () => {
+      const unlisten = vi.fn();
+      let callback: ((event: { payload: unknown }) => void) | undefined;
+      listen.mockImplementation((name: string, cb: typeof callback) => {
+        expect(name).toBe("covers-arrived");
+        callback = cb;
+        return Promise.resolve(unlisten);
+      });
+      const handler = vi.fn();
+
+      const stop = await onCoversArrived(handler);
+      callback?.({ payload: { hashes: ["a1", "b2"] } });
+
+      expect(handler).toHaveBeenCalledExactlyOnceWith({ hashes: ["a1", "b2"] });
       stop();
       expect(unlisten).toHaveBeenCalledOnce();
     });

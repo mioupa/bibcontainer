@@ -49,6 +49,9 @@ fn at_s1_ten_books_registered_on_a_appear_on_b() {
         assert_eq!(b.count("books"), 10, "{}", backend.name());
         assert_eq!(report.changed_book_ids.len(), 10);
         assert_eq!(report.covers_fetched, 10);
+        let mut expected = hashes.clone();
+        expected.sort();
+        assert_eq!(report.covers_fetched_hashes, expected);
         assert_eq!(report.missing_covers, 0);
         for h in &hashes {
             assert!(b.has_cover(h), "書影が届いた");

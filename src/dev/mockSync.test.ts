@@ -255,6 +255,47 @@ describe("設定と解除", () => {
     });
   });
 
+  it("設定済みでの再設定: 同じライブラリのフォルダへの付け替え（join）だけできる。場所が変わり、エラーが消える", async () => {
+    const { api, control } = make({ scenario: "error" });
+    control.setInspect({ kind: "library" });
+    // 設定済みの判定は、手元の参加しているライブラリを返す
+    expect(await inspectionOf(api)).toMatchObject({
+      kind: "library",
+      libraryId: MOCK_LIBRARY_ID,
+      localLibraryId: MOCK_LIBRARY_ID,
+    });
+    // join 以外は断る（画面が送るのは join）
+    for (const mode of ["create", "joinMerge", "joinReplace"] as const) {
+      await expect(api.setupSync(MOCK_FOLDER_PATH, mode)).rejects.toMatchObject({
+        kind: "validation",
+      });
+    }
+    const seen: string[] = [];
+    await api.onSyncStatus((s) => seen.push(`${s.state}:${s.folder}`));
+    const status = await api.setupSync("/Drive/F", "join");
+    expect(status).toMatchObject({
+      state: "idle",
+      error: null,
+      folder: "/Drive/F/bibcontainer-library",
+      libraryId: MOCK_LIBRARY_ID,
+    });
+    expect(status.lastImportAt).toBe(NOW.toISOString());
+    expect(seen).toEqual(["idle:/Drive/F/bibcontainer-library"]);
+    expect((await api.getSyncStatus()).folder).toBe("/Drive/F/bibcontainer-library");
+  });
+
+  it("設定済みでは、空・別のライブラリ・書き込めない・更新が必要のフォルダへは付け替えられない（conflict）。何も変わらない", async () => {
+    const { api, control } = make({ scenario: "idle" });
+    const before = await api.getSyncStatus();
+    for (const kind of ["empty", "otherLibrary", "notWritable", "updateRequired"] as const) {
+      control.setInspect({ kind });
+      await expect(api.setupSync("/Drive/F", "join")).rejects.toMatchObject({
+        kind: "conflict",
+      });
+    }
+    expect(await api.getSyncStatus()).toEqual(before);
+  });
+
   it("解除すると未設定に戻る。「別のライブラリ」の判定は、ふつうの「ライブラリあり」になる", async () => {
     const { api, control } = make({ scenario: "idle" });
     control.setInspect({ kind: "otherLibrary", localLibraryId: "lib-local" });

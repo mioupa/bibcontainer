@@ -23,6 +23,14 @@ describe("coverUrl（0005 §7）", () => {
     expect(DETAIL_COVER_SIZE).toBe(320);
   });
 
+  it("版（同期で書影があとから届いた回数）が 1 以上なら、&v=<版> を足して URL を変える。0 なら付けない", () => {
+    expect(coverUrl(HASH, 80, "mac", 0)).toBe(`cover://localhost/${HASH}?size=80`);
+    expect(coverUrl(HASH, 80, "mac", 1)).toBe(`cover://localhost/${HASH}?size=80&v=1`);
+    expect(coverUrl(HASH, 320, "windows", 3)).toBe(`http://cover.localhost/${HASH}?size=320&v=3`);
+    // 版が違えば URL が違う（ブラウザは、同じ URL の失敗や古い応答を使い回せない）
+    expect(coverUrl(HASH, 80, "mac", 1)).not.toBe(coverUrl(HASH, 80, "mac", 2));
+  });
+
   it("OS を省略すると、User-Agent から判定する", () => {
     // jsdom の User-Agent は Windows ではないので mac 形式
     expect(coverUrl(HASH, 160)).toBe(`cover://localhost/${HASH}?size=160`);

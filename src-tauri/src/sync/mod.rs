@@ -53,6 +53,7 @@ pub fn build_controller<R: Runtime>(
 ) -> Arc<SyncController> {
     let status_app = app.clone();
     let library_app = app.clone();
+    let covers_app = app.clone();
     SyncController::new(
         db,
         config,
@@ -66,6 +67,9 @@ pub fn build_controller<R: Runtime>(
             }),
             library_changed: Box::new(move |books, others| {
                 events::emit_remote_library_changed(&library_app, books, others);
+            }),
+            covers_arrived: Box::new(move |hashes| {
+                events::emit_covers_arrived(&covers_app, hashes);
             }),
         },
     )
