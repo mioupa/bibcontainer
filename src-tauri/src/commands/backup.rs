@@ -5,12 +5,13 @@ use std::sync::Arc;
 
 use bibcontainer_core::SystemClock;
 use bibcontainer_core::backup::{self, BackupInfo, RestoreReport};
-use tauri::{AppHandle, Runtime, State};
+use tauri::{AppHandle, Manager, Runtime, State};
 
 use crate::backups::{configured, default_backup_dir};
 use crate::database::Database;
 use crate::error::AppError;
 use crate::events::emit_library_changed;
+use crate::sync::SyncController;
 
 /// バックアップの一覧（新しい順）。保存先のフォルダがまだなければ空。
 #[tauri::command]
@@ -60,7 +61,22 @@ pub async fn restore_backup<R: Runtime>(
             .await
             .unwrap_or(default_dir)
     };
-    let report = db.restore(PathBuf::from(path), safety_dir).await?;
+    // 同期が動いている間は、DB を置き換えない（取り込み・書き出しの途中の DB を入れ替えないため）。
+    let sync = app
+        .try_state::<Arc<SyncController>>()
+        .map(|s| Arc::clone(&s));
+    let guard = match &sync {
+        Some(sync) => Some(sync.exclusive().await),
+        None => None,
+    };
+    let report = db.restore(PathBuf::from(path), safety_dir).await;
+    drop(guard);
+    let report = report?;
     emit_library_changed(&app, Vec::new(), true);
+    // 復元した DB は、新しい端末 ID と「スナップショットが必要」の印を持っている。同期しているなら、すぐ同期し直す
+    // （古い端末 ID の変更と他の端末の変更を取り込み直す）。ネットワークを待たせないよう、別のタスクで行う。
+    if let Some(sync) = sync {
+        tauri::async_runtime::spawn(async move { sync.after_restore().await });
+    }
     Ok(report)
 }

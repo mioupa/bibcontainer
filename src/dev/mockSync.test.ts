@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   MOCK_FOLDER_PATH,
+  MOCK_LIBRARY_ID,
   MOCK_SELF_DEVICE_ID,
   createMockSync,
   libraryFolderOf,
@@ -215,6 +216,42 @@ describe("設定と解除", () => {
     await api.setupSync(MOCK_FOLDER_PATH, "create");
     await expect(api.setupSync(MOCK_FOLDER_PATH, "create")).rejects.toMatchObject({
       kind: "conflict",
+    });
+  });
+
+  it("同じライブラリの選び直し（再接続）: join だけ受け付ける。統合・置き換えは断る（エンジンは同じ手順にする）", async () => {
+    const { api, control } = make();
+    control.setInspect({ kind: "library", localHasData: true, localLibraryId: MOCK_LIBRARY_ID });
+    expect(await inspectionOf(api)).toMatchObject({
+      kind: "library",
+      libraryId: MOCK_LIBRARY_ID,
+      localLibraryId: MOCK_LIBRARY_ID,
+    });
+    for (const mode of ["create", "joinMerge", "joinReplace"] as const) {
+      await expect(api.setupSync(MOCK_FOLDER_PATH, mode)).rejects.toMatchObject({
+        kind: "validation",
+      });
+    }
+    const status = await api.setupSync(MOCK_FOLDER_PATH, "join");
+    expect(status.state).toBe("idle");
+    expect(status.lastImportAt).toBe(NOW.toISOString());
+    expect(status.lastExportAt).toBeNull();
+  });
+
+  it("手元がライブラリに属しているのに空のフォルダを選ぶと、新しく作れない（conflict）", async () => {
+    const { api, control } = make();
+    control.setInspect({ kind: "empty", localLibraryId: "lib-local" });
+    expect(await inspectionOf(api)).toMatchObject({ kind: "empty", localLibraryId: "lib-local" });
+    const error = await api.setupSync(MOCK_FOLDER_PATH, "create").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(IpcError);
+    expect(error).toMatchObject({ kind: "conflict" });
+    expect((error as IpcError).message).toContain("同期を解除");
+    expect((await api.getSyncStatus()).state).toBe("disabled");
+    // 解除すれば、作れる
+    await api.leaveSync();
+    expect(control.getInspect().localLibraryId).toBeNull();
+    await expect(api.setupSync(MOCK_FOLDER_PATH, "create")).resolves.toMatchObject({
+      state: "idle",
     });
   });
 

@@ -44,7 +44,10 @@ export function mockSyncScenarioFromLocation(
 export interface MockInspectSetting {
   kind: FolderKind;
   localHasData: boolean;
-  /** kind が `otherLibrary` のとき、この端末が属しているライブラリ ID。 */
+  /**
+   * この端末が属しているライブラリ ID（属していなければ null）。`library` で `MOCK_LIBRARY_ID` なら同じライブラリの
+   * 選び直し（再接続）、`otherLibrary` なら別のライブラリ、`empty` で非 null なら「先に解除」。
+   */
   localLibraryId: string | null;
 }
 
@@ -113,7 +116,8 @@ function disabledStatus(deviceName: string): SyncStatus {
   };
 }
 
-const MOCK_LIBRARY_ID = "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0a55";
+/** モックのライブラリ ID（`library` の判定が返す。手元がこれに属していれば、同じライブラリの選び直し）。 */
+export const MOCK_LIBRARY_ID = "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0a55";
 
 /** 設定済みで、問題がない状態。ここに見本ごとの違いを重ねる。 */
 function configuredStatus(now: Date, deviceName: string): SyncStatus {
@@ -220,7 +224,7 @@ export function createMockSync(options: MockSyncOptions = {}) {
         ? otherDevices(now())
         : [],
     localHasData: inspect.localHasData,
-    localLibraryId: inspect.kind === "otherLibrary" ? inspect.localLibraryId : null,
+    localLibraryId: inspect.localLibraryId,
   });
 
   const api: SyncApi = {
@@ -234,8 +238,17 @@ export function createMockSync(options: MockSyncOptions = {}) {
       if (inspection.kind === "otherLibrary") throw conflict("別のライブラリのフォルダです");
       if (inspection.kind === "notWritable") throw conflict("このフォルダには書き込めません");
       if (inspection.kind === "updateRequired") throw conflict("アプリの更新が必要です");
-      const expected: SetupMode[] =
-        inspection.kind === "empty"
+      if (inspection.kind === "empty" && inspection.localLibraryId !== null) {
+        // エンジンと同じ: 手元がライブラリに属しているまま、新しく作らせない
+        throw conflict("この端末は既にライブラリに参加しています。先に同期を解除してください");
+      }
+      const reconnect =
+        inspection.kind === "library" &&
+        inspection.localLibraryId !== null &&
+        inspection.localLibraryId === inspection.libraryId;
+      const expected: SetupMode[] = reconnect
+        ? ["join"] // 同じライブラリの選び直し。統合も置き換えもしない（画面は join を送る）
+        : inspection.kind === "empty"
           ? ["create"]
           : inspection.localHasData
             ? ["joinMerge", "joinReplace"]
@@ -255,7 +268,7 @@ export function createMockSync(options: MockSyncOptions = {}) {
 
       const done = now();
       const imports = mode !== "create";
-      const exports = mode === "create" || mode === "joinMerge";
+      const exports = mode === "create" || (mode === "joinMerge" && !reconnect);
       const lastExportAt = exports ? done.toISOString() : null;
       set({
         ...configuredStatus(done, deviceName),

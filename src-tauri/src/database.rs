@@ -12,11 +12,13 @@
 //! 待たされない。バックアップの接続は DB のファイルを直接開くので、復元（ファイルの置き換え）とは
 //! `backup_gate` で重ならないようにする。
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use bibcontainer_core::backup::{self, RestoreReport};
 use rusqlite::Connection;
+use serde_json::Value;
 
 use crate::error::AppError;
 
@@ -109,18 +111,39 @@ impl Database {
         T: Send + 'static,
     {
         let this = Arc::clone(self);
-        tauri::async_runtime::spawn_blocking(move || {
-            let mut slot = this.lock();
-            match &mut *slot {
-                Slot::Failed(err) => Err(err.clone()),
-                Slot::Open(conn) => {
-                    let path = this.paths.as_ref().map_or_else(|| Path::new(""), |p| &p.db);
-                    f(conn, path)
-                }
+        tauri::async_runtime::spawn_blocking(move || this.run_blocking(f))
+            .await
+            .map_err(|err| {
+                AppError::Internal(format!("バックグラウンド処理に失敗しました: {err}"))
+            })?
+    }
+
+    /// `run` の、呼んだスレッドでそのまま実行する版。接続の Mutex を借りて `f` を実行する。
+    ///
+    /// ブロックするので、async の中からは呼ばない。すでに別のスレッドで動いている処理（同期エンジンの
+    /// `spawn_blocking`）が、DB の接続を短く借りるために使う（`sync::db::AppSyncDb`）。
+    /// 開けなかった場合は、保持しているエラーをそのまま返す。
+    pub fn run_blocking<T, F>(&self, f: F) -> Result<T, AppError>
+    where
+        F: FnOnce(&mut Connection, &Path) -> Result<T, AppError>,
+    {
+        self.with_connection(f)?
+    }
+
+    /// 接続を借りて `f` を実行し、`f` の値をそのまま返す（`f` が失敗を返す型でなくてもよい）。
+    /// 開けなかった場合だけ、保持しているエラーを返す。
+    pub fn with_connection<T>(
+        &self,
+        f: impl FnOnce(&mut Connection, &Path) -> T,
+    ) -> Result<T, AppError> {
+        let mut slot = self.lock();
+        match &mut *slot {
+            Slot::Failed(err) => Err(err.clone()),
+            Slot::Open(conn) => {
+                let path = self.paths.as_ref().map_or_else(|| Path::new(""), |p| &p.db);
+                Ok(f(conn, path))
             }
-        })
-        .await
-        .map_err(|err| AppError::Internal(format!("バックグラウンド処理に失敗しました: {err}")))?
+        }
     }
 
     /// バックアップを、アプリの接続とは別に開いた読み取り専用の接続で行う。
@@ -223,6 +246,147 @@ impl Database {
         .await
         .map_err(|err| AppError::Internal(format!("バックグラウンド処理に失敗しました: {err}")))?
     }
+}
+
+/// `Database::reset_keeping_settings` の結果。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResetReport {
+    /// 作り直す前の DB のバックアップ（手動バックアップ）。
+    pub backup_path: String,
+    /// 作り直す前の端末 ID。
+    pub old_device_id: String,
+    /// 新しい DB の端末 ID。
+    pub new_device_id: String,
+    /// 引き継いだ設定（`local_settings` の行）の数。
+    pub kept_settings: usize,
+}
+
+impl Database {
+    /// 今の DB を手動バックアップしてから、新しい空の DB（新しい端末 ID）に作り直す。同期の「置き換えて参加」で使う
+    /// （0016）。端末ごとの設定（`local_settings` の全行）は新しい DB に引き継ぐ。API キーは OS のキーチェーンなので
+    /// 影響しない。書影のフォルダはそのまま（使われなくなった分は、書影の整理で消せる）。
+    ///
+    /// 接続の Mutex を持ったまま、バックアップ → 接続を閉じる → 新しい DB を別のファイルに作る → 置き換える →
+    /// 開き直す、を行う（復元と同じ。実行中の `run` は待たされ、新しい接続で動く）。バックアップに失敗したら、
+    /// 何も変えない。途中で失敗しても、結果によらず開き直す（古い DB のままのことが多い）。
+    ///
+    /// ブロックするので、async の中からは呼ばない（同期エンジンの `spawn_blocking` から呼ぶ）。
+    pub fn reset_keeping_settings(&self, backup_dir: &Path) -> Result<ResetReport, AppError> {
+        let paths = self.paths.as_ref().ok_or_else(|| AppError::DbUnavailable {
+            reason: "データベースの場所を決められないため、作り直せません".to_owned(),
+        })?;
+        let _gate = self
+            .backup_gate
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let mut slot = self.lock();
+        // 先に、今の接続でバックアップと設定の読み出しを済ませる。ここで失敗したら何も変えない。
+        let (backup_path, old_device_id, settings) = match &*slot {
+            Slot::Failed(err) => return Err(err.clone()),
+            Slot::Open(conn) => {
+                let info =
+                    backup::manual_backup(conn, backup_dir, &bibcontainer_core::SystemClock)?;
+                (
+                    info.path,
+                    bibcontainer_core::meta::device_id(conn)?,
+                    bibcontainer_core::settings::all(conn)?,
+                )
+            }
+        };
+        let closing = std::mem::replace(
+            &mut *slot,
+            Slot::Failed(AppError::DbUnavailable {
+                reason: "データベースを作り直しています".to_owned(),
+            }),
+        );
+        if let Slot::Open(conn) = closing
+            && let Err((_, err)) = conn.close()
+        {
+            tracing::warn!(error = %err, "作り直しの前に接続を閉じられませんでした");
+        }
+
+        let rebuilt = replace_with_empty_db(paths, &settings);
+        match &rebuilt {
+            Ok(new_id) => tracing::info!(
+                backup = %backup_path,
+                old_device_id = %old_device_id,
+                new_device_id = %new_id,
+                kept_settings = settings.len(),
+                "DB を作り直しました（置き換えて参加）。開き直します"
+            ),
+            Err(err) => {
+                tracing::warn!(error = %err, "DB を作り直せませんでした。今の DB を開き直します")
+            }
+        }
+        // 結果によらず開き直す。
+        *slot = open_slot(&paths.db, &paths.migration_backups);
+        if let Slot::Failed(err) = &*slot {
+            return Err(err.clone());
+        }
+        Ok(ResetReport {
+            backup_path,
+            old_device_id,
+            new_device_id: rebuilt?,
+            kept_settings: settings.len(),
+        })
+    }
+}
+
+/// 新しい空の DB を別のファイルに作って、設定を入れ、今の DB のファイルと置き換える。新しい端末 ID を返す。
+/// 呼び出し側は、DB の接続をすべて閉じてから呼ぶ。
+fn replace_with_empty_db(
+    paths: &Paths,
+    settings: &BTreeMap<String, Value>,
+) -> Result<String, AppError> {
+    let scratch = sidecar(&paths.db, ".reset-tmp");
+    remove_db_files(&scratch)?;
+    let built = (|| -> Result<String, AppError> {
+        let (conn, _) = bibcontainer_core::open(&scratch, &paths.migration_backups)?;
+        for (key, value) in settings {
+            bibcontainer_core::settings::set(&conn, key, value)?;
+        }
+        let id = bibcontainer_core::meta::device_id(&conn)?;
+        // 1 つのファイルにまとめて閉じる（`open` が開くときに WAL に切り替える）。
+        conn.pragma_update(None, "journal_mode", "DELETE")
+            .map_err(bibcontainer_core::Error::from)?;
+        conn.close()
+            .map_err(|(_, err)| bibcontainer_core::Error::from(err))?;
+        Ok(id)
+    })();
+    let new_id = match built {
+        Ok(id) => id,
+        Err(err) => {
+            let _ = remove_db_files(&scratch);
+            return Err(err);
+        }
+    };
+    // 古い WAL を新しい DB に重ねないよう、置き換える前に消す。
+    for suffix in ["-wal", "-shm"] {
+        remove_if_exists(&sidecar(&paths.db, suffix))?;
+    }
+    std::fs::rename(&scratch, &paths.db)?;
+    Ok(new_id)
+}
+
+fn sidecar(path: &Path, suffix: &str) -> PathBuf {
+    let mut name = path.as_os_str().to_owned();
+    name.push(suffix);
+    PathBuf::from(name)
+}
+
+fn remove_if_exists(path: &Path) -> Result<(), AppError> {
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(err.into()),
+    }
+}
+
+/// DB のファイルと、WAL・共有メモリのファイルを消す（なければ何もしない）。
+fn remove_db_files(path: &Path) -> Result<(), AppError> {
+    remove_if_exists(path)?;
+    remove_if_exists(&sidecar(path, "-wal"))?;
+    remove_if_exists(&sidecar(path, "-shm"))
 }
 
 /// DB を開いて、接続の状態にする。失敗は理由を保持する。
@@ -679,5 +843,108 @@ mod tests {
         }));
         let err = block_on(db.restore("x".into(), "y".into())).unwrap_err();
         assert_eq!(err.kind(), ErrorKind::DbUnavailable);
+    }
+    fn set_setting(db: &Arc<Database>, key: &'static str, value: Value) {
+        block_on(db.run(move |conn, _| Ok(bibcontainer_core::settings::set(conn, key, &value)?)))
+            .unwrap();
+    }
+
+    fn get_setting(db: &Arc<Database>, key: &'static str) -> Option<Value> {
+        block_on(db.run(move |conn, _| Ok(bibcontainer_core::settings::get(conn, key)?))).unwrap()
+    }
+
+    #[test]
+    fn reset_backs_up_rebuilds_with_a_new_device_id_and_keeps_every_setting() {
+        let dir = tempfile::tempdir().unwrap();
+        let (db_path, backup_dir) = paths(dir.path());
+        let db = Arc::new(Database::open(&db_path, &backup_dir));
+        add_book(&db, "古い本");
+        set_setting(&db, "scan", serde_json::json!({ "muted": true }));
+        set_setting(
+            &db,
+            "sync",
+            serde_json::json!({ "deviceName": "書斎の Mac" }),
+        );
+        let old_id = device_id(&db);
+        let safety = dir.path().join("reset-backups");
+
+        let report = db.reset_keeping_settings(&safety).unwrap();
+
+        assert_eq!(report.old_device_id, old_id);
+        assert_ne!(report.new_device_id, old_id);
+        assert_eq!(device_id(&db), report.new_device_id);
+        assert_eq!(report.kept_settings, 2);
+        assert!(titles(&db).is_empty(), "本は空になる");
+        assert_eq!(
+            get_setting(&db, "scan"),
+            Some(serde_json::json!({ "muted": true }))
+        );
+        assert_eq!(
+            get_setting(&db, "sync"),
+            Some(serde_json::json!({ "deviceName": "書斎の Mac" }))
+        );
+        // 作り直す前の DB が、手動バックアップとして残っている
+        let info = backup::list_backups(&safety).unwrap();
+        assert_eq!(info.len(), 1);
+        assert_eq!(info[0].kind, backup::BackupKind::Manual);
+        assert_eq!(report.backup_path, info[0].path);
+        assert_eq!(
+            backup::verify_backup(Path::new(&info[0].path))
+                .unwrap()
+                .book_count,
+            1
+        );
+        // 作業用のファイルは残らず、開き直した DB は書ける
+        assert!(!sidecar(&db_path, ".reset-tmp").exists());
+        add_book(&db, "新しい本");
+        assert_eq!(titles(&db), ["新しい本"]);
+        // 作り直しのあとの再起動でも、新しい端末 ID のまま開く
+        drop(db);
+        let reopened = Arc::new(Database::open(&db_path, &backup_dir));
+        assert_eq!(device_id(&reopened), report.new_device_id);
+        assert_eq!(titles(&reopened), ["新しい本"]);
+    }
+
+    #[test]
+    fn reset_changes_nothing_when_the_backup_cannot_be_made() {
+        let dir = tempfile::tempdir().unwrap();
+        let (db_path, backup_dir) = paths(dir.path());
+        let db = Arc::new(Database::open(&db_path, &backup_dir));
+        add_book(&db, "古い本");
+        let old_id = device_id(&db);
+        // 保存先のパスが、フォルダではなくファイル
+        let blocker = dir.path().join("blocker");
+        std::fs::write(&blocker, "x").unwrap();
+
+        let err = db.reset_keeping_settings(&blocker.join("sub")).unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::Io);
+        assert_eq!(titles(&db), ["古い本"]);
+        assert_eq!(device_id(&db), old_id);
+        assert!(db.failure().is_none());
+    }
+
+    #[test]
+    fn reset_without_a_usable_db_is_an_error() {
+        let unknown = Database::failed(AppError::DbUnavailable {
+            reason: "場所がない".into(),
+        });
+        let err = unknown
+            .reset_keeping_settings(Path::new("backups"))
+            .unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::DbUnavailable);
+
+        // DB を開けなかった（スキーマ版が新しい）ときは、バックアップできないので、作り直さない
+        let dir = tempfile::tempdir().unwrap();
+        let (db_path, backup_dir) = paths(dir.path());
+        let (conn, _) = bibcontainer_core::open(&db_path, &backup_dir).unwrap();
+        conn.pragma_update(None, "user_version", 999).unwrap();
+        drop(conn);
+        let too_new = Database::open(&db_path, &backup_dir);
+        let err = too_new
+            .reset_keeping_settings(&dir.path().join("safety"))
+            .unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::SchemaTooNew);
+        let conn = rusqlite::Connection::open(&db_path).unwrap();
+        assert_eq!(migrate::user_version(&conn).unwrap(), 999);
     }
 }

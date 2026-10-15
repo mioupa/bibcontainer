@@ -4,10 +4,17 @@
 import { Button } from "@/components/ui/button";
 import { Group } from "@/features/settings/fields";
 import { useSyncStatus } from "@/features/sync/hooks";
-import { MOCK_SYNC_SCENARIOS, mockSync, type MockSyncScenario } from "@/dev/mockSync";
+import {
+  MOCK_LIBRARY_ID,
+  MOCK_SYNC_SCENARIOS,
+  mockSync,
+  type MockSyncScenario,
+} from "@/dev/mockSync";
 import type { FolderKind } from "@/features/sync/types";
 import { ja } from "@/i18n/ja";
 import { useState } from "react";
+
+const OTHER_LIBRARY_ID = "0192bb00-0000-7000-8000-000000000000";
 
 const KINDS: readonly FolderKind[] = [
   "empty",
@@ -75,8 +82,7 @@ export function SyncDevPanel() {
                 onClick={() =>
                   updateInspect({
                     kind,
-                    localLibraryId:
-                      kind === "otherLibrary" ? "0192bb00-0000-7000-8000-000000000000" : null,
+                    localLibraryId: kind === "otherLibrary" ? OTHER_LIBRARY_ID : null,
                   })
                 }
               >
@@ -92,6 +98,25 @@ export function SyncDevPanel() {
             />
             {t.localHasData}
           </label>
+          <p className="text-xs font-medium">{t.localLibraryLabel}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {(
+              [
+                ["none", null],
+                ["same", MOCK_LIBRARY_ID],
+                ["other", OTHER_LIBRARY_ID],
+              ] as const
+            ).map(([key, id]) => (
+              <Button
+                key={key}
+                size="xs"
+                variant={inspect.localLibraryId === id ? "default" : "outline"}
+                onClick={() => updateInspect({ localLibraryId: id })}
+              >
+                {t.localLibrary[key]}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
     </Group>

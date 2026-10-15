@@ -16,11 +16,14 @@ import { useModalStore } from "@/lib/useModalGuard";
 import { useScreenStore } from "@/stores/screenStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTableStore } from "@/stores/tableStore";
+import { listenToMockSync, syncInvokeHandlers } from "@/test/syncIpc";
 
 const invoke = vi.hoisted(() => vi.fn());
 const isTauri = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke, isTauri }));
-vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(() => Promise.resolve(() => {})) }));
+// sync-status はモックの同期につなぐ。ほかのイベントは、何も受けない購読にする
+const listen = vi.hoisted(() => vi.fn());
+vi.mock("@tauri-apps/api/event", () => ({ listen }));
 
 const playSound = vi.hoisted(() => vi.fn());
 vi.mock("@/features/scan/playSound", () => ({ playSound }));
@@ -184,6 +187,8 @@ function route(extra: Record<string, unknown> = {}) {
     },
     open_backup_dir: null,
     open_logs_dir: null,
+    // 同期のコマンドは、モックの同期（状態を切り替えられる）につなぐ
+    ...syncInvokeHandlers,
     // 端末ごとの設定（ストアの保存先）
     get_list_settings: {
       columnVisibility: {},
@@ -256,6 +261,11 @@ function commitNumber(label: string, value: string) {
 
 beforeEach(() => {
   invoke.mockReset();
+  listen.mockReset();
+  listen.mockImplementation(
+    (name: string, callback: (event: { payload: never }) => void) =>
+      listenToMockSync(name, callback as never) ?? Promise.resolve(() => {}),
+  );
   playSound.mockReset();
   chooseDirectory.mockReset();
   chooseSavePath.mockReset();

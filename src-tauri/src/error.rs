@@ -149,6 +149,34 @@ impl From<bibcontainer_core::Error> for AppError {
     }
 }
 
+/// 同期エンジンのエラー。メッセージは、エンジンが作った日本語をそのまま使う。
+///
+/// - 同期フォルダの読み書きの失敗は `io`。
+/// - 今の状態ではできないこと（設定されていない、別のライブラリ、手元にデータがある、ライブラリがない・すでにある、
+///   端末 ID の重複、新しいアプリが必要、`library.json` が読めない）は `conflict`。
+/// - DB の失敗は、コアのエラーと同じ分け方。
+impl From<bibcontainer_sync::SyncError> for AppError {
+    fn from(err: bibcontainer_sync::SyncError) -> Self {
+        use bibcontainer_sync::SyncError as E;
+        let message = err.to_string();
+        match err {
+            E::Transport(_) => Self::Io(message),
+            E::Db(core) => Self::from(core),
+            E::Json(_) => Self::Internal(message),
+            E::Internal(detail) => Self::Internal(detail),
+            E::NotConfigured
+            | E::LibraryMismatch { .. }
+            | E::AlreadyInLibrary { .. }
+            | E::UpdateRequired { .. }
+            | E::DuplicateDevice { .. }
+            | E::LibraryMissing
+            | E::LibraryExists
+            | E::LocalHasData
+            | E::BadLibraryFile(_) => Self::Conflict(message),
+        }
+    }
+}
+
 impl From<std::io::Error> for AppError {
     fn from(err: std::io::Error) -> Self {
         Self::Io(err.to_string())

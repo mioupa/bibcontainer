@@ -3,16 +3,19 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MOCK_FOLDER_PATH, mockSync } from "@/dev/mockSync";
+import { MOCK_FOLDER_PATH, MOCK_LIBRARY_ID, mockSync } from "@/dev/mockSync";
 import { SyncSection } from "@/features/settings/sections/SyncSection";
 import { useSyncStatusSubscription } from "@/features/sync/hooks";
 import { ja } from "@/i18n/ja";
 import { IpcError } from "@/lib/ipc";
 import { useModalStore } from "@/lib/useModalGuard";
+import { listenToMockSync, syncInvokeHandlers } from "@/test/syncIpc";
 
 const isTauri = vi.hoisted(() => vi.fn());
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri }));
-vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(() => Promise.resolve(() => {})) }));
+const invoke = vi.hoisted(() => vi.fn());
+const listen = vi.hoisted(() => vi.fn());
+vi.mock("@tauri-apps/api/core", () => ({ invoke, isTauri }));
+vi.mock("@tauri-apps/api/event", () => ({ listen }));
 
 const chooseDirectory = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/dialog", () => ({
@@ -52,8 +55,25 @@ async function chooseAndInspect() {
 
 const button = (name: string) => screen.getByRole("button", { name });
 
-beforeEach(() => {
+/** Tauri の中を模す: 同期のコマンドと sync-status を、モックの同期につなぐ（IPC の層を通して、状態はモックが決める）。 */
+function installTauriSync() {
   isTauri.mockReturnValue(true);
+  invoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
+    const handler = syncInvokeHandlers[command as keyof typeof syncInvokeHandlers];
+    if (handler === undefined) {
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      return Promise.reject({ kind: "internal", message: `未設定のコマンド: ${command}` });
+    }
+    return Promise.resolve(handler(args));
+  });
+  listen.mockImplementation(
+    (name: string, callback: (event: { payload: never }) => void) =>
+      listenToMockSync(name, callback as never) ?? Promise.resolve(() => {}),
+  );
+}
+
+beforeEach(() => {
+  installTauriSync();
   chooseDirectory.mockReset();
   chooseDirectory.mockResolvedValue(CHOSEN);
   toast.error.mockReset();
@@ -168,6 +188,56 @@ describe("同期の節: 未設定 — 手順の分岐（フォルダの判定 ×
 
     fireEvent.click(within(plan).getByRole("button", { name: ja.sync.setup.join.action }));
     await waitFor(() => expect(setup).toHaveBeenCalledWith(CHOSEN, "join"));
+  });
+
+  it("同じライブラリを選び直した（再接続）: 統合も置き換えも出さず、「この場所に付け替える」だけ。join で設定する", async () => {
+    mockSync.control.setInspect({
+      kind: "library",
+      localHasData: true,
+      localLibraryId: MOCK_LIBRARY_ID,
+    });
+    const setup = vi.spyOn(mockSync.api, "setupSync");
+    renderSection();
+    const result = await chooseAndInspect();
+    const plan = within(result).getByTestId("plan-reconnect");
+    expect(plan).toHaveTextContent(ja.sync.setup.reconnect.description);
+    for (const id of ["plan-create", "plan-join", "plan-choose", "plan-merge", "plan-replace"]) {
+      expect(within(result).queryByTestId(id)).not.toBeInTheDocument();
+    }
+    fireEvent.click(within(plan).getByRole("button", { name: ja.sync.setup.reconnect.action }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(ja.sync.setup.done));
+    expect(setup).toHaveBeenCalledExactlyOnceWith(CHOSEN, "join");
+    // 設定済みの画面に切り替わる。置き換えではないので、全部の取り直しはしない
+    expect(await screen.findByTestId("sync-folder")).toHaveTextContent(LIBRARY_FOLDER);
+  });
+
+  it("手元がライブラリに属しているのに、空のフォルダ: 新しく作らせない。先に同期を解除してから選び直す", async () => {
+    mockSync.control.setInspect({
+      kind: "empty",
+      localHasData: true,
+      localLibraryId: "lib-local",
+    });
+    const setup = vi.spyOn(mockSync.api, "setupSync");
+    const leave = vi.spyOn(mockSync.api, "leaveSync");
+    renderSection();
+    const result = await chooseAndInspect();
+    const notice = within(result).getByTestId("plan-leave-first");
+    expect(notice).toHaveAttribute("role", "alert");
+    expect(notice).toHaveTextContent(ja.sync.setup.leaveFirst.title);
+    expect(notice).toHaveTextContent("手元のデータと同期フォルダの中身は消えません");
+    for (const id of ["plan-create", "plan-join", "plan-choose", "plan-reconnect"]) {
+      expect(within(result).queryByTestId(id)).not.toBeInTheDocument();
+    }
+    expect(setup).not.toHaveBeenCalled();
+
+    // 解除（確認つき）→ 同じフォルダを調べ直す → 手元がどのライブラリにも属さないので、新しく作れる
+    fireEvent.click(button(ja.sync.setup.leaveFirst.action));
+    const dialog = await screen.findByRole("dialog");
+    expect(leave).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: ja.sync.leaveConfirm.confirm }));
+    expect(await screen.findByTestId("plan-create")).toBeInTheDocument();
+    expect(leave).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("plan-leave-first")).not.toBeInTheDocument();
   });
 
   it("ライブラリあり・手元にデータ: 「統合する」と「置き換える」を選ばせる。それぞれの意味を説明する", async () => {

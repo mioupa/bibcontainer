@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { IpcError, ipc, onLibraryChanged } from "@/lib/ipc";
+import { IpcError, ipc, onLibraryChanged, onSyncStatus } from "@/lib/ipc";
 
 const invoke = vi.hoisted(() => vi.fn());
 const listen = vi.hoisted(() => vi.fn());
@@ -140,6 +140,25 @@ describe("ipc", () => {
       expect(invoke.mock.calls[1]).toEqual(["import_cover_bytes", { bytes: [1, 2, 3] }]);
     });
 
+    it("同期: 引数のキーは path・mode・name。戻り値は状態（書影の整理だけ件数）", async () => {
+      await ipc.getSyncStatus();
+      await ipc.inspectSyncFolder("/Drive");
+      await ipc.setupSync("/Drive", "joinMerge");
+      await ipc.leaveSync();
+      await ipc.syncNow();
+      await ipc.setDeviceName("書斎の Mac");
+      await ipc.gcCovers();
+      expect(invoke.mock.calls).toEqual([
+        ["get_sync_status", undefined],
+        ["inspect_sync_folder", { path: "/Drive" }],
+        ["setup_sync", { path: "/Drive", mode: "joinMerge" }],
+        ["leave_sync", undefined],
+        ["sync_now", undefined],
+        ["set_device_name", { name: "書斎の Mac" }],
+        ["gc_covers", undefined],
+      ]);
+    });
+
     it("新しい種類のエラー（validation・conflict など）も kind のまま届く", async () => {
       invoke.mockRejectedValue({ kind: "conflict", message: "本が残っています" });
       const error = await ipc.deleteLocation("l1").catch((e: unknown) => e);
@@ -163,6 +182,29 @@ describe("ipc", () => {
       callback?.({ payload: { books: ["a"], others: true } });
 
       expect(handler).toHaveBeenCalledExactlyOnceWith({ books: ["a"], others: true });
+      stop();
+      expect(unlisten).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("sync-status", () => {
+    it("イベントのペイロード（状態）をハンドラに渡し、購読を解除する関数を返す", async () => {
+      const unlisten = vi.fn();
+      let callback: ((event: { payload: unknown }) => void) | undefined;
+      listen.mockImplementation((name: string, cb: typeof callback) => {
+        expect(name).toBe("sync-status");
+        callback = cb;
+        return Promise.resolve(unlisten);
+      });
+      const handler = vi.fn();
+
+      const stop = await onSyncStatus(handler);
+      callback?.({ payload: { state: "idle", folder: "/Drive/bibcontainer-library" } });
+
+      expect(handler).toHaveBeenCalledExactlyOnceWith({
+        state: "idle",
+        folder: "/Drive/bibcontainer-library",
+      });
       stop();
       expect(unlisten).toHaveBeenCalledOnce();
     });

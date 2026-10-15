@@ -356,6 +356,109 @@ fn setting_up_the_same_library_again_keeps_progress() {
     });
 }
 
+/// 同じライブラリを、別のパスで選び直した（Windows のドライブ文字が変わった、など）。統合でも置き換えでも、
+/// 場所を付け替えるだけ: 取り込み済みの範囲を引き継ぎ、スナップショットは書かず、新しい場所へ書き出せる。
+#[test]
+fn choosing_the_same_library_at_another_path_moves_the_folder_without_a_snapshot() {
+    let backend = Backend::local();
+    let (a, b) = start(&backend);
+    for i in 0..3 {
+        a.add_book(&book_id(i), "本");
+        export(&a);
+    }
+    import(&b);
+    b.add_book(&book_id(10), "B のあとの本"); // 未書き出しの変更もある
+
+    // 同期フォルダの中身が、別のパスから見えるようになった
+    let moved = tempfile::TempDir::new().unwrap();
+    let new_root = moved.path().join("bibcontainer-library");
+    copy_tree(&backend.local_root().unwrap(), &new_root);
+    let transport = bibcontainer_sync::LocalFolder::new(&new_root);
+    let engine = SyncEngine::new(&b.db, &transport, &b.clock, b.covers.path(), b.info.clone());
+
+    // 判定: ライブラリがあり、手元のライブラリ ID と同じ（手元にデータがあっても）
+    let inspection = engine.inspect("/moved").unwrap();
+    assert_eq!(inspection.kind, FolderKind::Library);
+    assert!(inspection.local_has_data);
+    assert!(inspection.library_id.is_some());
+    assert_eq!(inspection.library_id, inspection.local_library_id);
+
+    for mode in [
+        SetupMode::Join,
+        SetupMode::JoinMerge,
+        SetupMode::JoinReplace,
+    ] {
+        let report = engine.setup(mode).unwrap();
+        assert!(!report.created, "{mode:?}");
+        assert!(!report.snapshot_written, "{mode:?}");
+        assert_eq!(
+            report.import.unwrap().files_applied,
+            0,
+            "{mode:?}: 取り込み済みの範囲を引き継ぐ"
+        );
+    }
+    let own_snapshots = new_root.join("snapshots").join(b.id());
+    assert!(!own_snapshots.exists(), "スナップショットは書かない");
+    assert_eq!(b.count("books"), 4, "手元のデータはそのまま");
+
+    // 新しい場所へ書き出せて、そこを読む端末に届く
+    let report = engine.export().unwrap();
+    assert!(report.ops_exported > 0);
+    assert!(new_root.join("ops").join(b.id()).is_dir());
+    assert_eq!(b.pending(), 0);
+}
+
+fn copy_tree(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap().flatten() {
+        let target = to.join(entry.file_name());
+        if entry.path().is_dir() {
+            copy_tree(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), target).unwrap();
+        }
+    }
+}
+
+/// この端末が別のライブラリに参加しているときの、空のフォルダでの新規作成は、何も書かずに断る
+/// （`library.json` も作らない）。先に同期を解除する。
+#[test]
+fn creating_in_an_empty_folder_while_in_a_library_is_refused_and_writes_nothing() {
+    each_backend(|backend| {
+        let (_a, b) = start(backend);
+        b.add_book(BOOK_1, "本");
+        let other = if backend.name() == "memory" {
+            Backend::memory()
+        } else {
+            Backend::local()
+        };
+        let transport = other.transport("B");
+        let engine = SyncEngine::new(
+            &b.db,
+            &*transport,
+            &b.clock,
+            b.covers.path(),
+            b.info.clone(),
+        );
+        // 判定は「空」だが、手元のライブラリ ID も返す（画面は「先に同期を解除してください」と案内する）
+        let inspection = engine.inspect("/empty").unwrap();
+        assert_eq!(inspection.kind, FolderKind::Empty);
+        assert!(inspection.local_library_id.is_some());
+        let err = engine.setup(SetupMode::Create).unwrap_err();
+        assert!(matches!(err, SyncError::AlreadyInLibrary { .. }), "{err}");
+        assert!(err.to_string().contains("同期を解除"));
+        assert!(
+            other.paths().is_empty(),
+            "何も書かない: {:?}",
+            other.paths()
+        );
+        // 解除すれば、新しいライブラリを作れる
+        engine.leave().unwrap();
+        engine.setup(SetupMode::Create).unwrap();
+        assert!(other.read_raw("library.json").is_some());
+    });
+}
+
 // ---------------------------------------------------------------------------
 // 取り込み・書き出しの細部
 // ---------------------------------------------------------------------------

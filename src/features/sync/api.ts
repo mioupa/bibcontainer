@@ -1,20 +1,30 @@
-// 同期の呼び出し口。画面・フックは、必ずここを通して同期を操作する（0013 §9、0015）。
+// 同期の呼び出し口。画面・フックは、必ずここを通して同期を操作する（0013 §9、0015、0016）。
 //
-// いまは、Tauri の中でもモック（src/dev/mockSync.ts）で動かす。Rust の同期エンジンができたら、
-// **下の `selectBackend` だけ**を、IPC 版（`ipc.ts` の同期のコマンド）を返すように直す:
-//
-//   function selectBackend(): SyncApi {
-//     return inTauri() ? ipcSyncApi : mockSync.api;
-//   }
-//
-// `ipcSyncApi` は、`ipc.ts` に足した `get_sync_status`・`inspect_sync_folder`・`setup_sync`・`leave_sync`・
-// `sync_now`・`set_device_name`・`gc_covers` と、`sync-status` の購読（`onSyncStatus`）を `SyncApi` の形に包んだもの。
+// Tauri の中では IPC（Rust の同期エンジン。`ipc.ts` の同期のコマンドと `sync-status` の購読）、外（ブラウザの
+// `pnpm dev`）ではモック（src/dev/mockSync.ts）で動く。どちらを使うかを決めるのは、下の `selectBackend` の 1 か所だけ。
 import { mockSync } from "@/dev/mockSync";
 import type { SetupMode, SyncApi } from "@/features/sync/types";
+import { ipc, onSyncStatus as listenSyncStatus } from "@/lib/ipc";
+import { inTauri } from "@/lib/runtime";
+
+/**
+ * IPC 版。`SyncApi` の形（`setupSync`・`leaveSync`・`syncNow`・`setDeviceName` は `SyncStatus`、`gcCovers` は
+ * 消した件数）は、Rust のコマンドの戻り値とそのまま同じ。
+ */
+export const ipcSyncApi: SyncApi = {
+  getSyncStatus: () => ipc.getSyncStatus(),
+  inspectSyncFolder: (path) => ipc.inspectSyncFolder(path),
+  setupSync: (path, mode) => ipc.setupSync(path, mode),
+  leaveSync: () => ipc.leaveSync(),
+  syncNow: () => ipc.syncNow(),
+  setDeviceName: (name) => ipc.setDeviceName(name),
+  gcCovers: () => ipc.gcCovers(),
+  onSyncStatus: (handler) => listenSyncStatus(handler),
+};
 
 /** 差し替え箇所（1 か所）。呼ぶたびに選ぶので、テストはモックの操作（`mockSync.control`）で状態を作れる。 */
 function selectBackend(): SyncApi {
-  return mockSync.api;
+  return inTauri() ? ipcSyncApi : mockSync.api;
 }
 
 export const getSyncStatus = () => selectBackend().getSyncStatus();

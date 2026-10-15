@@ -11,6 +11,7 @@ mod events;
 mod logging;
 mod metadata;
 mod settings;
+mod sync;
 
 use std::sync::Arc;
 
@@ -52,6 +53,12 @@ pub fn run() {
             // （起動の 5 秒後から 5 分ごと）。失敗しても起動は続ける（書誌の取得だけが使えない）。
             if let Err(err) = metadata::setup(app.handle()) {
                 tracing::error!(error = %err, "書誌取得の準備に失敗しました");
+            }
+
+            // 同期（0016）。設定されていれば、起動の少しあとに取り込み・書き出しをし、あとは合図と 60 秒ごとで動く。
+            // 失敗しても起動は続ける（同期だけが使えない）。
+            if let Err(err) = sync::setup(app.handle()) {
+                tracing::error!(error = %err, "同期の準備に失敗しました");
             }
 
             // 日次バックアップは、起動の数秒後と 1 時間ごとに「時期か」を確かめて取る。
@@ -131,26 +138,42 @@ pub fn run() {
             metadata::commands::import_cover_file,
             metadata::commands::import_cover_bytes,
             metadata::commands::import_cover_url,
+            // 同期（0016）
+            sync::commands::get_sync_status,
+            sync::commands::inspect_sync_folder,
+            sync::commands::setup_sync,
+            sync::commands::leave_sync,
+            sync::commands::sync_now,
+            sync::commands::set_device_name,
+            sync::commands::gc_covers,
         ])
         .build(tauri::generate_context!())
         .expect("Tauri アプリの構築に失敗しました")
         .run(|app, event| {
-            // ウィンドウが前面に来たら、取得待ちの本を試す（30 秒以内の再実行は metadata 側で抑える）
-            if let RunEvent::WindowEvent {
-                event: WindowEvent::Focused(true),
-                ..
-            } = &event
-            {
-                metadata::trigger_pending_refetch(app);
-            }
-            if let RunEvent::Exit = event {
-                // プロセス終了時に、WAL を DB 本体へ書き戻し、バッファに残っているログを書き出す。
-                if let Some(db) = app.try_state::<Arc<Database>>() {
-                    db.checkpoint();
+            match &event {
+                // ウィンドウが前面に来たら、他の端末の変更を取り込み（同期。3 秒以内の再実行は抑える）、
+                // 取得待ちの本を試す（30 秒以内の再実行は metadata 側で抑える）
+                RunEvent::WindowEvent {
+                    event: WindowEvent::Focused(true),
+                    ..
+                } => {
+                    sync::trigger_import(app);
+                    metadata::trigger_pending_refetch(app);
                 }
-                if let Some(guard) = app.try_state::<logging::LogGuard>() {
-                    guard.flush();
+                // 終了の前に、未書き出しの変更を同期フォルダへ書き出す（最大 5 秒）
+                RunEvent::ExitRequested { api, code, .. } => {
+                    sync::on_exit_requested(app, api, *code);
                 }
+                RunEvent::Exit => {
+                    // プロセス終了時に、WAL を DB 本体へ書き戻し、バッファに残っているログを書き出す。
+                    if let Some(db) = app.try_state::<Arc<Database>>() {
+                        db.checkpoint();
+                    }
+                    if let Some(guard) = app.try_state::<logging::LogGuard>() {
+                        guard.flush();
+                    }
+                }
+                _ => {}
             }
         });
 }

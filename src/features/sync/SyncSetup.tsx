@@ -1,7 +1,8 @@
 // 設定の「同期」の節: 未設定のとき（FR-SYNC-01／09／10、0013 §7）。
 // フォルダを選ぶ → 中身を調べる（inspect）→ 結果と、手元のデータの有無に応じた手順を出す。
-//   空                         … 新しいライブラリを作る
+//   空                         … 新しいライブラリを作る（手元が別のライブラリに属していれば、先に解除）
 //   ライブラリあり・手元が空     … 参加する
+//   ライブラリあり・手元が同じライブラリに参加済み … 場所の付け替え（再接続）
 //   ライブラリあり・手元にデータ … 統合する／置き換える（置き換えは確認つき）
 //   手元が別のライブラリに属す   … 警告（AT-S8）。同期を解除してから選び直す
 //   書き込めない・更新が必要     … 理由と対処
@@ -201,6 +202,18 @@ function PlanView({
           </Button>
         </StepCard>
       );
+    case "reconnect":
+      return (
+        <StepCard
+          title={t.reconnect.title}
+          description={t.reconnect.description}
+          testId="plan-reconnect"
+        >
+          <Button disabled={busy} onClick={() => onRun("join")}>
+            {t.reconnect.action}
+          </Button>
+        </StepCard>
+      );
     case "choose":
       return (
         <div className="flex flex-col gap-3" data-testid="plan-choose">
@@ -238,6 +251,18 @@ function PlanView({
           <div>
             <Button variant="outline" size="sm" disabled={busy} onClick={onAskLeave}>
               {t.otherLibrary.action}
+            </Button>
+          </div>
+        </Notice>
+      );
+    case "leaveFirst":
+      return (
+        <Notice tone="warning" title={t.leaveFirst.title} testId="plan-leave-first">
+          <p>{t.leaveFirst.description}</p>
+          <p>{t.leaveFirst.hint}</p>
+          <div>
+            <Button variant="outline" size="sm" disabled={busy} onClick={onAskLeave}>
+              {t.leaveFirst.action}
             </Button>
           </div>
         </Notice>

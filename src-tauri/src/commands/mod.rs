@@ -29,7 +29,7 @@ pub mod settings;
 pub mod system;
 
 #[cfg(test)]
-mod ipc_tests;
+pub(crate) mod ipc_tests;
 
 use std::path::Path;
 use std::sync::Arc;

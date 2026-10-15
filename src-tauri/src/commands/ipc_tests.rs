@@ -3,6 +3,7 @@
 //! 確かめること: 引数のキー（camelCase）、省略できる引数、`FieldChange` の JSON、戻り値の形、
 //! エラーの `{ kind, message }`、変更後の `library-changed`。
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -12,22 +13,30 @@ use tauri::test::{
     INVOKE_KEY, MockRuntime, get_ipc_response, mock_builder, mock_context, noop_assets,
 };
 use tauri::webview::InvokeRequest;
-use tauri::{App, Listener, WebviewWindow, WebviewWindowBuilder};
+use tauri::{App, Listener, Manager, WebviewWindow, WebviewWindowBuilder};
 
 use crate::database::{DB_FILE_NAME, Database};
 use crate::error::AppError;
+use crate::sync::{SyncConfig, SyncController};
 
-struct Harness {
+/// 1 台のアプリ（DB・同期のコントローラ・MockRuntime のウィンドウ）。同期の結合テスト（`sync/tests.rs`）は、
+/// これを 2 つ作って、1 つの同期フォルダでつなぐ。
+pub(crate) struct Harness {
     _dir: tempfile::TempDir,
-    dir: std::path::PathBuf,
+    pub(crate) dir: PathBuf,
     // App を落とすと WebView も消えるので、テストの間は持っておく
     _app: App<MockRuntime>,
     webview: WebviewWindow<MockRuntime>,
+    /// 届いた `library-changed` のペイロード。
     events: Arc<Mutex<Vec<Value>>>,
+    /// 届いた `sync-status` のペイロード。
+    pub(crate) status_events: Arc<Mutex<Vec<Value>>>,
+    pub(crate) db: Arc<Database>,
+    pub(crate) sync: Arc<SyncController>,
 }
 
 impl Harness {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
         let db = Database::open(&dir.path().join(DB_FILE_NAME), &dir.path().join("backups"));
         Self::with_db(dir, db)
@@ -42,8 +51,9 @@ impl Harness {
     }
 
     fn with_db(dir: tempfile::TempDir, db: Database) -> Self {
+        let db = Arc::new(db);
         let app = mock_builder()
-            .manage(Arc::new(db))
+            .manage(Arc::clone(&db))
             .invoke_handler(tauri::generate_handler![
                 super::library::list_books,
                 super::library::get_rows,
@@ -86,9 +96,33 @@ impl Harness {
                 super::io::export_csv,
                 super::io::export_json,
                 super::io::parse_isbn_list,
+                super::backup::list_backups,
+                super::backup::manual_backup,
+                super::backup::restore_backup,
+                crate::sync::commands::get_sync_status,
+                crate::sync::commands::inspect_sync_folder,
+                crate::sync::commands::setup_sync,
+                crate::sync::commands::leave_sync,
+                crate::sync::commands::sync_now,
+                crate::sync::commands::set_device_name,
+                crate::sync::commands::gc_covers,
             ])
             .build(mock_context(noop_assets()))
             .unwrap();
+        // 同期のコントローラ（スケジューラは始めない。テストが、周期を直接呼ぶ）
+        let sync = crate::sync::build_controller(
+            app.handle(),
+            Arc::clone(&db),
+            SyncConfig {
+                covers_dir: dir.path().join("covers"),
+                default_backup_dir: dir.path().join("backups"),
+                os: "testos".to_owned(),
+                app_version: "0.1.0".to_owned(),
+                default_device_name: "テスト端末".to_owned(),
+            },
+            Arc::new(bibcontainer_core::SystemClock),
+        );
+        app.manage(Arc::clone(&sync));
         let webview = WebviewWindowBuilder::new(&app, "main", Default::default())
             .build()
             .unwrap();
@@ -98,17 +132,31 @@ impl Harness {
             let payload: Value = serde_json::from_str(event.payload()).unwrap();
             sink.lock().unwrap().push(payload);
         });
+        let status_events = Arc::new(Mutex::new(Vec::new()));
+        let status_sink = Arc::clone(&status_events);
+        app.listen(crate::sync::SYNC_STATUS, move |event| {
+            let payload: Value = serde_json::from_str(event.payload()).unwrap();
+            status_sink.lock().unwrap().push(payload);
+        });
         Harness {
             dir: dir.path().to_owned(),
             _dir: dir,
             _app: app,
             webview,
             events,
+            status_events,
+            db,
+            sync,
         }
     }
 
+    /// MockRuntime のアプリのハンドル（コントローラをもう 1 つ作るときなどに使う）。
+    pub(crate) fn app_handle(&self) -> &tauri::AppHandle<MockRuntime> {
+        self._app.handle()
+    }
+
     /// コマンドを呼ぶ。成功は `Ok(戻り値)`、失敗は `Err({ kind, message })`。
-    fn call(&self, cmd: &str, body: Value) -> Result<Value, Value> {
+    pub(crate) fn call(&self, cmd: &str, body: Value) -> Result<Value, Value> {
         let request = InvokeRequest {
             cmd: cmd.into(),
             callback: CallbackFn(0),
@@ -128,12 +176,12 @@ impl Harness {
         get_ipc_response(&self.webview, request).map(|b| b.deserialize::<Value>().unwrap())
     }
 
-    fn ok(&self, cmd: &str, body: Value) -> Value {
+    pub(crate) fn ok(&self, cmd: &str, body: Value) -> Value {
         self.call(cmd, body)
             .unwrap_or_else(|err| panic!("{cmd} が失敗した: {err}"))
     }
 
-    fn err_kind(&self, cmd: &str, body: Value) -> String {
+    pub(crate) fn err_kind(&self, cmd: &str, body: Value) -> String {
         let err = self
             .call(cmd, body)
             .expect_err(&format!("{cmd} は失敗するはず"));
@@ -142,7 +190,7 @@ impl Harness {
     }
 
     /// これまでに届いた `library-changed` のペイロードを取り出す（届くのを少し待つ）。
-    fn take_events(&self) -> Vec<Value> {
+    pub(crate) fn take_events(&self) -> Vec<Value> {
         let deadline = Instant::now() + Duration::from_millis(300);
         loop {
             let mut events = self.events.lock().unwrap();
@@ -154,16 +202,16 @@ impl Harness {
         }
     }
 
-    fn path(&self, name: &str) -> String {
+    pub(crate) fn path(&self, name: &str) -> String {
         self.dir.join(name).to_string_lossy().into_owned()
     }
 }
 
-fn manual(field: &str, value: Value) -> Value {
+pub(crate) fn manual(field: &str, value: Value) -> Value {
     json!({ "field": field, "value": value, "origin": { "kind": "manual" } })
 }
 
-fn create(h: &Harness, changes: Vec<Value>) -> String {
+pub(crate) fn create(h: &Harness, changes: Vec<Value>) -> String {
     h.ok("create_book", json!({ "changes": changes }))
         .as_str()
         .unwrap()
@@ -631,6 +679,8 @@ fn every_database_command_reports_db_unavailable_when_the_db_could_not_be_opened
         ("trash_books", json!({ "ids": [] })),
         ("list_locations", json!({})),
         ("get_scan_settings", json!({})),
+        ("get_sync_status", json!({})),
+        ("set_device_name", json!({ "name": "Mac" })),
         (
             "export_csv",
             // どの OS でも絶対パスで、親フォルダがある場所（パスの検証より先に DB の有無で失敗することを見る）

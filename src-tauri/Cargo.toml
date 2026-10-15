@@ -20,6 +20,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 bibcontainer-core = { path = "../crates/core" }
 bibcontainer-metadata = { path = "../crates/metadata" }
+bibcontainer-sync = { path = "../crates/sync" }
 tauri = { version = "2", features = [] }
 # core が返す Connection と同じ型を名前で書くために必要（バージョンは core に合わせる）
 rusqlite = "0.40"
@@ -37,8 +38,11 @@ keyring = "4"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 serde_json = "1"
-# 日次バックアップの定期実行（1 時間ごと）に使う
-tokio = { version = "1", features = ["time", "sync"] }
+# 日次バックアップ・同期の定期実行（time）、同期の合図と排他（sync）、同期の待ち合わせ（macros の select!）に使う
+tokio = { version = "1", features = ["time", "sync", "macros"] }
+# 同期フォルダの変更の監視（src/sync/watch.rs）と、端末名の既定値（ホスト名）
+notify = "8"
+gethostname = "1"
 
 [dev-dependencies]
 tempfile = "3"

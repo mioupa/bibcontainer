@@ -236,6 +236,42 @@ describe("planSetup: フォルダの判定 × 手元のデータ → 設定の�
     });
   });
 
+  it("ライブラリあり・手元が同じライブラリに参加済み: 場所の付け替え（再接続）。手元のデータの有無によらない", () => {
+    for (const localHasData of [false, true]) {
+      expect(
+        planSetup(
+          inspection({
+            kind: "library",
+            localHasData,
+            libraryId: "lib-1",
+            localLibraryId: "lib-1",
+          }),
+        ),
+      ).toEqual({ kind: "reconnect" });
+    }
+  });
+
+  it("ライブラリあり・手元が別のライブラリに参加済み（判定は otherLibrary のはずだが、念のため）: 同期しない", () => {
+    expect(
+      planSetup(
+        inspection({
+          kind: "library",
+          localHasData: true,
+          libraryId: "lib-1",
+          localLibraryId: "lib-other",
+        }),
+      ),
+    ).toEqual({ kind: "otherLibrary" });
+  });
+
+  it("空のフォルダでも、手元がライブラリに属していれば、新しく作らせない（先に解除）", () => {
+    for (const localHasData of [false, true]) {
+      expect(
+        planSetup(inspection({ kind: "empty", localHasData, localLibraryId: "lib-local" })),
+      ).toEqual({ kind: "leaveFirst" });
+    }
+  });
+
   it("別のライブラリ・書き込めない・更新が必要: 同期しない（手元のデータの有無によらない）", () => {
     for (const localHasData of [false, true]) {
       expect(planSetup(inspection({ kind: "otherLibrary", localHasData }))).toEqual({

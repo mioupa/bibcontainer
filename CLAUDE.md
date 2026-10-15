@@ -22,6 +22,8 @@
 - 0010 書誌取得のアプリへの統合（取得元の設定、API キー、キャッシュ、下書き、再取得、`cover` スキーム。組み込みは 0009 §11）
 - 0011 メイン画面と登録・編集フォーム（保存の規則、候補、書影の差し替え、検索欄の ISBN、ショートカット）
 - 0012 スキャン登録画面と設定画面（ペアリングの効果の処理、重複と欲しい本、連続登録、ISBN 一覧の取り込み）
+- 0013 フェーズ 2 の同期の設計（同期フォルダの構成、セグメント、スナップショット、設定の流れ）、0014 同期エンジン（`crates/sync` の API、DB の操作、取り込み済みの範囲、組み込みの手順は §11）
+- 0015 同期の画面（上部バーの表示、設定の「同期」の節、モック）、0016 同期のアプリへの組み込み（いつ動かすか、状態の組み立て、設定・置き換え・再接続・復元の流れ、スレッドとロック）
 - 画面どうしの受け渡しは `src/stores/screenStore.ts`（画面の切り替え）と `src/stores/editorStore.ts`（フォームを開く）だけで行う
 
 ## 守ること
@@ -37,15 +39,16 @@
 
 ## 構成
 - `crates/core`（`bibcontainer-core`）: Tauri に依存しないコア。DB・マイグレーション・HLC・Op、書籍・保管場所・タグ・シリーズの操作、検索、書き出し、バックアップ、バーコードの判定。
+- `crates/sync`（`bibcontainer-sync`）: 同期エンジン。Tauri に依存しない。同期フォルダ（`SyncTransport`。初版は `LocalFolder`）への Op・スナップショット・書影の書き出しと取り込み、初めての設定・解除、手入れ。DB には `SyncDb` 経由で短く触る。画面とやり取りする型（`SyncStatus` など）は `src/bindings/` に出る。
 - `crates/metadata`（`bibcontainer-metadata`）: 書誌の取得・正規化・統合、書影の変換。DB には触らない。
-- `src-tauri`（`bibcontainer-app`）: アプリの殻。ウィンドウ、ログ、DB 接続（`database.rs`。復元の再オープンもここ）、IPC コマンド（`commands/` に機能ごと）、イベント（`events.rs`）、端末ごとの設定（`settings.rs`）、日次バックアップ（`backups.rs`）、書誌取得のつなぎ（`src-tauri/src/metadata/`。取得元の設定、API キー（OS のキーチェーン）、生の応答のキャッシュ、登録フォームの下書き、取得待ちの自動再取得、書影の取り込みと `cover` URI スキーム）。
+- `src-tauri`（`bibcontainer-app`）: アプリの殻。ウィンドウ、ログ、DB 接続（`database.rs`。復元の再オープンもここ）、IPC コマンド（`commands/` に機能ごと）、イベント（`events.rs`）、端末ごとの設定（`settings.rs`）、日次バックアップ（`backups.rs`）、書誌取得のつなぎ（`src-tauri/src/metadata/`。取得元の設定、API キー（OS のキーチェーン）、生の応答のキャッシュ、登録フォームの下書き、取得待ちの自動再取得、書影の取り込みと `cover` URI スキーム）、同期のつなぎ（`src-tauri/src/sync/`。`SyncController` が、取り込み・書き出し・手入れを動かす時機（起動時・ウィンドウが前面に来たとき・ファイル監視・60 秒ごと・最後の変更の 5 秒後・終了時・復元のあと）、状態（`sync-status`）、設定・解除・置き換え・再接続、端末名、書影の整理を受け持つ。同期フォルダの場所と端末名は `local_settings` の `sync`）。
 - `src`: React フロントエンド。パスエイリアスは `@/` → `src/`。
 - `src/bindings/`: ts-rs の生成物。手で編集しない。コミットする。
 - フロントから Rust を呼ぶのは `src/lib/ipc.ts` だけ。コンポーネントから `invoke` を直接呼ばない。
 - UI の文字列は `src/i18n/ja/` に機能ごとのファイル（`common`・`list`・`scan`・`edit`・`settings`・`errors`）で置き、`src/i18n/ja.ts` が 1 つの `ja` にまとめる。コンポーネントに日本語を直接書かない。
 - IPC のエラーは `{ kind, message }`（`AppError`。種類は 12。0009 の 1）。DB に触るコマンドは async にして `Database::run` 経由で呼ぶ。
-- データを変えるコマンドは、成功したあとに `events::emit_library_changed` を呼ぶ。フロントは `library-changed` を受けて、変わった行だけ取り直す（`src/features/library/sync.ts`）。
-- フロントのデータの取得・変更は `src/features/library/api.ts` を通す。Tauri の外（ブラウザの `pnpm dev`）では、モック（`src/dev/`）で動く。
+- データを変えるコマンドは、成功したあとに `events::emit_library_changed` を呼ぶ（同期の書き出しの合図も兼ねる）。他の端末から取り込んだ変更を知らせるときは `emit_remote_library_changed`（合図を送らない）。フロントは `library-changed` を受けて、変わった行だけ取り直す（`src/features/library/sync.ts`）。
+- フロントのデータの取得・変更は `src/features/library/api.ts` を通す。同期は `src/features/sync/api.ts`（どちらを使うかは `selectBackend()` の 1 か所）。どちらも、Tauri の外（ブラウザの `pnpm dev`）では、モック（`src/dev/`）で動く。
 
 ## 開発コマンド
 - `pnpm install`: 依存を入れる。
@@ -71,3 +74,4 @@
 - IPC のテストの呼び出し元 URL は、Windows では `http://tauri.localhost`（macOS は `tauri://localhost`）。
 - `src-tauri/build.rs` はマニフェストを全ターゲットに埋め込んでいる（ダイアログのプラグインのため。無いとテストの実行ファイルが `STATUS_ENTRYPOINT_NOT_FOUND` で起動しない）。消さない。
 - ネットワークの時間を測るテストは、Windows の TCP が接続拒否のあとも数回やり直す（約 2 秒）ことを考える。
+- ファイル監視（`notify`）しているフォルダの親は、Windows では名前を変えられない。同期のテストで同期フォルダを動かすときは、先に `SyncController::drop_watcher`（テスト専用）で監視をやめる。`chmod` を使うテストは `#[cfg(unix)]`。

@@ -12,7 +12,9 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { makeRow } from "@/test/factories";
+import { mockSync } from "@/dev/mockSync";
 import { stubElementSize } from "@/test/layout";
+import { listenToMockSync, syncInvokeHandlers } from "@/test/syncIpc";
 
 // Tauri の invoke と isTauri、イベントの購読だけを差し替え、ipc.ts のエラー変換も含めて通す
 const invoke = vi.hoisted(() => vi.fn());
@@ -43,11 +45,13 @@ function rejectWith(payload: { kind: string; message: string } | string): Promis
 
 /** コマンドごとの返答を決める。決めていないコマンドは、内部エラーで失敗する。 */
 function routeInvoke(handlers: Record<string, unknown>) {
+  // 同期のコマンドは、モックの同期（未設定の状態）につなぐ
+  const all = { ...syncInvokeHandlers, ...handlers };
   invoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (!(command in handlers)) {
+    if (!(command in all)) {
       return rejectWith({ kind: "internal", message: `未設定のコマンド: ${command}` });
     }
-    const handler = handlers[command];
+    const handler = all[command as keyof typeof all];
     return Promise.resolve(typeof handler === "function" ? (handler as Handler)(args) : handler);
   });
 }
@@ -67,6 +71,7 @@ function renderApp() {
 }
 
 function resetStores() {
+  mockSync.control.reset();
   useViewStore.getState().clearFilters();
   useViewStore.getState().setSearchText("");
   useSelectionStore.getState().clear();
@@ -82,7 +87,9 @@ describe("App（Tauri の中）", () => {
   beforeEach(() => {
     invoke.mockReset();
     listen.mockReset();
-    listen.mockImplementation((_name: string, callback: (event: { payload: never }) => void) => {
+    listen.mockImplementation((name: string, callback: (event: { payload: never }) => void) => {
+      const sync = listenToMockSync(name, callback as never);
+      if (sync !== null) return sync;
       emitLibraryChanged = (payload) => callback({ payload: payload as never });
       return Promise.resolve(() => {});
     });

@@ -15,6 +15,7 @@ import type { DisplaySettings } from "@/bindings/DisplaySettings";
 import type { ErrorKind } from "@/bindings/ErrorKind";
 import type { FetchMetadataResult } from "@/bindings/FetchMetadataResult";
 import type { FieldChange } from "@/bindings/FieldChange";
+import type { FolderInspection } from "@/bindings/FolderInspection";
 import type { IsbnMatch } from "@/bindings/IsbnMatch";
 import type { LibraryChanged } from "@/bindings/LibraryChanged";
 import type { ListRow } from "@/bindings/ListRow";
@@ -32,7 +33,9 @@ import type { RestoreReport } from "@/bindings/RestoreReport";
 import type { ScanCode } from "@/bindings/ScanCode";
 import type { ScanSettings } from "@/bindings/ScanSettings";
 import type { SeriesInfo } from "@/bindings/SeriesInfo";
+import type { SetupMode } from "@/bindings/SetupMode";
 import type { StoreCount } from "@/bindings/StoreCount";
+import type { SyncStatus } from "@/bindings/SyncStatus";
 import type { TagInfo } from "@/bindings/TagInfo";
 import type { UpdateOptions } from "@/bindings/UpdateOptions";
 
@@ -172,6 +175,16 @@ interface CommandMap {
   /** 画像のバイト列は、Uint8Array をそのまま渡すと、バイナリのまま送られる（大きい画像向け）。 */
   import_cover_bytes: { args: Uint8Array | { bytes: number[] }; result: string };
   import_cover_url: { args: { url: string }; result: string };
+
+  // 同期（src-tauri/src/sync/commands.rs。0016）。状態の変化は sync-status イベントでも届く
+  get_sync_status: { result: SyncStatus };
+  inspect_sync_folder: { args: { path: string }; result: FolderInspection };
+  setup_sync: { args: { path: string; mode: SetupMode }; result: SyncStatus };
+  leave_sync: { result: SyncStatus };
+  sync_now: { result: SyncStatus };
+  set_device_name: { args: { name: string }; result: SyncStatus };
+  /** 消した書影の数。 */
+  gc_covers: { result: number };
 }
 
 type CommandName = keyof CommandMap;
@@ -301,9 +314,27 @@ export const ipc = {
   importCoverBytes: (bytes: Uint8Array | number[]) =>
     call("import_cover_bytes", Array.isArray(bytes) ? { bytes } : bytes),
   importCoverUrl: (url: string) => call("import_cover_url", { url }),
+
+  // ---- 同期 ----
+  getSyncStatus: () => call("get_sync_status"),
+  /** 選んだフォルダの中身を調べる（何も残さない）。`libraryFolder` が実際に使う bibcontainer-library。 */
+  inspectSyncFolder: (path: string) => call("inspect_sync_folder", { path }),
+  /** 同期フォルダを設定する。最初の取り込みが済むまで待ち、そのあとの状態を返す。 */
+  setupSync: (path: string, mode: SetupMode) => call("setup_sync", { path, mode }),
+  leaveSync: () => call("leave_sync"),
+  /** 取り込みと書き出しを今すぐ行い、終わったあとの状態を返す。失敗したらエラー（状態にも記録される）。 */
+  syncNow: () => call("sync_now"),
+  setDeviceName: (name: string) => call("set_device_name", { name }),
+  /** 使われていない書影を整理して、消した数を返す。 */
+  gcCovers: () => call("gc_covers"),
 } as const;
 
 /** 蔵書の変更の通知（`library-changed`）を受ける。返した関数で購読をやめる。 */
 export function onLibraryChanged(handler: (change: LibraryChanged) => void): Promise<UnlistenFn> {
   return listen<LibraryChanged>("library-changed", (event) => handler(event.payload));
+}
+
+/** 同期の状態の通知（`sync-status`）を受ける。返した関数で購読をやめる。 */
+export function onSyncStatus(handler: (status: SyncStatus) => void): Promise<UnlistenFn> {
+  return listen<SyncStatus>("sync-status", (event) => handler(event.payload));
 }
