@@ -1,0 +1,57 @@
+{
+  "type": {
+    "key": "/type/edition"
+  },
+  "authors": [
+    {
+      "key": "/authors/OL2947544A"
+    }
+  ],
+  "isbn_13": [
+    "9781493934362"
+  ],
+  "languages": [
+    {
+      "key": "/languages/eng"
+    }
+  ],
+  "lc_classifications": [
+    "TK9001-9401TA459-492"
+  ],
+  "number_of_pages": 1002,
+  "publish_date": "2016",
+  "publishers": [
+    "Springer"
+  ],
+  "source_records": [
+    "bwb:9781493934362",
+    "amazon:1493934368",
+    "idb:9781493934362"
+  ],
+  "subjects": [
+    "Metals, effect of radiation on"
+  ],
+  "title": "Fundamentals of Radiation Materials Science",
+  "weight": "18.412",
+  "subtitle": "Metals and Alloys",
+  "full_title": "Fundamentals of Radiation Materials Science Metals and Alloys",
+  "works": [
+    {
+      "key": "/works/OL8703809W"
+    }
+  ],
+  "key": "/books/OL34386079M",
+  "covers": [
+    13817654
+  ],
+  "latest_revision": 3,
+  "revision": 3,
+  "created": {
+    "type": "/type/datetime",
+    "value": "2021-10-02T22:09:13.607724"
+  },
+  "last_modified": {
+    "type": "/type/datetime",
+    "value": "2023-12-20T02:39:24.616930"
+  }
+}

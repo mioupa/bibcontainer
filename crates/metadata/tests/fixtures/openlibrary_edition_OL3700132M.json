@@ -1,0 +1,150 @@
+{
+  "description": {
+    "type": "/type/text",
+    "value": "When Elizabeth Bennet first meets eligible bachelor Fitzwilliam Darcy, she thinks him arrogant and conceited, while he struggles to remain indifferent to her good looks and lively mind. When she later discovers that Darcy has involved himself in the troubled relationship between his friend Bingley and her beloved sister Jane, she is determined to dislike him more than ever. In the sparkling comedy of manners that follows, Jane Austen shows the folly of judging by first impressions and superbly evokes the friendships, gossip and snobberies of provincial middle-class life.\r\n--back cover"
+  },
+  "notes": {
+    "type": "/type/text",
+    "value": "Includes bibliographical references.\r\nUK / CAN / USA Edition"
+  },
+  "identifiers": {
+    "british_national_bibliography": [
+      "GBA277118"
+    ],
+    "alibris_id": [
+      "9780141439518"
+    ],
+    "amazon.de_asin": [
+      "0141439513"
+    ],
+    "british_library": [
+      "BLL01011935674"
+    ],
+    "wikidata": [
+      "Q63565749"
+    ],
+    "librarything": [
+      "2773690"
+    ],
+    "goodreads": [
+      "60481026"
+    ]
+  },
+  "title": "Pride and Prejudice",
+  "authors": [
+    {
+      "key": "/authors/OL21594A"
+    }
+  ],
+  "publish_date": "2003",
+  "contributors": [
+    {
+      "name": "Vivien Jones",
+      "role": "Introduction"
+    },
+    {
+      "name": "Tony Tanner",
+      "role": "Introduction"
+    }
+  ],
+  "series": [
+    "Penguin Classics"
+  ],
+  "covers": [
+    15261362,
+    8467127,
+    8259327
+  ],
+  "ia_loaded_id": [
+    "prideprejudice400aust"
+  ],
+  "contributions": [
+    "Jones, Vivien, 1952-"
+  ],
+  "ia_box_id": [
+    "IA173701"
+  ],
+  "edition_name": "Reissued ed. (18)",
+  "genres": [
+    "Fiction."
+  ],
+  "source_records": [
+    "marc:marc_records_scriblio_net/part14.dat:163800045:1054",
+    "marc:marc_loc_updates/v35.i20.records.utf8:13718904:1275",
+    "ia:prideprejudice400aust",
+    "marc:marc_loc_updates/v40.i08.records.utf8:6211674:1368",
+    "ia:prideprejudice0000aust_v9a3",
+    "bwb:9780141439518",
+    "marc:marc_loc_2016/BooksAll.2016.part30.utf8:218858124:1368",
+    "marc:marc_columbia/Columbia-extract-20221130-032.mrc:209966318:4630"
+  ],
+  "languages": [
+    {
+      "key": "/languages/eng"
+    }
+  ],
+  "subjects": [
+    "Social classes -- Fiction",
+    "Young women -- Fiction",
+    "Prejudices -- Fiction",
+    "Courtship -- Fiction",
+    "Sisters -- Fiction",
+    "England -- Fiction"
+  ],
+  "publish_country": "enk",
+  "subject_place": [
+    "England"
+  ],
+  "by_statement": "Jane Austen ; edited wih an introduction and notes by Vivien Jones ; with the original Penguin Classics introduction by Tony Tanner.",
+  "type": {
+    "key": "/type/edition"
+  },
+  "publishers": [
+    "Penguin Books"
+  ],
+  "physical_format": "Paperback",
+  "publish_places": [
+    "London, England"
+  ],
+  "pagination": "xlii, 435 p. ;",
+  "copyright_date": "Introduction 1996, 2003; Note and Chronology 1995, 2003; Appendix 1972",
+  "ocaid": "prideprejudice400aust",
+  "isbn_10": [
+    "0141439513"
+  ],
+  "isbn_13": [
+    "9780141439518"
+  ],
+  "lccn": [
+    "2003265779"
+  ],
+  "oclc_numbers": [
+    "966381722",
+    "930258818"
+  ],
+  "dewey_decimal_class": [
+    "823/.7"
+  ],
+  "lc_classifications": [
+    "PR4034 .P7 2003b",
+    "PR4034.P7 2003b",
+    "PR4034 .P7 2014"
+  ],
+  "key": "/books/OL3700132M",
+  "number_of_pages": 435,
+  "works": [
+    {
+      "key": "/works/OL66554W"
+    }
+  ],
+  "latest_revision": 35,
+  "revision": 35,
+  "created": {
+    "type": "/type/datetime",
+    "value": "2008-04-01T03:28:50.625462"
+  },
+  "last_modified": {
+    "type": "/type/datetime",
+    "value": "2026-10-02T19:41:58.049588"
+  }
+}

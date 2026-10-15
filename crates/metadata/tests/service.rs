@@ -141,6 +141,26 @@ fn fixtures_handler() -> Handler {
             };
             return response(200, "application/json; charset=UTF-8", fixture(file));
         }
+        // Open Library: 検索（フィクスチャがなければ「該当なし」）と、版の JSON
+        if let Some(q) = url.split("openlibrary.org/search.json?isbn=").nth(1) {
+            let isbn = q.split('&').next().unwrap();
+            let path = common::fixture_path(&format!("openlibrary_search_{isbn}.json"));
+            let body = std::fs::read_to_string(path)
+                .unwrap_or_else(|_| fixture("openlibrary_search_9784003101117.json"));
+            return response(200, "application/json", body);
+        }
+        if let Some(olid) = url
+            .split("openlibrary.org/books/")
+            .nth(1)
+            .and_then(|r| r.strip_suffix(".json"))
+        {
+            return match std::fs::read_to_string(common::fixture_path(&format!(
+                "openlibrary_edition_{olid}.json"
+            ))) {
+                Ok(body) => response(200, "application/json", body),
+                Err(_) => response(404, "application/json", "{}".to_string()),
+            };
+        }
         response(404, "text/plain", "not found".to_string())
     })
 }
@@ -216,16 +236,26 @@ async fn at10_fetches_all_providers_and_merges() {
         "https://cover.openbd.jp/9784780802047.jpg"
     );
     for p in ProviderId::ALL {
-        assert_eq!(outcome(&result, p), ProviderOutcome::Found, "{p:?}");
+        // 日本の本は Open Library にない（検索だけで「該当なし」）
+        let want = if p == ProviderId::OpenLibrary {
+            ProviderOutcome::NotFound
+        } else {
+            ProviderOutcome::Found
+        };
+        assert_eq!(outcome(&result, p), want, "{p:?}");
         assert!(!report(&result, p).from_cache);
     }
     assert!(!result.offline);
     assert!(!result.has_error());
     assert_eq!(result.found_count(), 3);
     assert_eq!(result.candidates.len(), 3);
-    // 取得元ごとに 1 回ずつ
+    // 取得元ごとに 1 回ずつ（Open Library は検索だけ）
     let urls = r.http.urls();
-    assert_eq!(urls.len(), 3, "{urls:?}");
+    assert_eq!(urls.len(), 4, "{urls:?}");
+    assert!(urls.iter().any(|u| {
+        u.starts_with("https://openlibrary.org/search.json?isbn=9784780802047&fields=")
+            && u.contains("editions.isbn")
+    }));
     assert!(
         urls.iter()
             .any(|u| u == "https://api.openbd.jp/v1/get?isbn=9784780802047")
@@ -315,6 +345,10 @@ async fn not_found_everywhere() {
         outcome(&result, ProviderId::Google),
         ProviderOutcome::NotFound
     );
+    assert_eq!(
+        outcome(&result, ProviderId::OpenLibrary),
+        ProviderOutcome::NotFound
+    );
     assert!(result.merged.is_empty());
     assert!(!result.offline);
     assert!(!result.has_error());
@@ -329,7 +363,12 @@ async fn providers_info_lists_credits() {
     let ids: Vec<ProviderId> = infos.iter().map(|i| i.id).collect();
     assert_eq!(
         ids,
-        vec![ProviderId::Openbd, ProviderId::Ndl, ProviderId::Google]
+        vec![
+            ProviderId::Openbd,
+            ProviderId::Ndl,
+            ProviderId::Google,
+            ProviderId::OpenLibrary
+        ]
     );
     assert!(infos.iter().all(|i| !i.credit.is_empty()));
 }
@@ -352,7 +391,7 @@ async fn all_network_providers_failing_means_offline() {
         .await;
     assert!(result.offline, "{:?}", result.reports);
     assert!(result.has_error());
-    for p in [ProviderId::Openbd, ProviderId::Ndl, ProviderId::Google] {
+    for p in ProviderId::ALL {
         assert!(
             matches!(outcome(&result, p), ProviderOutcome::NetworkError { .. }),
             "{p:?}"
@@ -368,6 +407,7 @@ async fn all_network_providers_failing_means_offline() {
     assert_eq!(r.http.urls_containing("api.openbd.jp").len(), 1);
     assert_eq!(r.http.urls_containing("ndlsearch.ndl.go.jp").len(), 1);
     assert_eq!(r.http.urls_containing("googleapis.com").len(), 1);
+    assert_eq!(r.http.urls_containing("openlibrary.org").len(), 1);
 }
 
 /// オフラインのとき（接続が確立できない）は、バックオフ（1 + 2 + 4 秒）を待たずに、すぐ `offline` を返す。
@@ -612,26 +652,41 @@ async fn parse_errors_are_reported_and_not_cached() {
 async fn cache_avoids_the_network_until_it_expires() {
     let r = rig();
     let first = r.service.fetch(&FetchRequest::new(ONIGIRI)).await;
-    assert_eq!(r.cache.len(), 3, "openBD・NDL・Google");
+    assert_eq!(
+        r.cache.len(),
+        4,
+        "openBD・NDL・Google・Open Library（該当なし）"
+    );
+    assert!(
+        !r.cache
+            .entry(ProviderId::OpenLibrary, ONIGIRI)
+            .unwrap()
+            .found
+    );
     let e = r.cache.entry(ProviderId::Openbd, ONIGIRI).unwrap();
     assert!(e.found);
     assert_eq!(e.fetched_at, 1_800_000_000);
     assert!(e.body.contains("おにぎりレシピ101"));
     r.http.clear();
 
-    // 29 日後: まだ有効。通信しない。結果は同じ
+    // 29 日後: 書誌が取れた取得元はまだ有効。通信しない。結果は同じ。
+    // 「該当なし」の Open Library だけは、1 日で期限切れなので取り直す（見つからないまま）
     r.clock.fetch_add(29 * 86_400, Ordering::SeqCst);
     let second = r.service.fetch(&FetchRequest::new(ONIGIRI)).await;
-    assert!(r.http.urls().is_empty(), "{:?}", r.http.urls());
+    let urls = r.http.urls();
+    assert_eq!(urls.len(), 1, "{urls:?}");
+    assert!(urls[0].starts_with("https://openlibrary.org/search.json?"));
     assert_eq!(second.merged, first.merged);
     assert!(report(&second, ProviderId::Openbd).from_cache);
     assert!(report(&second, ProviderId::Ndl).from_cache);
     assert!(report(&second, ProviderId::Google).from_cache);
+    assert!(!report(&second, ProviderId::OpenLibrary).from_cache);
+    r.http.clear();
 
     // 31 日後: 期限切れ。取り直して、保存し直す
     r.clock.fetch_add(2 * 86_400, Ordering::SeqCst);
     let third = r.service.fetch(&FetchRequest::new(ONIGIRI)).await;
-    assert_eq!(r.http.urls().len(), 3);
+    assert_eq!(r.http.urls().len(), 4);
     assert!(!report(&third, ProviderId::Openbd).from_cache);
     assert_eq!(
         r.cache
@@ -655,7 +710,7 @@ async fn not_found_is_cached_for_a_shorter_time() {
     assert!(r.http.urls().is_empty());
     r.clock.fetch_add(2 * 3600, Ordering::SeqCst);
     r.service.fetch(&FetchRequest::new(MISSING)).await;
-    assert_eq!(r.http.urls().len(), 3, "25 時間後は取り直す");
+    assert_eq!(r.http.urls().len(), 4, "25 時間後は取り直す");
     assert_eq!(DEFAULT_NOT_FOUND_TTL, Duration::from_secs(86_400));
 }
 
@@ -669,7 +724,7 @@ async fn force_refresh_ignores_the_cache_and_updates_it() {
         .service
         .fetch(&FetchRequest::new(ONIGIRI).force_refresh())
         .await;
-    assert_eq!(r.http.urls().len(), 3);
+    assert_eq!(r.http.urls().len(), 4);
     assert!(!report(&result, ProviderId::Openbd).from_cache);
     assert_eq!(
         r.cache
@@ -792,8 +847,8 @@ async fn fetch_many_batches_openbd_and_paces_the_others() {
         "{}",
         openbd[0].1
     );
-    // NDL と Google は 1 件ずつ、1 秒以上あけて
-    for host in ["ndlsearch.ndl.go.jp", "googleapis.com"] {
+    // NDL・Google・Open Library は 1 件ずつ、1 秒以上あけて
+    for host in ["ndlsearch.ndl.go.jp", "googleapis.com", "openlibrary.org"] {
         let calls = r.http.urls_containing(host);
         assert_eq!(calls.len(), 3, "{host}");
         for w in calls.windows(2) {
@@ -813,7 +868,7 @@ async fn fetch_many_batches_openbd_and_paces_the_others() {
     ];
     let results = r.service.fetch_many(&reqs).await;
     assert_eq!(results[0].merged, results[1].merged);
-    assert_eq!(r.http.urls().len(), 3);
+    assert_eq!(r.http.urls().len(), 4);
 }
 
 impl Rig {

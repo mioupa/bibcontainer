@@ -36,7 +36,7 @@ pub const PENDING_INTERVAL: Duration = Duration::from_secs(5 * 60);
 const STARTUP_DELAY: Duration = Duration::from_secs(5);
 /// `trigger` による試行の最短の間隔（ウィンドウが前面に来るたびに通信しないため）。
 pub const MIN_TRIGGER_GAP: Duration = Duration::from_secs(30);
-/// 一度に取得する本の数（NDL と Google は 1 件ずつ 1 秒あけるので、進捗が保存される単位）。
+/// 一度に取得する本の数（NDL・Google・Open Library は 1 件ずつ 1 秒あけるので、進捗が保存される単位）。
 const CHUNK: usize = 20;
 
 /// 1 冊の再取得の結果。
@@ -344,7 +344,7 @@ impl MetadataState {
         }
 
         // 最初の 1 冊で通信できるかを確かめる。できなければ（オフライン）、残りは試さない
-        // （NDL・Google は 1 件ずつ、リトライしながら取るので、全冊を試すと長くかかる）。
+        // （NDL・Google・Open Library は 1 件ずつ、リトライしながら取るので、全冊を試すと長くかかる）。
         let mut rest: &[String] = &ids;
         let mut offline = false;
         while !rest.is_empty() {

@@ -3,7 +3,7 @@
 mod common;
 
 use bibcontainer_metadata::provider::{Provider, RawResponse};
-use bibcontainer_metadata::providers::{GoogleBooks, Ndl, OpenBd};
+use bibcontainer_metadata::providers::{GoogleBooks, Ndl, OpenBd, OpenLibrary};
 use bibcontainer_metadata::types::{Candidate, CandidateAuthor, ProviderId};
 use common::fixture;
 
@@ -456,7 +456,34 @@ fn provider_infos_describe_auth_rate_limit_and_credits() {
     );
     assert_eq!(google.rate_limit.min_interval_ms, 1000);
 
-    for info in [openbd, ndl, google] {
+    let open_library = OpenLibrary::new().info();
+    assert_eq!(open_library.id, ProviderId::OpenLibrary);
+    assert_eq!(open_library.display_name, "Open Library");
+    assert_eq!(open_library.auth, ProviderAuth::None, "API キーは要らない");
+    assert!(open_library.needs_network);
+    assert!(!open_library.supports_batch);
+    assert_eq!(open_library.rate_limit.group, "openlibrary");
+    assert_eq!(open_library.rate_limit.min_interval_ms, 1000);
+    assert_eq!(open_library.rate_limit.max_concurrent, 1);
+    assert_eq!(
+        open_library.fields,
+        vec![
+            MetaField::Title,
+            MetaField::Subtitle,
+            MetaField::Authors,
+            MetaField::Publisher,
+            MetaField::PublishedOn,
+            MetaField::Pages,
+            MetaField::Language,
+            MetaField::Description,
+            MetaField::Cover,
+        ]
+    );
+    // Open Library はアプリからのリンクを求めている。名前と URL をクレジットに入れる
+    assert!(open_library.credit.contains("Open Library"));
+    assert!(open_library.credit.contains("https://openlibrary.org/"));
+
+    for info in [openbd, ndl, google, open_library] {
         assert!(!info.credit.is_empty());
         assert!(!info.display_name.is_empty());
         assert!(!info.supports_search, "キーワード検索はフェーズ 3");

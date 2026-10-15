@@ -1,6 +1,6 @@
 //! bibcontainer の書誌取得クレート。
 //!
-//! - `provider`・`providers`: 取得元（openBD・NDL・Google Books）。生の応答の取得（`fetch_raw`）と解析（`parse`）を分けてある。
+//! - `provider`・`providers`: 取得元（openBD・NDL・Google Books・Open Library）。生の応答の取得（`fetch_raw`）と解析（`parse`）を分けてある。
 //! - `normalize`: 正規化（NFKC、著者の役割の分離、日付、価格、ページ数と大きさ）。
 //! - `merge`: 項目ごとの優先順位による統合。
 //! - `service`: 有効な取得元への並行した問い合わせ、キャッシュ、取得元ごとの状態。

@@ -6,6 +6,8 @@
 //!
 //! 「有効」は利用者の選択で、実際に使うかどうか（`active`）とは別。認証が必須の取得元（Google Books）は、
 //! キーがなければ有効にしていても使わない（`state::Active`）。キーを入れれば、そのまま使われ始める。
+//! キーを使わない取得元（openBD・NDL・Open Library）は、有効なら使う。あとから足した取得元（Open Library）は、
+//! 古い設定に書かれていなくても、有効で、優先順位の行の末尾に足される（`normalize`）。
 
 use std::collections::BTreeMap;
 
@@ -30,7 +32,7 @@ const MAX_CONTACT_URL_LEN: usize = 200;
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct ProviderSettings {
-    /// 取得元ごとの有効・無効（`openbd`・`ndl`・`google`）。既定は 3 つとも有効。
+    /// 取得元ごとの有効・無効（`openbd`・`ndl`・`google`・`openlibrary`）。既定は 4 つとも有効。
     /// Google Books はキーがなければ、有効にしていても使わない。
     pub enabled: BTreeMap<ProviderId, bool>,
     /// 項目の行ごとの優先順位。読み出すときは、全部の行が（既定で補って）そろう。
@@ -141,6 +143,7 @@ fn source_from_str(s: &str) -> Option<MetaSource> {
         MetaSource::Openbd,
         MetaSource::Ndl,
         MetaSource::Google,
+        MetaSource::OpenLibrary,
     ]
     .into_iter()
     .find(|m| m.as_str() == s)
@@ -189,9 +192,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn defaults_enable_the_three_providers_and_use_the_documented_contact() {
+    fn defaults_enable_the_four_providers_and_use_the_documented_contact() {
         let s = ProviderSettings::default();
-        assert_eq!(s.enabled.len(), 3);
+        assert_eq!(s.enabled.len(), 4);
+        assert!(s.enabled[&ProviderId::OpenLibrary]);
         assert!(s.enabled.values().all(|b| *b));
         assert_eq!(s.contact_url, "https://github.com/mioupa/bibcontainer");
         assert_eq!(s.priorities, MetaPriorities::default());
@@ -212,16 +216,26 @@ mod tests {
         assert!(!s.enabled[&ProviderId::Openbd]);
         assert!(s.enabled[&ProviderId::Ndl], "bool でない値は既定");
         assert!(s.enabled[&ProviderId::Google], "欠けた取得元は既定");
-        assert_eq!(s.enabled.len(), 3, "知らない取得元は捨てる");
-        // title: 設定の順（重複・未知は除く）に、設定にない既定の取得元（google）を足す
+        assert!(s.enabled[&ProviderId::OpenLibrary], "欠けた取得元は有効");
+        assert_eq!(s.enabled.len(), 4, "知らない取得元は捨てる");
+        // title: 設定の順（重複・未知は除く）に、設定にない既定の取得元（google、openlibrary）を足す
         assert_eq!(
             s.priorities.groups[&MetaGroup::Title],
-            vec![MetaSource::Ndl, MetaSource::Openbd, MetaSource::Google]
+            vec![
+                MetaSource::Ndl,
+                MetaSource::Openbd,
+                MetaSource::Google,
+                MetaSource::OpenLibrary
+            ]
         );
         // 配列でない値は既定のまま
         assert_eq!(
             s.priorities.groups[&MetaGroup::Cover],
-            vec![MetaSource::Openbd, MetaSource::Google]
+            vec![
+                MetaSource::Openbd,
+                MetaSource::Google,
+                MetaSource::OpenLibrary
+            ]
         );
         // 空の配列は、既定の順で補われる
         assert_eq!(s.priorities.groups[&MetaGroup::Ndc], vec![MetaSource::Ndl]);
@@ -239,12 +253,110 @@ mod tests {
         assert_eq!(v["enabled"]["google"], json!(false));
         assert_eq!(v["enabled"]["openbd"], json!(true));
         assert_eq!(v["contactUrl"], json!("https://example.org/me"));
+        assert_eq!(v["enabled"]["openlibrary"], json!(true));
         assert_eq!(
             v["priorities"]["groups"]["title"],
-            json!(["openbd", "ndl", "google"])
+            json!(["openbd", "ndl", "google", "openlibrary"])
         );
         assert_eq!(v["priorities"]["groups"]["pages_and_size"][0], json!("ndl"));
         assert_eq!(ProviderSettings::from_json(Some(&v)), s);
+    }
+
+    /// Open Library を足す前に保存された設定（3 つの取得元）。読むと、Open Library が有効で、関係する行の
+    /// 末尾に足される。利用者が並べ替えた順は保たれる。保存し直しても同じ。
+    #[test]
+    fn a_setting_saved_before_open_library_gets_it_enabled_and_appended_last() {
+        let old = json!({
+            "enabled": { "openbd": true, "ndl": false, "google": true },
+            "priorities": { "groups": {
+                "title": ["google", "ndl", "openbd"],
+                "authors": ["openbd", "ndl", "google"],
+                "publisher": ["openbd", "ndl", "google"],
+                "published_on": ["ndl", "openbd", "google"],
+                "pages_and_size": ["openbd", "ndl", "google"],
+                "language": ["openbd", "ndl", "google"],
+                "description": ["google", "openbd"],
+                "cover": ["google", "openbd"],
+                "list_price": ["barcode", "openbd", "ndl"],
+                "c_code": ["barcode", "openbd"],
+                "ndc": ["ndl"],
+                "title_kana": ["ndl"],
+                "ref_price_incl": ["openbd", "ndl"],
+                "series": ["openbd", "ndl"]
+            } },
+            "contactUrl": "https://example.org/me"
+        });
+        let s = ProviderSettings::from_json(Some(&old));
+        assert!(s.enabled[&ProviderId::OpenLibrary], "既定で有効");
+        assert!(!s.enabled[&ProviderId::Ndl], "利用者の選択は保つ");
+        let order = |g: MetaGroup| s.priorities.groups[&g].clone();
+        use MetaSource::{Barcode, Google, Ndl, OpenLibrary, Openbd};
+        // Open Library が入る行は、末尾に足される（並べ替えた順は保つ）
+        assert_eq!(
+            order(MetaGroup::Title),
+            vec![Google, Ndl, Openbd, OpenLibrary]
+        );
+        assert_eq!(
+            order(MetaGroup::Authors),
+            vec![Openbd, Ndl, Google, OpenLibrary]
+        );
+        assert_eq!(
+            order(MetaGroup::Publisher),
+            vec![Openbd, Ndl, Google, OpenLibrary]
+        );
+        assert_eq!(
+            order(MetaGroup::PublishedOn),
+            vec![Ndl, Openbd, Google, OpenLibrary]
+        );
+        assert_eq!(
+            order(MetaGroup::PagesAndSize),
+            vec![Openbd, Ndl, Google, OpenLibrary]
+        );
+        assert_eq!(
+            order(MetaGroup::Language),
+            vec![Openbd, Ndl, Google, OpenLibrary]
+        );
+        assert_eq!(
+            order(MetaGroup::Description),
+            vec![Google, Openbd, OpenLibrary]
+        );
+        assert_eq!(order(MetaGroup::Cover), vec![Google, Openbd, OpenLibrary]);
+        // Open Library が取れない項目の行には入らない
+        assert_eq!(order(MetaGroup::ListPrice), vec![Barcode, Openbd, Ndl]);
+        assert_eq!(order(MetaGroup::CCode), vec![Barcode, Openbd]);
+        assert_eq!(order(MetaGroup::Ndc), vec![Ndl]);
+        assert_eq!(order(MetaGroup::TitleKana), vec![Ndl]);
+        assert_eq!(order(MetaGroup::RefPriceIncl), vec![Openbd, Ndl]);
+        assert_eq!(order(MetaGroup::Series), vec![Openbd, Ndl]);
+        assert_eq!(s.priorities.groups.len(), MetaGroup::ALL.len());
+        assert_eq!(s.contact_url, "https://example.org/me");
+
+        // DB に古い設定が入っていても同じ。保存し直すと、Open Library も保存される（読み直しても同じ）
+        let conn = bibcontainer_core::open_in_memory().unwrap();
+        core_settings::set(&conn, SETTINGS_KEY, &old).unwrap();
+        let loaded = load(&conn).unwrap();
+        assert_eq!(loaded, s);
+        let saved = save(&conn, loaded).unwrap();
+        let stored = core_settings::get(&conn, SETTINGS_KEY).unwrap().unwrap();
+        assert_eq!(stored["enabled"]["openlibrary"], json!(true));
+        assert_eq!(
+            stored["priorities"]["groups"]["cover"],
+            json!(["google", "openbd", "openlibrary"])
+        );
+        assert_eq!(load(&conn).unwrap(), saved);
+
+        // 利用者が Open Library を無効にしたり、先頭に動かしたりした設定は、そのまま読める
+        let mut s2 = saved.clone();
+        s2.enabled.insert(ProviderId::OpenLibrary, false);
+        s2.priorities
+            .set(MetaGroup::Cover, vec![OpenLibrary, Google, Openbd]);
+        let v = serde_json::to_value(&s2).unwrap();
+        assert_eq!(v["enabled"]["openlibrary"], json!(false));
+        assert_eq!(
+            v["priorities"]["groups"]["cover"],
+            json!(["openlibrary", "google", "openbd"])
+        );
+        assert_eq!(ProviderSettings::from_json(Some(&v)), s2);
     }
 
     #[test]
@@ -302,7 +414,12 @@ mod tests {
         let saved = save(&conn, s).unwrap();
         assert_eq!(
             saved.priorities.groups[&MetaGroup::Title],
-            vec![MetaSource::Google, MetaSource::Openbd, MetaSource::Ndl]
+            vec![
+                MetaSource::Google,
+                MetaSource::Openbd,
+                MetaSource::Ndl,
+                MetaSource::OpenLibrary
+            ]
         );
         assert_eq!(load(&conn).unwrap(), saved);
 

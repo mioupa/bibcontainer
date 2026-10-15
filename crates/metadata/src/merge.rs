@@ -29,23 +29,23 @@ pub struct MetaPriorities {
     pub groups: BTreeMap<MetaGroup, Vec<MetaSource>>,
 }
 
-/// 既定の優先順位（FR-META-04 の表。楽天・Amazon は未実装なので除く）。
+/// 既定の優先順位（FR-META-04 の表。楽天・Amazon は未実装なので除く）。Open Library は、取れる項目の行の最後に置く。
 fn default_order(group: MetaGroup) -> Vec<MetaSource> {
-    use MetaSource::{Barcode, Google, Ndl, Openbd};
+    use MetaSource::{Barcode, Google, Ndl, OpenLibrary, Openbd};
     match group {
         MetaGroup::Title | MetaGroup::Authors | MetaGroup::Publisher | MetaGroup::Language => {
-            vec![Openbd, Ndl, Google]
+            vec![Openbd, Ndl, Google, OpenLibrary]
         }
         MetaGroup::TitleKana => vec![Ndl],
-        MetaGroup::PublishedOn => vec![Openbd, Ndl, Google],
+        MetaGroup::PublishedOn => vec![Openbd, Ndl, Google, OpenLibrary],
         MetaGroup::ListPrice => vec![Barcode, Openbd, Ndl],
         MetaGroup::RefPriceIncl => vec![Openbd, Ndl],
         MetaGroup::CCode => vec![Barcode, Openbd],
         MetaGroup::Ndc => vec![Ndl],
-        MetaGroup::PagesAndSize => vec![Ndl, Openbd, Google],
+        MetaGroup::PagesAndSize => vec![Ndl, Openbd, Google, OpenLibrary],
         MetaGroup::Series => vec![Openbd, Ndl],
-        MetaGroup::Description => vec![Openbd, Google],
-        MetaGroup::Cover => vec![Openbd, Google],
+        MetaGroup::Description => vec![Openbd, Google, OpenLibrary],
+        MetaGroup::Cover => vec![Openbd, Google, OpenLibrary],
     }
 }
 

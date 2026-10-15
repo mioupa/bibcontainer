@@ -102,6 +102,7 @@ export const edit = {
     openbd: "openBD",
     ndl: "NDL",
     google: "Google Books",
+    openlibrary: "Open Library",
     manual: "手入力",
     import: "取り込み",
   },

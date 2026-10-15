@@ -5,17 +5,14 @@
 //! 2026-10-14 の確認では、キーなしのリクエストは共有プロジェクトの割り当て（`quota_limit_value` が 0）に当たり、
 //! 常に 429 になった。実際にはキーが必要とみてよい。詳しくは `docs/decisions/0007-metadata-providers.md`。
 
-use std::sync::LazyLock;
-
 use async_trait::async_trait;
-use regex::Regex;
 use serde_json::Value;
 
 use crate::error::{FetchError, ParseError};
 use crate::http::HttpRequest;
 use crate::isbn::to_isbn13;
 use crate::normalize::{
-    clean_description, clean_text, normalize_date, normalize_language, upgrade_to_https,
+    clean_description, clean_text, normalize_date, normalize_language, strip_html, upgrade_to_https,
 };
 use crate::provider::{Provider, ProviderAuth, ProviderInfo, RawResponse};
 use crate::transport::{ProviderRateLimit, Transport, http_error};
@@ -217,27 +214,6 @@ fn google_http_error(resp: &crate::http::HttpResponse, has_key: bool) -> FetchEr
 // 解析
 // ---------------------------------------------------------------------------
 
-static BLOCK_BREAK: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)<br\s*/?>|</p>|</div>|</li>|</h[1-6]>").expect("正規表現"));
-static TAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^>]*>").expect("正規表現"));
-static BLANK_LINES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n{3,}").expect("正規表現"));
-
-/// Google の `description` に含まれる簡単な HTML（`<br>`、`<b>`、`&amp;`）を取り除く。
-fn strip_html(s: &str) -> String {
-    let t = BLOCK_BREAK.replace_all(s, "\n");
-    let t = TAG.replace_all(&t, "");
-    let t = t
-        .replace("&nbsp;", " ")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&apos;", "'")
-        .replace("&amp;", "&");
-    let t: String = t.lines().map(str::trim_end).collect::<Vec<_>>().join("\n");
-    BLANK_LINES.replace_all(&t, "\n\n").into_owned()
-}
-
 fn identifiers(info: &Value) -> Vec<String> {
     info.get("industryIdentifiers")
         .and_then(Value::as_array)
@@ -363,15 +339,6 @@ pub(crate) fn parse_google(isbn13: &str, body: &str) -> Result<Option<Candidate>
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn html_is_stripped() {
-        assert_eq!(
-            strip_html("先生と私。<br><br><b>改版</b>。&quot;K&quot;と&amp;遺書"),
-            "先生と私。\n\n改版。\"K\"と&遺書"
-        );
-        assert_eq!(strip_html("a<p>b</p><p>c</p>"), "ab\nc");
-    }
 
     #[test]
     fn cover_urls_lose_the_curl_effect() {

@@ -3,4 +3,4 @@
 /**
  * 書誌・書影の取得元。文字列の形（`openbd` など）は `provider_cache.provider` にそのまま使える。
  */
-export type ProviderId = "openbd" | "ndl" | "google";
+export type ProviderId = "openbd" | "ndl" | "google" | "openlibrary";

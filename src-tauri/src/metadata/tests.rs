@@ -87,7 +87,8 @@ fn at10_draft_has_title_publisher_c_code_and_a_saved_cover() {
     assert_eq!(f.cover_hash.as_ref().unwrap().value, hash);
     assert!(cover_path(&rig.state.dirs().covers, &hash).is_file());
 
-    // 通信したのは有効な取得元だけ（Google はキーがないので使わない。NDL の書影 API は廃止した）
+    // 通信したのは有効な取得元だけ（Google はキーがないので使わない。NDL の書影 API は廃止した）。
+    // Open Library は、日本の本なので検索だけで「該当なし」（2 回目の通信はしない）
     let urls = rig.http.urls();
     assert!(urls.iter().any(|u| u.contains("api.openbd.jp")));
     assert!(
@@ -104,7 +105,21 @@ fn at10_draft_has_title_publisher_c_code_and_a_saved_cover() {
     );
     assert!(!urls.iter().any(|u| u.contains("/thumbnail/")), "{urls:?}");
     let providers: Vec<ProviderId> = result.reports.iter().map(|r| r.provider).collect();
-    assert_eq!(providers, vec![ProviderId::Openbd, ProviderId::Ndl]);
+    assert_eq!(
+        providers,
+        vec![ProviderId::Openbd, ProviderId::Ndl, ProviderId::OpenLibrary]
+    );
+    assert_eq!(rig.http.count("openlibrary.org/search.json"), 1);
+    assert_eq!(rig.http.count("openlibrary.org/books/"), 0);
+    assert_eq!(
+        result
+            .reports
+            .iter()
+            .find(|r| r.provider == ProviderId::OpenLibrary)
+            .unwrap()
+            .outcome,
+        ProviderOutcome::NotFound
+    );
 }
 
 #[test]
@@ -152,7 +167,11 @@ fn raw_responses_are_cached_in_the_db_between_fetches() {
         .unwrap();
     assert_eq!(
         rows,
-        vec![("ndl".into(), "ok".into()), ("openbd".into(), "ok".into())]
+        vec![
+            ("ndl".into(), "ok".into()),
+            ("openbd".into(), "ok".into()),
+            ("openlibrary".into(), "not_found".into())
+        ]
     );
 }
 
@@ -259,8 +278,8 @@ fn offline_pending_books_stop_after_the_first_probe() {
         ids.iter()
             .all(|id| item(&summary, id).outcome == RefetchOutcome::Offline)
     );
-    // 試したのは最初の 1 冊だけ（openBD と NDL に 1 回ずつ）
-    assert_eq!(rig.http.urls().len(), 2, "{:?}", rig.http.urls());
+    // 試したのは最初の 1 冊だけ（openBD・NDL・Open Library に 1 回ずつ）
+    assert_eq!(rig.http.urls().len(), 3, "{:?}", rig.http.urls());
 }
 
 #[test]
@@ -473,6 +492,12 @@ fn a_refetch_that_finds_nothing_keeps_the_status_of_a_book_that_has_data() {
     rig.http.set_handler(Box::new(|url| {
         if url.contains("api.openbd.jp") {
             response(200, "application/json", b"[null]".to_vec())
+        } else if url.contains("openlibrary.org") {
+            response(
+                200,
+                "application/json",
+                fixture(&format!("openlibrary_search_{KOKORO}.json")).into_bytes(),
+            )
         } else {
             response(
                 200,
@@ -649,7 +674,12 @@ fn providers_list_shows_enabled_key_and_active_and_no_ndl_cover_provider() {
     let ids: Vec<ProviderId> = list.iter().map(|p| p.info.id).collect();
     assert_eq!(
         ids,
-        vec![ProviderId::Openbd, ProviderId::Ndl, ProviderId::Google]
+        vec![
+            ProviderId::Openbd,
+            ProviderId::Ndl,
+            ProviderId::Google,
+            ProviderId::OpenLibrary
+        ]
     );
     assert!(list.iter().all(|p| !p.info.credit.is_empty()));
     let status = |id: ProviderId| list.iter().find(|p| p.info.id == id).unwrap().clone();
@@ -658,6 +688,19 @@ fn providers_list_shows_enabled_key_and_active_and_no_ndl_cover_provider() {
     assert!(status(ProviderId::Ndl).active);
     let google = status(ProviderId::Google);
     assert!(google.enabled && !google.has_key && !google.active);
+    // Open Library はキーを使わず、既定で有効・使用中
+    let open_library = status(ProviderId::OpenLibrary);
+    assert!(open_library.enabled && !open_library.has_key && open_library.active);
+    let json = serde_json::to_value(&open_library).unwrap();
+    assert_eq!(json["id"], "openlibrary");
+    assert_eq!(json["displayName"], "Open Library");
+    assert_eq!(json["auth"]["kind"], "none");
+    assert!(
+        json["credit"]
+            .as_str()
+            .unwrap()
+            .contains("https://openlibrary.org/")
+    );
 
     // IPC の形: 能力情報と同じ階層に、enabled・hasKey・active がある
     let json = serde_json::to_value(&google).unwrap();
@@ -796,7 +839,9 @@ fn settings_change_which_providers_are_used_and_the_priorities_and_the_user_agen
         0,
         "無効にした取得元には問い合わせない"
     );
-    assert_eq!(result.reports.len(), 1);
+    // 使ったのは NDL と Open Library（openBD は無効、Google はキーなし）
+    let providers: Vec<ProviderId> = result.reports.iter().map(|r| r.provider).collect();
+    assert_eq!(providers, vec![ProviderId::Ndl, ProviderId::OpenLibrary]);
     assert_eq!(
         result.draft.fields.title.as_ref().unwrap().origin,
         Origin::Provider("ndl".into())
@@ -876,7 +921,7 @@ fn test_provider_fetches_a_known_isbn_without_the_cache_even_if_the_provider_is_
 #[test]
 fn test_isbns_are_valid_distinct_and_at_most_three_per_provider() {
     use bibcontainer_metadata::isbn::to_isbn13;
-    for id in [ProviderId::Openbd, ProviderId::Ndl, ProviderId::Google] {
+    for id in ProviderId::ALL {
         let isbns = test_isbns(id);
         assert!((1..=3).contains(&isbns.len()), "{id:?}");
         for isbn in isbns {
@@ -899,6 +944,79 @@ fn test_isbns_are_valid_distinct_and_at_most_three_per_provider() {
     for id in [ProviderId::Openbd, ProviderId::Ndl] {
         assert!(test_isbns(id).iter().all(|i| i.starts_with("9784")));
     }
+    // Open Library は洋書の取得元（和書はほとんど収録がない）。順は、決めたとおり
+    assert_eq!(
+        test_isbns(ProviderId::OpenLibrary),
+        ["9780141439518", "9780132350884", "9781493934362"]
+    );
+}
+
+/// Open Library の接続テスト: キーなしで試せ、最初の本で取れたら止める（検索と版の JSON の 2 回の通信）。
+/// 「該当なし」が続けば 3 冊で止めて、通信できたこととして返す（キーを使わない取得元の文言になる）。
+#[test]
+fn test_provider_for_open_library_needs_no_key_and_stops_at_the_first_book_found() {
+    let rig = Rig::new();
+    let r = rig
+        .block(rig.state.test_provider(ProviderId::OpenLibrary))
+        .unwrap();
+    assert_eq!(r.provider, ProviderId::OpenLibrary);
+    assert_eq!(r.isbn13, "9780141439518");
+    assert_eq!(r.tried, vec!["9780141439518"]);
+    assert_eq!(r.outcome, ProviderOutcome::Found);
+    assert_eq!(r.verdict, ProviderTestVerdict::Found);
+    assert_eq!(r.title.as_deref(), Some("Pride and Prejudice"));
+    assert_eq!(r.publisher.as_deref(), Some("Penguin Books"));
+    assert!(r.has_cover);
+    assert_eq!(rig.http.count("openlibrary.org/search.json"), 1);
+    assert_eq!(rig.http.count("openlibrary.org/books/OL3700132M.json"), 1);
+    // キャッシュは使わず、取得のたびに通信する。有効・無効に関わらず試せる
+    let mut s = rig.block(rig.state.get_provider_settings()).unwrap();
+    s.enabled.insert(ProviderId::OpenLibrary, false);
+    rig.block(rig.state.set_provider_settings(s)).unwrap();
+    rig.block(rig.state.test_provider(ProviderId::OpenLibrary))
+        .unwrap();
+    assert_eq!(rig.http.count("openlibrary.org/search.json"), 2);
+
+    // 収録がなければ 3 冊まで試して、「該当なし」（通信はできた）
+    rig.http.set_handler(Box::new(|url| {
+        if url.contains("openlibrary.org/search.json") {
+            response(
+                200,
+                "application/json",
+                fixture(&format!("openlibrary_search_{KOKORO}.json")).into_bytes(),
+            )
+        } else {
+            response(404, "text/plain", Vec::new())
+        }
+    }));
+    let r = rig
+        .block(rig.state.test_provider(ProviderId::OpenLibrary))
+        .unwrap();
+    assert_eq!(r.verdict, ProviderTestVerdict::NotFound);
+    assert_eq!(r.tried, test_isbns(ProviderId::OpenLibrary));
+
+    // キーを使わない取得元: キーの保存は拒否し、キーはないものとして扱う
+    let err = rig
+        .block(rig.state.set_api_key(ProviderId::OpenLibrary, "x"))
+        .unwrap_err();
+    assert_eq!(err.kind(), ErrorKind::Validation);
+    assert!(
+        !rig.block(rig.state.has_api_key(ProviderId::OpenLibrary))
+            .unwrap()
+    );
+
+    // 401・403 などの HTTP エラーは、キーの話にせず、そのまま
+    rig.http.set_handler(Box::new(|_| {
+        response(403, "text/plain", b"forbidden".to_vec())
+    }));
+    let r = rig
+        .block(rig.state.test_provider(ProviderId::OpenLibrary))
+        .unwrap();
+    assert!(matches!(
+        r.outcome,
+        ProviderOutcome::HttpError { status: 403, .. }
+    ));
+    assert_eq!(r.verdict, ProviderTestVerdict::HttpError);
 }
 
 /// Google を、決めた応答で動かす（キーは入れる）。ほかの取得元は、ふだんのフィクスチャのまま。

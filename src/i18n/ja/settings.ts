@@ -111,6 +111,7 @@ export const settings = {
       openbd: "openBD",
       ndl: "NDLサーチ",
       google: "Google Books",
+      openlibrary: "Open Library",
     },
     contactUrl: {
       label: "User-Agent の連絡先（URL）",
@@ -206,6 +207,7 @@ export const settings = {
       "書誌情報: 国立国会図書館サーチ API (https://ndlsearch.ndl.go.jp/)",
       "書誌情報・書影: openBD (https://openbd.jp/)",
       "Powered by Google Books API (https://books.google.com/)",
+      "書誌情報・書影: Open Library (https://openlibrary.org/)",
     ],
     openLogs: "ログフォルダを開く",
     logsDescription: "不具合を調べるときに使う、ログのフォルダです。",

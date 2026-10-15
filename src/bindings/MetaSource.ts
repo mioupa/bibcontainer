@@ -4,4 +4,4 @@
  * 値の出どころ。取得元に加えて、2段目のバーコード（`barcode`）がある。
  * `books.field_sources_json` に入れる文字列は `as_str()` と同じ。
  */
-export type MetaSource = "barcode" | "openbd" | "ndl" | "google";
+export type MetaSource = "barcode" | "openbd" | "ndl" | "google" | "openlibrary";

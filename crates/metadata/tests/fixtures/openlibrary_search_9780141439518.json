@@ -1,0 +1,46 @@
+{
+  "numFound": 1,
+  "start": 0,
+  "numFoundExact": true,
+  "num_found": 1,
+  "documentation_url": "https://openlibrary.org/dev/docs/api/search",
+  "q": "",
+  "offset": null,
+  "docs": [
+    {
+      "author_name": [
+        "Jane Austen"
+      ],
+      "key": "/works/OL66554W",
+      "title": "Pride and Prejudice",
+      "editions": {
+        "numFound": 2,
+        "start": 0,
+        "numFoundExact": true,
+        "docs": [
+          {
+            "key": "/books/OL3700132M",
+            "title": "Pride and Prejudice",
+            "cover_i": 15261362,
+            "language": [
+              "eng"
+            ],
+            "author_name": [
+              "Jane Austen"
+            ],
+            "publisher": [
+              "Penguin Books"
+            ],
+            "publish_date": [
+              "2003"
+            ],
+            "isbn": [
+              "9780141439518",
+              "0141439513"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

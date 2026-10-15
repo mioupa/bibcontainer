@@ -64,8 +64,9 @@ pub type ChangedLog = Arc<Mutex<Vec<(Vec<String>, bool)>>>;
 
 pub type Handler = Box<dyn Fn(&str) -> Result<HttpResponse, TransportError> + Send + Sync>;
 
-/// フィクスチャから、取得元ごとの応答を返す。書影（`cover.openbd.jp`）は JPEG、
+/// フィクスチャから、取得元ごとの応答を返す。書影（`cover.openbd.jp`、`covers.openlibrary.org`）は JPEG、
 /// 利用者が入力する画像 URL（`img.example`）も JPEG。Google は API キーがなければ 429（キーなしでは使わないはず）。
+/// Open Library は、フィクスチャにある洋書（`9780132350884` など）だけが収録されていて、ほかは「該当なし」。
 pub fn online_handler() -> Handler {
     let jpeg = cover_jpeg();
     Box::new(move |url: &str| {
@@ -108,6 +109,29 @@ pub fn online_handler() -> Handler {
                 "application/json; charset=UTF-8",
                 fixture(file).into_bytes(),
             );
+        }
+        // Open Library: 検索（フィクスチャがなければ「該当なし」）と、版の JSON（なければ 404）
+        if let Some(q) = url.split("openlibrary.org/search.json?isbn=").nth(1) {
+            let isbn = q.split('&').next().unwrap_or_default();
+            let body =
+                std::fs::read_to_string(fixture_path(&format!("openlibrary_search_{isbn}.json")))
+                    .unwrap_or_else(|_| fixture(&format!("openlibrary_search_{KOKORO}.json")));
+            return response(200, "application/json", body.into_bytes());
+        }
+        if let Some(olid) = url
+            .split("openlibrary.org/books/")
+            .nth(1)
+            .and_then(|r| r.strip_suffix(".json"))
+        {
+            return match std::fs::read_to_string(fixture_path(&format!(
+                "openlibrary_edition_{olid}.json"
+            ))) {
+                Ok(body) => response(200, "application/json", body.into_bytes()),
+                Err(_) => response(404, "application/json", b"{}".to_vec()),
+            };
+        }
+        if url.starts_with("https://covers.openlibrary.org/") {
+            return response(200, "image/jpeg", jpeg.clone());
         }
         if url.starts_with("https://cover.openbd.jp/") || url == "https://img.example/cover.jpg" {
             return response(200, "image/jpeg", jpeg.clone());

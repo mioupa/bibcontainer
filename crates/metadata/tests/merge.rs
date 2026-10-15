@@ -4,7 +4,7 @@ mod common;
 
 use bibcontainer_metadata::merge::{MetaPick, MetaPriorities, merge};
 use bibcontainer_metadata::provider::{Provider, RawResponse};
-use bibcontainer_metadata::providers::{GoogleBooks, Ndl, OpenBd};
+use bibcontainer_metadata::providers::{GoogleBooks, Ndl, OpenBd, OpenLibrary};
 use bibcontainer_metadata::types::*;
 use common::fixture;
 
@@ -35,6 +35,27 @@ fn google_onigiri() -> Candidate {
         body: fixture("google_synthetic_9784780802047.json"),
     };
     GoogleBooks::new(None).parse(&raw).unwrap().unwrap()
+}
+
+/// Open Library（実際の応答のフィクスチャ。検索と版の JSON を、取得元の包みにして解析する）。
+fn open_library(isbn: &str, search: &str, edition: Option<&str>) -> Candidate {
+    let search: serde_json::Value = serde_json::from_str(&fixture(search)).unwrap();
+    let edition: Option<serde_json::Value> =
+        edition.map(|f| serde_json::from_str(&fixture(f)).unwrap());
+    let raw = RawResponse {
+        provider: ProviderId::OpenLibrary,
+        isbn13: isbn.into(),
+        body: serde_json::json!({ "search": search, "edition": edition }).to_string(),
+    };
+    OpenLibrary::new().parse(&raw).unwrap().unwrap()
+}
+
+fn clean_code_open_library() -> Candidate {
+    open_library(
+        "9780132350884",
+        "openlibrary_search_9780132350884.json",
+        Some("openlibrary_edition_OL26222911M.json"),
+    )
 }
 
 /// 書影の URL だけを持つ候補（書誌の値はない）。
@@ -219,10 +240,14 @@ fn priorities_can_be_reordered_per_group() {
     let sub = m.choice(MetaField::Subtitle).unwrap();
     assert!(sub.others.iter().any(|o| o.source == MetaSource::Openbd
         && matches!(&o.value, MetaValue::Text(t) if t.starts_with("EVERYDAY ONIGIRI 101"))));
-    // 設定にない取得元は既定の順で末尾に足される（Cover に Google だけを書くと、openBD が続く）
+    // 設定にない取得元は既定の順で末尾に足される（Cover に Google だけを書くと、openBD、Open Library が続く）
     assert_eq!(
         p.order(MetaGroup::Cover),
-        vec![MetaSource::Google, MetaSource::Openbd]
+        vec![
+            MetaSource::Google,
+            MetaSource::Openbd,
+            MetaSource::OpenLibrary
+        ]
     );
     // ほかの行は変わらない
     assert_eq!(m.source(MetaField::Publisher), Some(MetaSource::Openbd));
@@ -325,18 +350,42 @@ fn duplicate_provider_candidates_use_the_first() {
 fn default_priority_table() {
     use MetaSource::*;
     let p = MetaPriorities::default();
-    assert_eq!(p.order(MetaGroup::Title), vec![Openbd, Ndl, Google]);
+    // Open Library は、取れる項目の行の最後
+    assert_eq!(
+        p.order(MetaGroup::Title),
+        vec![Openbd, Ndl, Google, OpenLibrary]
+    );
     assert_eq!(p.order(MetaGroup::TitleKana), vec![Ndl]);
-    assert_eq!(p.order(MetaGroup::Authors), vec![Openbd, Ndl, Google]);
-    assert_eq!(p.order(MetaGroup::Publisher), vec![Openbd, Ndl, Google]);
-    assert_eq!(p.order(MetaGroup::PublishedOn), vec![Openbd, Ndl, Google]);
+    assert_eq!(
+        p.order(MetaGroup::Authors),
+        vec![Openbd, Ndl, Google, OpenLibrary]
+    );
+    assert_eq!(
+        p.order(MetaGroup::Publisher),
+        vec![Openbd, Ndl, Google, OpenLibrary]
+    );
+    assert_eq!(
+        p.order(MetaGroup::PublishedOn),
+        vec![Openbd, Ndl, Google, OpenLibrary]
+    );
     assert_eq!(p.order(MetaGroup::ListPrice), vec![Barcode, Openbd, Ndl]);
     assert_eq!(p.order(MetaGroup::CCode), vec![Barcode, Openbd]);
     assert_eq!(p.order(MetaGroup::Ndc), vec![Ndl]);
-    assert_eq!(p.order(MetaGroup::PagesAndSize), vec![Ndl, Openbd, Google]);
+    assert_eq!(
+        p.order(MetaGroup::PagesAndSize),
+        vec![Ndl, Openbd, Google, OpenLibrary]
+    );
     assert_eq!(p.order(MetaGroup::Series), vec![Openbd, Ndl]);
-    assert_eq!(p.order(MetaGroup::Description), vec![Openbd, Google]);
-    assert_eq!(p.order(MetaGroup::Cover), vec![Openbd, Google]);
+    assert_eq!(
+        p.order(MetaGroup::Description),
+        vec![Openbd, Google, OpenLibrary]
+    );
+    assert_eq!(p.order(MetaGroup::Cover), vec![Openbd, Google, OpenLibrary]);
+    assert_eq!(
+        p.order(MetaGroup::Language),
+        vec![Openbd, Ndl, Google, OpenLibrary]
+    );
+    assert_eq!(p.order(MetaGroup::RefPriceIncl), vec![Openbd, Ndl]);
     // 重複して書かれていても 1 回だけ
     let mut p = MetaPriorities::default();
     p.set(MetaGroup::Ndc, vec![Ndl, Ndl]);
@@ -381,4 +430,164 @@ fn ipc_json_shapes() {
         .unwrap();
     assert_eq!(authors["chosen"]["value"]["type"], "authors");
     assert_eq!(authors["chosen"]["value"]["value"][0]["name"], "山田玲子");
+}
+
+// ---------------------------------------------------------------------------
+// Open Library
+// ---------------------------------------------------------------------------
+
+#[test]
+fn open_library_fills_only_the_fields_the_higher_priority_sources_lack() {
+    // openBD は書名だけ（ほかは欠けている）、Google は出版社と書影を持つ。Open Library は全部持つ。
+    let isbn = "9780132350884";
+    let mut a = Candidate::empty(ProviderId::Openbd, isbn);
+    a.title = Some("Clean Code (openBD)".into());
+    let mut g = Candidate::empty(ProviderId::Google, isbn);
+    g.publisher = Some("Prentice Hall PTR".into());
+    g.covers = vec![CandidateCover {
+        provider: ProviderId::Google,
+        url: "https://books.google.com/x".into(),
+    }];
+    let ol = clean_code_open_library();
+    let m = merge(isbn, &[a, g, ol], None, &MetaPriorities::default());
+
+    // 書名: openBD が採用。副書名は書名と同じ取得元（openBD）にないので空で、Open Library の副書名は候補に回る
+    assert_eq!(m.text(MetaField::Title), Some("Clean Code (openBD)"));
+    assert!(m.chosen(MetaField::Subtitle).is_none());
+    let sub = m.choice(MetaField::Subtitle).unwrap();
+    assert_eq!(sub.others[0].source, MetaSource::OpenLibrary);
+    assert_eq!(
+        sub.others[0].value,
+        MetaValue::Text("A Handbook of Agile Software Craftsmanship".into())
+    );
+    // 出版社: Google が先。Open Library の値は候補に残る
+    assert_eq!(m.text(MetaField::Publisher), Some("Prentice Hall PTR"));
+    assert_eq!(m.source(MetaField::Publisher), Some(MetaSource::Google));
+    assert_eq!(
+        m.choice(MetaField::Publisher).unwrap().others,
+        vec![MetaPick {
+            value: MetaValue::Text("Prentice Hall".into()),
+            source: MetaSource::OpenLibrary
+        }]
+    );
+    // ほかの取得元にない項目は、Open Library が埋める
+    assert_eq!(m.source(MetaField::Authors), Some(MetaSource::OpenLibrary));
+    assert_eq!(m.authors()[0].name, "Robert C. Martin");
+    assert_eq!(m.text(MetaField::PublishedOn), Some("2008-07"));
+    assert_eq!(
+        m.source(MetaField::PublishedOn),
+        Some(MetaSource::OpenLibrary)
+    );
+    assert_eq!(m.number(MetaField::Pages), Some(431));
+    assert_eq!(m.source(MetaField::Pages), Some(MetaSource::OpenLibrary));
+    assert_eq!(m.text(MetaField::Language), Some("en"));
+    assert_eq!(
+        m.source(MetaField::Description),
+        Some(MetaSource::OpenLibrary)
+    );
+    // Open Library が持たない項目（ヨミ・NDC・価格・Cコード・シリーズ）は、空のまま
+    for f in [
+        MetaField::TitleKana,
+        MetaField::Ndc,
+        MetaField::ListPrice,
+        MetaField::CCode,
+        MetaField::Series,
+        MetaField::Volume,
+        MetaField::SizeText,
+    ] {
+        assert!(m.chosen(f).is_none(), "{f:?}");
+    }
+}
+
+#[test]
+fn open_library_is_last_in_the_cover_order() {
+    let isbn = "9780132350884";
+    let mut b = Candidate::empty(ProviderId::Openbd, isbn);
+    b.covers = vec![CandidateCover {
+        provider: ProviderId::Openbd,
+        url: "https://cover.openbd.jp/x.jpg".into(),
+    }];
+    let mut g = Candidate::empty(ProviderId::Google, isbn);
+    g.covers = vec![CandidateCover {
+        provider: ProviderId::Google,
+        url: "https://books.google.com/x".into(),
+    }];
+    // 渡す順を変えても、優先順位の順（openBD > Google > Open Library）
+    let m = merge(
+        isbn,
+        &[clean_code_open_library(), g, b],
+        None,
+        &MetaPriorities::default(),
+    );
+    let covers = m.covers_in_order();
+    let providers: Vec<ProviderId> = covers.iter().map(|c| c.provider).collect();
+    assert_eq!(
+        providers,
+        vec![
+            ProviderId::Openbd,
+            ProviderId::Google,
+            ProviderId::OpenLibrary
+        ]
+    );
+    assert_eq!(
+        covers[2].url,
+        "https://covers.openlibrary.org/b/id/15126503-L.jpg?default=false"
+    );
+    // Open Library だけなら、その書影を使う
+    let m = merge(
+        isbn,
+        &[clean_code_open_library()],
+        None,
+        &MetaPriorities::default(),
+    );
+    assert_eq!(m.source(MetaField::Cover), Some(MetaSource::OpenLibrary));
+    assert_eq!(m.covers_in_order().len(), 1);
+}
+
+#[test]
+fn open_library_is_appended_to_priorities_that_were_saved_without_it() {
+    // Open Library を知らない古い設定（3 つの取得元だけ）でも、末尾に足されて使える
+    let old: MetaPriorities = serde_json::from_str(
+        r#"{"groups":{"title":["ndl","openbd","google"],"cover":["google","openbd"],"pages_and_size":["openbd","ndl","google"]}}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        old.order(MetaGroup::Title),
+        vec![
+            MetaSource::Ndl,
+            MetaSource::Openbd,
+            MetaSource::Google,
+            MetaSource::OpenLibrary
+        ]
+    );
+    assert_eq!(
+        old.order(MetaGroup::Cover),
+        vec![
+            MetaSource::Google,
+            MetaSource::Openbd,
+            MetaSource::OpenLibrary
+        ]
+    );
+    // 設定にない行（description）は既定のまま
+    assert_eq!(
+        old.order(MetaGroup::Description),
+        vec![
+            MetaSource::Openbd,
+            MetaSource::Google,
+            MetaSource::OpenLibrary
+        ]
+    );
+    // 設定の順を保つ。Open Library を先頭にした設定も読める
+    let json = r#"{"groups":{"title":["openlibrary","ndl"]}}"#;
+    let p: MetaPriorities = serde_json::from_str(json).unwrap();
+    assert_eq!(
+        p.order(MetaGroup::Title),
+        vec![
+            MetaSource::OpenLibrary,
+            MetaSource::Ndl,
+            MetaSource::Openbd,
+            MetaSource::Google
+        ]
+    );
+    assert_eq!(MetaSource::OpenLibrary.as_str(), "openlibrary");
 }

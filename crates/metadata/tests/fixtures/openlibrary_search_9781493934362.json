@@ -1,0 +1,47 @@
+{
+  "numFound": 1,
+  "start": 0,
+  "numFoundExact": true,
+  "num_found": 1,
+  "documentation_url": "https://openlibrary.org/dev/docs/api/search",
+  "q": "",
+  "offset": null,
+  "docs": [
+    {
+      "author_name": [
+        "Gary S. Was"
+      ],
+      "key": "/works/OL8703809W",
+      "title": "Fundamentals of Radiation Materials Science",
+      "editions": {
+        "numFound": 1,
+        "start": 0,
+        "numFoundExact": true,
+        "docs": [
+          {
+            "key": "/books/OL34386079M",
+            "title": "Fundamentals of Radiation Materials Science",
+            "subtitle": "Metals and Alloys",
+            "cover_i": 13817654,
+            "language": [
+              "eng"
+            ],
+            "author_name": [
+              "Gary S. Was"
+            ],
+            "publisher": [
+              "Springer"
+            ],
+            "publish_date": [
+              "2016"
+            ],
+            "isbn": [
+              "9781493934362",
+              "1493934368"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

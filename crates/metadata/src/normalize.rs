@@ -33,6 +33,28 @@ pub fn clean_description(s: &str) -> Option<String> {
     (!t.is_empty()).then(|| t.to_string())
 }
 
+static BLOCK_BREAK: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)<br\s*/?>|</p>|</div>|</li>|</h[1-6]>").expect("正規表現"));
+static HTML_TAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^>]*>").expect("正規表現"));
+static BLANK_LINES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n{3,}").expect("正規表現"));
+
+/// 内容紹介に含まれる簡単な HTML（`<br>`、`<b>`、`&amp;`）を取り除く（Google Books・Open Library）。
+/// 段落を区切るタグは改行にし、そのほかのタグは除く。3 つ以上続く改行は 2 つにする。
+pub fn strip_html(s: &str) -> String {
+    let t = BLOCK_BREAK.replace_all(s, "\n");
+    let t = HTML_TAG.replace_all(&t, "");
+    let t = t
+        .replace("&nbsp;", " ")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+        .replace("&amp;", "&");
+    let t: String = t.lines().map(str::trim_end).collect::<Vec<_>>().join("\n");
+    BLANK_LINES.replace_all(&t, "\n\n").into_owned()
+}
+
 /// 書名を「書名」と「副書名」に分ける。ISBD の区切り（半角空白・コロン・半角空白）の最初の 1 か所で切る。
 ///
 /// NDL の書名は `おにぎりレシピ101 : EVERYDAY ONIGIRI` の形、openBD の NDL 由来のデータも同じ。
@@ -142,16 +164,101 @@ fn format_date(year: i32, month: Option<u32>, day: Option<u32>) -> Option<String
     }
 }
 
+/// 英語の月名（フルスペルと 3 文字の略称。`Sept` も。末尾のピリオドは付いていてもよい）。
+fn english_month(token: &str) -> Option<u32> {
+    let t = token.trim_end_matches('.').to_ascii_lowercase();
+    Some(match t.as_str() {
+        "january" | "jan" => 1,
+        "february" | "feb" => 2,
+        "march" | "mar" => 3,
+        "april" | "apr" => 4,
+        "may" => 5,
+        "june" | "jun" => 6,
+        "july" | "jul" => 7,
+        "august" | "aug" => 8,
+        "september" | "sept" | "sep" => 9,
+        "october" | "oct" => 10,
+        "november" | "nov" => 11,
+        "december" | "dec" => 12,
+        _ => return None,
+    })
+}
+
+/// 日（1〜2 桁。`5`、`05`、`5th` など。末尾のピリオドは付いていてもよい）。
+fn english_day(token: &str) -> Option<u32> {
+    let t = token.trim_end_matches('.');
+    let (digits, suffix) = take_digits(t);
+    if digits.is_empty() || digits.len() > 2 {
+        return None;
+    }
+    matches!(
+        suffix.to_ascii_lowercase().as_str(),
+        "" | "st" | "nd" | "rd" | "th"
+    )
+    .then(|| digits.parse().ok())
+    .flatten()
+}
+
+/// 年（4 桁。`2016]`、`2016.` のように、閉じ括弧やピリオドが付いていてもよい）。
+fn english_year(token: &str) -> Option<i32> {
+    let t = token.trim_end_matches(['.', ';', ']', ')']);
+    (t.len() == 4 && t.bytes().all(|b| b.is_ascii_digit()))
+        .then(|| t.parse().ok())
+        .flatten()
+}
+
+/// 英語の月名を使った日付（`July 2008`、`Mar 05, 2016`、`March 5, 2016`、`5 March 2016`）。
+/// 月名がなければ（数字だけの日付など）`None` を返して、呼び出し側が別の形として読む。
+/// 月名のあとに年が読めないとき（`May 5` など）も `None`（推測しない）。
+fn parse_english_date(t: &str) -> Option<String> {
+    let tokens: Vec<&str> = t
+        .split(|c: char| c.is_whitespace() || c == ',')
+        .filter(|s| !s.is_empty())
+        .collect();
+    let at = |i: usize| tokens.get(i).copied();
+    if let Some(month) = at(0).and_then(english_month) {
+        // `March 5, 2016`
+        if let (Some(day), Some(year)) = (at(1).and_then(english_day), at(2).and_then(english_year))
+        {
+            return format_date(year, Some(month), Some(day));
+        }
+        // `July 2008`
+        return format_date(at(1).and_then(english_year)?, Some(month), None);
+    }
+    // `5 March 2016`
+    let day = at(0).and_then(english_day)?;
+    let month = at(1).and_then(english_month)?;
+    let year = at(2).and_then(english_year)?;
+    format_date(year, Some(month), Some(day))
+}
+
+/// 日付の前に付く記号（`[2003]` の `[`、MARC の著作権年 `c1995`・`c.1995`・`©1995`）を取り除く。
+fn strip_date_marks(t: &str) -> &str {
+    let mut t = t.trim_start_matches(|c: char| matches!(c, '[' | '(' | '©') || c.is_whitespace());
+    if let Some(rest) = t.strip_prefix(['c', 'C']) {
+        let rest = rest.trim_start_matches(['.', ' ']);
+        if rest.starts_with(|c: char| c.is_ascii_digit()) {
+            t = rest;
+        }
+    }
+    t
+}
+
 /// 日付を `YYYY`・`YYYY-MM`・`YYYY-MM-DD` のどれかにそろえる。
 ///
 /// 扱う形: `20100701`、`201007`、`2010-07`、`2010.7`、`2010/7/1`、`2010年7月`、`1997.12-`、
 /// `2002-11-5`、和暦（`昭和32-01`）、年のあとに余計な文字が続くもの（`1957 17刷-01` → `1957`）。
+/// 英語の月名（Open Library）: `July 2008`、`Mar 05, 2016`、`March 5, 2016`、`5 March 2016`（月名は
+/// フルスペルと略称。ピリオドは付いていてもよい）。`c1995`・`[2003]` のような記号つきの年も読む。
 /// 範囲（`1959-6-1959-11`）は先頭の年月だけを使う。読み取れなければ `None`。
 pub fn normalize_date(s: &str) -> Option<String> {
     let t = nfkc(s);
-    let t = t.trim();
+    let t = strip_date_marks(t.trim());
     if t.is_empty() {
         return None;
+    }
+    if let Some(date) = parse_english_date(t) {
+        return Some(date);
     }
     // 和暦
     for (era, offset) in [
@@ -251,13 +358,15 @@ pub struct Extent {
     pub size: Option<String>,
 }
 
-static PAGES_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(\d+)\s*(?:[pP]|頁|ページ)([A-Za-z]?)").expect("正規表現"));
+static PAGES_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(\d+)\s*(?:[pP]ages?\b|[pP]|頁|ページ)([A-Za-z]?)").expect("正規表現")
+});
 static SIZE_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(\d+(?:\.\d+)?(?:\s*[xX×]\s*\d+(?:\.\d+)?)?)\s*cm").expect("正規表現")
 });
 
-/// `218p ; 15cm`、`xi, 210p ; 22cm`、`12, 356p`、`1冊 ; 21cm`、`21cm` などを分ける。
+/// `218p ; 15cm`、`xi, 210p ; 22cm`、`12, 356p`、`1冊 ; 21cm`、`21cm`、`xlii, 435 p. ;`、`448 pages`（Open Library）
+/// などを分ける。
 /// ページ数は最後の「数字 + p」、大きさは `cm` の付いた数字（`19×26cm` も可）。
 pub fn parse_extent(s: &str) -> Extent {
     let t = nfkc(s);
@@ -807,6 +916,15 @@ mod tests {
     }
 
     #[test]
+    fn html_is_stripped() {
+        assert_eq!(
+            strip_html("先生と私。<br><br><b>改版</b>。&quot;K&quot;と&amp;遺書"),
+            "先生と私。\n\n改版。\"K\"と&遺書"
+        );
+        assert_eq!(strip_html("a<p>b</p><p>c</p>"), "ab\nc");
+    }
+
+    #[test]
     fn dates() {
         for (input, want) in [
             ("20100701", Some("2010-07-01")),
@@ -837,6 +955,56 @@ mod tests {
             ("発売予定", None),
             ("12345", None),
             ("3999", None),
+        ] {
+            assert_eq!(normalize_date(input).as_deref(), want, "入力: {input:?}");
+        }
+    }
+
+    /// Open Library の英語の日付（自由な書式）。
+    #[test]
+    fn english_dates() {
+        for (input, want) in [
+            ("2003", Some("2003")),
+            ("July 2008", Some("2008-07")),
+            ("Mar 05, 2016", Some("2016-03-05")),
+            ("March 5, 2016", Some("2016-03-05")),
+            ("5 March 2016", Some("2016-03-05")),
+            ("05 Mar 2016", Some("2016-03-05")),
+            ("2016-03-05", Some("2016-03-05")),
+            ("c1995", Some("1995")),
+            ("[2003]", Some("2003")),
+            // 月名: 略称、ピリオド、大文字小文字、Sept、日の序数
+            ("Jan. 2001", Some("2001-01")),
+            ("SEPT. 12, 1999", Some("1999-09-12")),
+            ("sep 1999", Some("1999-09")),
+            ("December 25th, 2020", Some("2020-12-25")),
+            ("1 Feb. 2012", Some("2012-02-01")),
+            ("May 2010", Some("2010-05")),
+            // 記号つき・閉じ括弧つき
+            ("c1995.", Some("1995")),
+            ("c.1995", Some("1995")),
+            ("[c1995]", Some("1995")),
+            ("©1995", Some("1995")),
+            ("[July 2008]", Some("2008-07")),
+            ("(2003)", Some("2003")),
+            // 前後の空白・全角
+            ("  March 5, 2016 ", Some("2016-03-05")),
+            ("Ｍａｒｃｈ　５，　２０１６", Some("2016-03-05")),
+            // 範囲・余計な文字は、先頭の日付だけ
+            ("March 2016 - April 2017", Some("2016-03")),
+            ("March 5, 2016 (reprint)", Some("2016-03-05")),
+            // 日が存在しなければ、年月まで
+            ("February 30, 2014", Some("2014-02")),
+            // 読めなければ空（推測しない）
+            ("May 5", None),
+            ("July", None),
+            ("March of the Penguins", None),
+            ("circa 1995", None),
+            ("Spring 2008", None),
+            ("March 12345", None),
+            ("Smarch 5, 2016", None),
+            ("5 March", None),
+            ("13 Jan 99", None),
         ] {
             assert_eq!(normalize_date(input).as_deref(), want, "入力: {input:?}");
         }
@@ -972,6 +1140,22 @@ mod tests {
                 size: None
             }
         );
+        // Open Library の `pagination`
+        assert_eq!(
+            e("xlii, 435 p. ;"),
+            Extent {
+                pages: Some(435),
+                size: None
+            }
+        );
+        assert_eq!(
+            e("448 pages"),
+            Extent {
+                pages: Some(448),
+                size: None
+            }
+        );
+        assert_eq!(e("12 pt"), Extent::default());
         assert_eq!(e(""), Extent::default());
     }
 
@@ -980,6 +1164,22 @@ mod tests {
         assert_eq!(normalize_language("jpn").as_deref(), Some("ja"));
         assert_eq!(normalize_language("ja-JP").as_deref(), Some("ja"));
         assert_eq!(normalize_language("ENG").as_deref(), Some("en"));
+        // Open Library の言語コード（MARC の言語コード）
+        for (code, want) in [
+            ("eng", "en"),
+            ("fre", "fr"),
+            ("fra", "fr"),
+            ("ger", "de"),
+            ("deu", "de"),
+            ("spa", "es"),
+            ("ita", "it"),
+            ("jpn", "ja"),
+            ("chi", "zh"),
+            ("zho", "zh"),
+            ("kor", "ko"),
+        ] {
+            assert_eq!(normalize_language(code).as_deref(), Some(want), "{code}");
+        }
         assert_eq!(normalize_language("xyz").as_deref(), Some("xyz"));
         assert_eq!(normalize_language(" ").as_deref(), None);
     }

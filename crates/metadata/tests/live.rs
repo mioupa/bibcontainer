@@ -13,7 +13,7 @@ use bibcontainer_metadata::cover::{
 };
 use bibcontainer_metadata::http::user_agent;
 use bibcontainer_metadata::provider::Provider;
-use bibcontainer_metadata::providers::{GoogleBooks, Ndl, OpenBd, default_providers};
+use bibcontainer_metadata::providers::{GoogleBooks, Ndl, OpenBd, OpenLibrary, default_providers};
 use bibcontainer_metadata::service::{FetchRequest, MetadataService, ProviderOutcome};
 use bibcontainer_metadata::types::*;
 use bibcontainer_metadata::{FetchError, ReqwestClient, Transport};
@@ -72,6 +72,49 @@ async fn live_ndl_sru() {
     assert_eq!(p.parse(&raw).unwrap(), None);
     let raw = p.fetch_raw(&t, "9784123456784").await.unwrap();
     assert_eq!(p.parse(&raw).unwrap(), None);
+}
+
+/// Open Library（API キーなし）。書誌は 2 回の通信（検索、版の JSON）、書影は 1 回。
+/// Open Library は大量のアクセスを禁じているので、通信は最小限にしてある（取得元のレート制限は 1 秒に 1 件）。
+#[tokio::test]
+#[ignore = "実際のネットワークを使う"]
+async fn live_open_library_clean_code_and_cover() {
+    let t = transport();
+    let p = OpenLibrary::new();
+    let raw = p.fetch_raw(&t, "9780132350884").await.unwrap();
+    let c = p.parse(&raw).unwrap().expect("Open Library に収録がある");
+    println!("{c:#?}");
+    assert_eq!(c.title.as_deref(), Some("Clean Code"));
+    assert_eq!(c.authors[0].name, "Robert C. Martin");
+    assert_eq!(c.language.as_deref(), Some("en"));
+    assert!(c.pages.is_some_and(|n| n > 0));
+    assert!(c.published_on.is_some());
+    assert!(c.description.is_some());
+    // 書影の ID を指定した URL（ISBN を指定した URL にあるレート制限がない）から画像が取れる
+    let CoverDownload::Image(bytes) = download_cover(&t, &c.covers[0]).await.unwrap() else {
+        panic!("Open Library の書影が取れない");
+    };
+    assert!(process_cover(&bytes).is_ok());
+}
+
+#[tokio::test]
+#[ignore = "実際のネットワークを使う"]
+async fn live_open_library_not_found_is_a_single_request() {
+    let t = transport();
+    let p = OpenLibrary::new();
+    // 岩波文庫『こころ』は Open Library にない（2026-10-15）。見つかるようになったら、この期待を直す
+    let raw = p.fetch_raw(&t, "9784003101117").await.unwrap();
+    assert_eq!(p.parse(&raw).unwrap(), None);
+    // 存在しない書影の ID は、`default=false` で 404（空白の画像ではない）
+    let cover = CandidateCover {
+        provider: ProviderId::OpenLibrary,
+        url: "https://covers.openlibrary.org/b/id/999999999-L.jpg?default=false".into(),
+    };
+    let err = download_cover(&t, &cover).await.unwrap_err();
+    assert!(
+        matches!(err, FetchError::Http { status: 404, .. }),
+        "{err:?}"
+    );
 }
 
 #[tokio::test]

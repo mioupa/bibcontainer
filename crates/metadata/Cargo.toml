@@ -3,7 +3,7 @@ name = "bibcontainer-metadata"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
-description = "bibcontainer の書誌取得クレート（openBD・NDL・Google Books の取得、正規化、統合、書影の処理）。DB と Tauri には依存しない。"
+description = "bibcontainer の書誌取得クレート（openBD・NDL・Google Books・Open Library の取得、正規化、統合、書影の処理）。DB と Tauri には依存しない。"
 
 [lib]
 name = "bibcontainer_metadata"

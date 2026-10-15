@@ -49,20 +49,20 @@ const info: AppInfo = {
 
 const PRIORITIES: MetaPriorities = {
   groups: {
-    title: ["openbd", "ndl", "google"],
+    title: ["openbd", "ndl", "google", "openlibrary"],
     title_kana: ["ndl"],
-    authors: ["openbd", "ndl", "google"],
-    publisher: ["openbd", "ndl", "google"],
-    published_on: ["openbd", "ndl", "google"],
+    authors: ["openbd", "ndl", "google", "openlibrary"],
+    publisher: ["openbd", "ndl", "google", "openlibrary"],
+    published_on: ["openbd", "ndl", "google", "openlibrary"],
     list_price: ["barcode", "openbd", "ndl"],
     ref_price_incl: ["openbd", "ndl"],
     c_code: ["barcode", "openbd"],
     ndc: ["ndl"],
-    pages_and_size: ["ndl", "openbd", "google"],
+    pages_and_size: ["ndl", "openbd", "google", "openlibrary"],
     series: ["openbd", "ndl"],
-    language: ["openbd", "ndl", "google"],
-    description: ["openbd", "google"],
-    cover: ["openbd", "google"],
+    language: ["openbd", "ndl", "google", "openlibrary"],
+    description: ["openbd", "google", "openlibrary"],
+    cover: ["openbd", "google", "openlibrary"],
   },
 };
 
@@ -106,7 +106,7 @@ let handlers: Record<string, unknown>;
 
 function route(extra: Record<string, unknown> = {}) {
   providerSettings = {
-    enabled: { openbd: true, ndl: true, google: true },
+    enabled: { openbd: true, ndl: true, google: true, openlibrary: true },
     priorities: structuredClone(PRIORITIES),
     contactUrl: "https://github.com/mioupa/bibcontainer",
   };
@@ -127,6 +127,11 @@ function route(extra: Record<string, unknown> = {}) {
       auth: { kind: "required", label: "API キー" },
       active: false,
       credit: "Powered by Google Books API (https://books.google.com/)",
+    }),
+    provider({
+      id: "openlibrary",
+      displayName: "Open Library",
+      credit: "書誌情報・書影: Open Library (https://openlibrary.org/)",
     }),
   ];
   backups = [
@@ -329,9 +334,10 @@ describe("取得元（FR-CONF-02、FR-META-03）", () => {
     expect(await screen.findByRole("heading", { name: "openBD" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "NDLサーチ" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Google Books" })).toBeInTheDocument();
-    // Google はキーを入れるまで使われない
+    expect(screen.getByRole("heading", { name: "Open Library" })).toBeInTheDocument();
+    // Google はキーを入れるまで使われない（Open Library はキー不要で、使われている）
     expect(screen.getByText(ja.settings.providers.googleNote)).toBeInTheDocument();
-    expect(screen.getAllByText(ja.settings.providers.active)).toHaveLength(2);
+    expect(screen.getAllByText(ja.settings.providers.active)).toHaveLength(3);
     expect(screen.getAllByText(ja.settings.providers.inactive)).toHaveLength(1);
   });
 
@@ -344,7 +350,7 @@ describe("取得元（FR-CONF-02、FR-META-03）", () => {
     await waitFor(() => expect(calls("set_provider_settings")).toHaveLength(1));
     const saved = (calls("set_provider_settings")[0]![1] as { settings: ProviderSettings })
       .settings;
-    expect(saved.enabled).toEqual({ openbd: false, ndl: true, google: true });
+    expect(saved.enabled).toEqual({ openbd: false, ndl: true, google: true, openlibrary: true });
     expect(saved.priorities).toEqual(PRIORITIES);
     expect(saved.contactUrl).toBe("https://github.com/mioupa/bibcontainer");
   });
@@ -370,7 +376,7 @@ describe("取得元（FR-CONF-02、FR-META-03）", () => {
     await waitFor(() =>
       expect(screen.queryByText(ja.settings.providers.googleNote)).not.toBeInTheDocument(),
     );
-    expect(screen.getAllByText(ja.settings.providers.active)).toHaveLength(3);
+    expect(screen.getAllByText(ja.settings.providers.active)).toHaveLength(4);
   });
 
   it("API キーを削除できる。キーがなければ削除ボタンは押せない", async () => {
@@ -597,8 +603,8 @@ describe("取得元（FR-CONF-02、FR-META-03）", () => {
     await waitFor(() => expect(calls("set_provider_settings")).toHaveLength(1));
     const saved = (calls("set_provider_settings")[0]![1] as { settings: ProviderSettings })
       .settings;
-    expect(saved.priorities.groups.title).toEqual(["ndl", "openbd", "google"]);
-    expect(saved.priorities.groups.cover).toEqual(["openbd", "google"]);
+    expect(saved.priorities.groups.title).toEqual(["ndl", "openbd", "google", "openlibrary"]);
+    expect(saved.priorities.groups.cover).toEqual(["openbd", "google", "openlibrary"]);
 
     // 本体価格: 2段目は先頭に固定。その下の取得元は、2段目の上へは動かせない
     const price = screen.getByTestId("priority-list_price");
@@ -1010,6 +1016,7 @@ describe("このアプリについて（FR-CONF-07、9.4、10.6）", () => {
     );
     expect(credits).toHaveTextContent("書誌情報・書影: openBD (https://openbd.jp/)");
     expect(credits).toHaveTextContent("Powered by Google Books API (https://books.google.com/)");
+    expect(credits).toHaveTextContent("書誌情報・書影: Open Library (https://openlibrary.org/)");
     expect(screen.getByText(ja.settings.about.ndlNote)).toBeInTheDocument();
     expect(ja.settings.about.ndlNote).toContain("NDLサーチ");
   });
@@ -1021,6 +1028,7 @@ describe("このアプリについて（FR-CONF-07、9.4、10.6）", () => {
     expect(credits).toHaveTextContent("国立国会図書館サーチ API");
     expect(credits).toHaveTextContent("openBD");
     expect(credits).toHaveTextContent("Google Books");
+    expect(credits).toHaveTextContent("Open Library (https://openlibrary.org/)");
     expect(screen.getByText(ja.settings.about.ndlNote)).toBeInTheDocument();
   });
 

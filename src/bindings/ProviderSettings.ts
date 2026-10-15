@@ -7,7 +7,7 @@ import type { ProviderId } from "./ProviderId";
  */
 export type ProviderSettings = { 
 /**
- * 取得元ごとの有効・無効（`openbd`・`ndl`・`google`）。既定は 3 つとも有効。
+ * 取得元ごとの有効・無効（`openbd`・`ndl`・`google`・`openlibrary`）。既定は 4 つとも有効。
  * Google Books はキーがなければ、有効にしていても使わない。
  */
 enabled: { [key in ProviderId]?: boolean }, 

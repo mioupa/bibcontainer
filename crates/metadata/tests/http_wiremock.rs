@@ -12,7 +12,7 @@ use bibcontainer_metadata::http::{
     DEFAULT_TIMEOUT, HttpClient, HttpRequest, TransportError, user_agent,
 };
 use bibcontainer_metadata::provider::Provider;
-use bibcontainer_metadata::providers::{GoogleBooks, Ndl, OpenBd};
+use bibcontainer_metadata::providers::{GoogleBooks, Ndl, OpenBd, OpenLibrary};
 use bibcontainer_metadata::service::{FetchRequest, MetadataService, ProviderOutcome};
 use bibcontainer_metadata::transport::ProviderRateLimit;
 use bibcontainer_metadata::types::*;
@@ -269,6 +269,13 @@ async fn mock_all(server: &MockServer, google_key: Option<&str>) {
     .respond_with(json_body("google_synthetic_9784780802047.json"))
     .mount(server)
     .await;
+    // Open Library: 日本の本は検索だけで「該当なし」
+    Mock::given(method("GET"))
+        .and(path("/search.json"))
+        .and(query_param("isbn", ONIGIRI))
+        .respond_with(json_body("openlibrary_search_9784003101117.json"))
+        .mount(server)
+        .await;
 }
 
 fn providers_for(server: &MockServer, google_key: Option<&str>) -> Vec<Arc<dyn Provider>> {
@@ -279,6 +286,7 @@ fn providers_for(server: &MockServer, google_key: Option<&str>) -> Vec<Arc<dyn P
             &server.uri(),
             google_key.map(str::to_string),
         )),
+        Arc::new(OpenLibrary::with_base_url(&server.uri())),
     ]
 }
 
@@ -290,12 +298,13 @@ async fn at10_over_a_real_http_stack() {
     let result = service.fetch(&FetchRequest::new(ONIGIRI)).await;
     for p in ProviderId::ALL {
         let report = result.reports.iter().find(|r| r.provider == p).unwrap();
-        assert_eq!(
-            report.outcome,
-            ProviderOutcome::Found,
-            "{p:?}: {:?}",
-            result.reports
-        );
+        // 日本の本は Open Library にない
+        let want = if p == ProviderId::OpenLibrary {
+            ProviderOutcome::NotFound
+        } else {
+            ProviderOutcome::Found
+        };
+        assert_eq!(report.outcome, want, "{p:?}: {:?}", result.reports);
     }
     assert_eq!(
         result.merged.text(MetaField::Title),

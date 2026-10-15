@@ -19,12 +19,16 @@ use crate::error::AppError;
 /// - Google Books（和書と洋書）: 岩波文庫『こころ』、新潮文庫『吾輩は猫である』、Penguin Classics『Pride and
 ///   Prejudice』。和書の 2 冊は openBD・NDL で書誌が取れることを確かめてある（2026-10-15）。洋書は Open Library
 ///   で確かめた。Google 自体は、キーがなく 429 になるため、収録を確かめていない。
+/// - Open Library（洋書。和書はほとんど収録がない）: Penguin Classics『Pride and Prejudice』、『Clean Code』、
+///   Springer『Fundamentals of Radiation Materials Science』。3 冊とも、検索で版が見つかり、版の JSON が取れることを
+///   確かめてある（2026-10-15）。
 pub fn test_isbns(id: ProviderId) -> &'static [&'static str] {
     match id {
         ProviderId::Openbd | ProviderId::Ndl => {
             &["9784780802047", "9784003101117", "9784101001012"]
         }
         ProviderId::Google => &["9784003101117", "9784101010014", "9780141439518"],
+        ProviderId::OpenLibrary => &["9780141439518", "9780132350884", "9781493934362"],
     }
 }
 

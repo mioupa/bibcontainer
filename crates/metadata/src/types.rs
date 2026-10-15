@@ -14,16 +14,25 @@ pub enum ProviderId {
     Openbd,
     Ndl,
     Google,
+    /// Open Library。serde の既定（snake_case）では `open_library` になるので、`as_str()` に合わせた名前にする。
+    #[serde(rename = "openlibrary")]
+    OpenLibrary,
 }
 
 impl ProviderId {
-    pub const ALL: [ProviderId; 3] = [ProviderId::Openbd, ProviderId::Ndl, ProviderId::Google];
+    pub const ALL: [ProviderId; 4] = [
+        ProviderId::Openbd,
+        ProviderId::Ndl,
+        ProviderId::Google,
+        ProviderId::OpenLibrary,
+    ];
 
     pub fn as_str(self) -> &'static str {
         match self {
             ProviderId::Openbd => "openbd",
             ProviderId::Ndl => "ndl",
             ProviderId::Google => "google",
+            ProviderId::OpenLibrary => "openlibrary",
         }
     }
 
@@ -43,6 +52,9 @@ pub enum MetaSource {
     Openbd,
     Ndl,
     Google,
+    /// serde の名前は `ProviderId::OpenLibrary` と同じ（`openlibrary`）。
+    #[serde(rename = "openlibrary")]
+    OpenLibrary,
 }
 
 impl MetaSource {
@@ -52,6 +64,7 @@ impl MetaSource {
             MetaSource::Openbd => "openbd",
             MetaSource::Ndl => "ndl",
             MetaSource::Google => "google",
+            MetaSource::OpenLibrary => "openlibrary",
         }
     }
 }
@@ -62,6 +75,7 @@ impl From<ProviderId> for MetaSource {
             ProviderId::Openbd => MetaSource::Openbd,
             ProviderId::Ndl => MetaSource::Ndl,
             ProviderId::Google => MetaSource::Google,
+            ProviderId::OpenLibrary => MetaSource::OpenLibrary,
         }
     }
 }
