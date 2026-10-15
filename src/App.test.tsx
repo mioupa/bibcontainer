@@ -246,7 +246,7 @@ describe("App（ブラウザ。バックエンドなしでモックのデータ�
       screen.getByRole("button", { name: new RegExp(ja.topBar.scanRegister) }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: new RegExp(ja.topBar.newBook) })).toBeInTheDocument();
-    expect(screen.getByTestId("sync-status")).toHaveTextContent(ja.topBar.sync);
+    expect(screen.getByTestId("sync-status")).toHaveTextContent(ja.sync.indicator.label);
     // サイドバーと詳細ペイン
     expect(screen.getByRole("navigation", { name: ja.sidebar.ariaLabel })).toBeInTheDocument();
     expect(screen.getByLabelText(ja.detail.ariaLabel)).toBeInTheDocument();

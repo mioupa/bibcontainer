@@ -7,8 +7,6 @@ export const topBar = {
   searchPlaceholder: "書名・著者・出版社・ISBN で検索",
   scanRegister: "スキャン登録",
   newBook: "手動登録",
-  sync: "同期",
-  syncNotConfigured: "未設定",
   settings: "設定",
   toggleSidebar: "サイドバーの表示切替",
   toggleDetail: "詳細ペインの表示切替",

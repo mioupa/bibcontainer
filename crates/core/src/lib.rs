@@ -6,7 +6,7 @@
 //!
 //! 設計の経緯は `docs/decisions/0003-local-db-and-migrations.md`、
 //! `docs/decisions/0004-hlc-and-op-log.md`、`docs/decisions/0005-phase1-architecture.md`、
-//! `docs/decisions/0006-core-library.md` を参照。
+//! `docs/decisions/0006-core-library.md`、同期の DB 側の操作は `docs/decisions/0014-sync-engine.md` を参照。
 
 pub mod backup;
 pub mod barcode;
@@ -27,6 +27,7 @@ pub mod schema;
 pub mod search;
 pub mod settings;
 pub mod store;
+pub mod sync_state;
 pub mod values;
 pub mod volume;
 

@@ -21,6 +21,7 @@ import { formatBackupTime, formatBytes } from "@/features/settings/backupFormat"
 import { clampInteger } from "@/features/settings/clamp";
 import { Group, NumberRow, Row } from "@/features/settings/fields";
 import { settingsKeys, useBackupSettings } from "@/features/settings/hooks";
+import { useSyncStatus } from "@/features/sync/hooks";
 import { ja } from "@/i18n/ja";
 import { chooseDirectory, chooseSavePath } from "@/lib/dialog";
 import { errorMessage } from "@/lib/errors";
@@ -128,6 +129,9 @@ function BackupList() {
   // 復元の確認を出している間は、画面全体のショートカット（⌘N など）を止める
   useModalGuard(target !== null);
   const backups = useQuery({ queryKey: settingsKeys.backups, queryFn: ipc.listBackups });
+  // 同期中に復元すると、ほかの端末の変更をもう一度取り込む（0013 §10）。確認のダイアログで伝える
+  const sync = useSyncStatus();
+  const syncActive = sync.data !== undefined && sync.data.state !== "disabled";
 
   const backupNow = useMutation({
     mutationFn: ipc.manualBackup,
@@ -207,6 +211,11 @@ function BackupList() {
             <DialogDescription>
               {target === null ? "" : t.restore.description(target.fileName)}
             </DialogDescription>
+            {syncActive && (
+              <p className="text-sm text-muted-foreground" data-testid="restore-sync-note">
+                {t.restore.syncNote}
+              </p>
+            )}
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setTarget(null)}>

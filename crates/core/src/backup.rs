@@ -28,8 +28,10 @@
 //! bibcontainer の DB である）してから DB ファイルを置き換える。呼び出し側は、DB の接続をすべて閉じてから
 //! 呼ぶこと（`-wal`・`-shm` も扱う）。復元した DB には**新しい端末 ID を振り、seq のカウンタを 0 に戻す**
 //! （復元前の端末が書き出した Op と `(dev, seq)` が重ならないように。`docs/decisions/0005` §2）。
-//! outbox に残っていた未書き出しの Op は、古い端末 ID のまま `outbox_restored` に移す
-//! （扱いはフェーズ 2 で決める）。
+//! outbox に残っていた未書き出しの Op は、古い端末 ID のまま `outbox_restored` に移す。
+//! あわせて「スナップショットが必要」の印を立てる。同期を再開するとき、同期エンジンが手元の全状態を
+//! スナップショットとして書き出し、`outbox_restored` の Op はそこに含まれるので捨てる
+//! （`docs/decisions/0014-sync-engine.md`）。
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -545,6 +547,8 @@ pub fn restore_backup(
         tx.execute("DELETE FROM outbox", [])?;
         meta::set(&tx, meta::KEY_DEVICE_ID, &new_device_id)?;
         meta::save_op_seq(&tx, 0)?;
+        // 同期を再開するとき、手元の全状態をスナップショットとして書き出す（`outbox_restored` の Op もそこに含まれる）。
+        crate::sync_state::set_needs_snapshot(&tx, true)?;
         tx.commit()?;
         moved
     };

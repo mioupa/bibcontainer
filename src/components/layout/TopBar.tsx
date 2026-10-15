@@ -1,6 +1,5 @@
 // 上部バー（9.1）: 検索欄、スキャン登録・手動登録、同期状態、サイドバーと詳細ペインの開閉。
 import {
-  CloudIcon,
   PanelLeftIcon,
   PanelRightIcon,
   PlusIcon,
@@ -13,6 +12,7 @@ import { ShortcutTip } from "@/components/layout/ShortcutTip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSearchEnter } from "@/features/library/useSearchEnter";
+import { SyncIndicator } from "@/features/sync/SyncIndicator";
 import { ja } from "@/i18n/ja";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { useViewStore } from "@/stores/viewStore";
@@ -91,16 +91,8 @@ export function TopBar({
       </ShortcutTip>
 
       <div className="ml-auto flex items-center gap-1">
-        {/* 同期状態の表示枠。同期（フェーズ 2）ができたら、状態と最終同期時刻を出す */}
-        <div
-          className="flex items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground"
-          data-testid="sync-status"
-        >
-          <CloudIcon className="size-4" aria-hidden />
-          <span>
-            {ja.topBar.sync}: {ja.topBar.syncNotConfigured}
-          </span>
-        </div>
+        {/* 同期の状態（9.1）。押すと設定の同期の節を開く */}
+        <SyncIndicator />
         <ShortcutTip label={ja.topBar.settings} shortcut="openSettings">
           <Button
             variant="ghost"

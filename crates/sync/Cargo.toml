@@ -1,0 +1,33 @@
+[package]
+name = "bibcontainer-sync"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "bibcontainer の同期エンジン（同期フォルダを介した Op の書き出し・取り込み、スナップショット、書影の受け渡し）。Tauri には依存しない。"
+
+[lib]
+name = "bibcontainer_sync"
+
+[dependencies]
+bibcontainer-core = { path = "../core" }
+# `SyncDb` のトレイトで Connection の型を名前で書くために必要（バージョンは core に合わせる）
+rusqlite = "0.40"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# セグメントの終端レコードのハッシュ、書影のファイル名の検証
+sha2 = "0.10"
+# スナップショット（gzip した JSON Lines）。純 Rust の実装を使う
+flate2 = "1"
+thiserror = "2"
+tracing = "0.1"
+# アプリで使う型（SyncStatus など）の TypeScript 定義を出力する
+ts-rs = "12"
+# 一時ファイル名の乱数
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+proptest = "1"
+tempfile = "3"
+
+[lints.rust]
+unsafe_code = "forbid"

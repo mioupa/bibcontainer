@@ -330,6 +330,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "bibcontainer-sync"
+version = "0.1.0"
+dependencies = [
+ "bibcontainer-core",
+ "flate2",
+ "proptest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tracing",
+ "ts-rs",
+ "uuid",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

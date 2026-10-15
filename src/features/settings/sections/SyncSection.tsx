@@ -1,27 +1,32 @@
-// 同期（FR-CONF-01）。同期はフェーズ 2。今は、この端末の ID と、対応予定の表示だけ。
-import { useQuery } from "@tanstack/react-query";
-import { Group } from "@/features/settings/fields";
-import { settingsKeys } from "@/features/settings/hooks";
+// 同期（FR-CONF-01、FR-SYNC-01／08〜11／13）。未設定のときはフォルダの選択と設定の手順、設定済みのときは状態・端末・
+// 解除など。端末名の変更と Google Drive の注意は、どちらのときも出す。部品は src/features/sync/ にある（0015）。
+import { usingMockSync } from "@/features/sync/api";
+import { DeviceNameGroup } from "@/features/sync/DeviceNameGroup";
+import { DriveNotes } from "@/features/sync/DriveNotes";
+import { useSyncStatus } from "@/features/sync/hooks";
+import { SyncConfigured } from "@/features/sync/SyncConfigured";
+import { SyncSetup } from "@/features/sync/SyncSetup";
+import { SyncDevPanel } from "@/dev/SyncDevPanel";
 import { ja } from "@/i18n/ja";
-import { ipc } from "@/lib/ipc";
-import { inTauri } from "@/lib/runtime";
 
 export function SyncSection() {
-  const info = useQuery({
-    queryKey: settingsKeys.appInfo,
-    queryFn: ipc.appInfo,
-    enabled: inTauri(),
-  });
-  const s = ja.settings.sync;
+  const t = ja.sync.section;
+  const status = useSyncStatus();
+
+  if (status.isLoading) return <p className="text-sm text-muted-foreground">{t.loading}</p>;
+  if (status.data === undefined) return <p className="text-sm text-destructive">{t.loadFailed}</p>;
+
+  const data = status.data;
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">{s.description}</p>
-      <Group title={s.deviceId}>
-        <p className="font-mono text-sm break-all" data-testid="device-id">
-          {info.data?.deviceId ?? s.unavailable}
-        </p>
-      </Group>
-      <p className="rounded-lg border border-dashed px-4 py-3 text-sm">{s.phase2}</p>
+      <p className="text-sm text-muted-foreground">{t.description}</p>
+      {data.state === "disabled" ? <SyncSetup /> : <SyncConfigured status={data} />}
+      <DeviceNameGroup status={data} />
+      <DriveNotes />
+      {/* 開発中（pnpm dev・pnpm tauri dev）だけ、モックの状態を切り替えるパネルを出す */}
+      {import.meta.env.DEV && import.meta.env.MODE !== "test" && usingMockSync() && (
+        <SyncDevPanel />
+      )}
     </div>
   );
 }

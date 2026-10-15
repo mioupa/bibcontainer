@@ -46,12 +46,6 @@ export const settings = {
     volumeOf: (kind: string) => `${kind}の音量`,
     play: "試聴",
   },
-  sync: {
-    description: "複数の端末の蔵書を、同期フォルダ経由で同期する機能です。",
-    deviceId: "この端末の ID",
-    unavailable: "未取得",
-    phase2: "同期はフェーズ 2 で対応します。今は、この端末だけで使えます。",
-  },
   providers: {
     description:
       "書誌情報の取得元です。有効にした取得元に問い合わせて、項目ごとの優先順位で値を選びます。",
@@ -185,6 +179,9 @@ export const settings = {
       done: "復元しました",
       doneDescription: (preRestorePath: string | null) =>
         preRestorePath === null ? "" : `復元前のデータ: ${preRestorePath}`,
+      // 同期中のときだけ、確認のダイアログに足す（0013 §10）
+      syncNote:
+        "この端末は同期中です。復元したあとも、ほかの端末の変更をもう一度取り込むので、ライブラリ全体が過去に戻るわけではありません（この端末のデータを直す、という意味になります）。",
     },
     export: {
       heading: "書き出し",

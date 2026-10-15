@@ -8,6 +8,7 @@
 //   scan.ts     スキャン入力・ペアリング
 //   edit.ts     編集・登録フォーム
 //   settings.ts 設定
+//   sync.ts     同期（上部バーの表示、設定の「同期」の節）
 // 将来、多言語化するときは同じ形のオブジェクトを増やして切り替える。
 import { app, appInfo, cCode, dialog, format, labels, shortcuts, toast } from "./ja/common";
 import { edit } from "./ja/edit";
@@ -15,6 +16,7 @@ import { errorScreen } from "./ja/errors";
 import { detail, list, sidebar, statusBar, topBar } from "./ja/list";
 import { scan } from "./ja/scan";
 import { settings } from "./ja/settings";
+import { sync } from "./ja/sync";
 
 export const ja = {
   app,
@@ -33,6 +35,7 @@ export const ja = {
   scan,
   edit,
   settings,
+  sync,
   toast,
 } as const;
 

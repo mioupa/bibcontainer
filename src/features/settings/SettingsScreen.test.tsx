@@ -9,6 +9,7 @@ import type { ProviderSettings } from "@/bindings/ProviderSettings";
 import type { ProviderStatus } from "@/bindings/ProviderStatus";
 import type { ProviderTestResult } from "@/bindings/ProviderTestResult";
 import { DEFAULT_SCAN_SETTINGS, DEFAULT_SOUND_SETTINGS } from "@/features/scan/config";
+import { mockSync } from "@/dev/mockSync";
 import { SettingsScreen } from "@/features/settings/SettingsScreen";
 import { ja } from "@/i18n/ja";
 import { useModalStore } from "@/lib/useModalGuard";
@@ -261,6 +262,8 @@ beforeEach(() => {
   toast.error.mockReset();
   toast.success.mockReset();
   isTauri.mockReturnValue(true);
+  mockSync.control.reset();
+  mockSync.control.setDelays({ setupMs: 0, syncMs: 0 });
   useSettingsStore.setState({
     theme: "system",
     fontFamily: null,
@@ -298,10 +301,15 @@ describe("設定画面の骨組み", () => {
 });
 
 describe("同期（FR-CONF-01）", () => {
-  it("端末 ID と、フェーズ 2 で対応する旨を出す", async () => {
+  // 手順・状態・警告の細かい確認は src/features/sync/SyncSection.test.tsx
+  it("未設定なら、フォルダを選ぶボタンと端末名・端末 ID・Google Drive の注意を出す", async () => {
     renderSettings("sync");
-    expect(await screen.findByText("d-0123456789ab")).toBeInTheDocument();
-    expect(screen.getByText(ja.settings.sync.phase2)).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: ja.sync.setup.chooseFolder }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(ja.sync.deviceName.label)).toHaveValue("MacBook Pro");
+    expect(screen.getByText("d-0123456789ab")).toBeInTheDocument();
+    expect(screen.getByTestId("drive-notes")).toBeInTheDocument();
   });
 });
 
@@ -882,6 +890,32 @@ describe("バックアップ（FR-CONF-06、FR-IO-05）", () => {
         ),
       }),
     );
+  });
+
+  it("復元: 同期中のときだけ、確認のダイアログに「ほかの端末の変更をもう一度取り込む」旨を足す（0013 §10）", async () => {
+    const open = async () => {
+      fireEvent.click(
+        await screen.findByRole("button", {
+          name: ja.settings.backup.list.restoreOf("daily-20261014.sqlite3"),
+        }),
+      );
+      return screen.findByRole("dialog");
+    };
+
+    // 同期が未設定: 足さない
+    const first = renderSettings("backup");
+    const plain = await open();
+    expect(within(plain).queryByTestId("restore-sync-note")).not.toBeInTheDocument();
+    first.unmount();
+
+    // 同期中: 足す
+    act(() => mockSync.control.setScenario("idle"));
+    renderSettings("backup");
+    const synced = await open();
+    expect(within(synced).getByTestId("restore-sync-note")).toHaveTextContent(
+      ja.settings.backup.restore.syncNote,
+    );
+    expect(within(synced).getByText(ja.settings.backup.restore.syncNote)).toBeInTheDocument();
   });
 
   it("復元の確認でキャンセルしたら、何もしない。確認を出している間は、画面全体のショートカットを止める（9.5）", async () => {

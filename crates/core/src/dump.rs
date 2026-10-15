@@ -35,15 +35,15 @@ pub fn dump_canonical(conn: &Connection) -> Result<Value> {
 }
 
 /// 書き出す 1 項目の定義（Op 上の名前、列名、型）。
-struct ColSpec {
-    name: &'static str,
-    column: &'static str,
-    ty: FieldType,
+pub(crate) struct ColSpec {
+    pub(crate) name: &'static str,
+    pub(crate) column: &'static str,
+    pub(crate) ty: FieldType,
 }
 
 /// エンティティの書き出し項目。書籍は、項目ごとの Op キーから組み立てる 2 列
 /// （`field_sources` は JSON オブジェクト、`manual_fields` は項目名の配列）も出す。
-fn col_specs(ent: Entity) -> Vec<ColSpec> {
+pub(crate) fn col_specs(ent: Entity) -> Vec<ColSpec> {
     let mut specs: Vec<ColSpec> = ent
         .fields()
         .iter()
@@ -68,7 +68,7 @@ fn col_specs(ent: Entity) -> Vec<ColSpec> {
     specs
 }
 
-fn row_object(row: &rusqlite::Row<'_>, specs: &[ColSpec]) -> Result<Map<String, Value>> {
+pub(crate) fn row_object(row: &rusqlite::Row<'_>, specs: &[ColSpec]) -> Result<Map<String, Value>> {
     let mut obj = Map::new();
     obj.insert("id".to_owned(), Value::String(row.get(0)?));
     let extra: String = row.get(1)?;
@@ -79,7 +79,7 @@ fn row_object(row: &rusqlite::Row<'_>, specs: &[ColSpec]) -> Result<Map<String, 
     Ok(obj)
 }
 
-fn select_sql(ent: Entity, specs: &[ColSpec]) -> String {
+pub(crate) fn select_sql(ent: Entity, specs: &[ColSpec]) -> String {
     let columns: Vec<String> = specs.iter().map(|f| format!("\"{}\"", f.column)).collect();
     format!(
         "SELECT id, extra_json, {} FROM {}",
