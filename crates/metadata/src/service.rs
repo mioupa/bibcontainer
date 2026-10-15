@@ -23,7 +23,7 @@ use ts_rs::TS;
 use crate::cover::{self, MetaCoverResult, StoredCover};
 use crate::error::{CoverError, FetchError};
 use crate::isbn::to_isbn13;
-use crate::merge::{MetaMerged, MetaPriorities, merge};
+use crate::merge::{MetaMerged, MetaPrioritySets, PriorityProfile, merge};
 use crate::provider::{CacheEntry, Provider, ProviderInfo, RawCache, RawResponse};
 use crate::transport::Transport;
 use crate::types::{Candidate, MetaSecondTier, ProviderId};
@@ -88,6 +88,8 @@ pub struct ProviderReport {
 pub struct MetaFetchResult {
     pub isbn13: String,
     pub merged: MetaMerged,
+    /// 統合に使った優先順位の区分（ISBN で決まる。和書か洋書など。ISBN として読めなければ和書）
+    pub profile: PriorityProfile,
     /// 取得元ごとの候補（統合前）
     pub candidates: Vec<Candidate>,
     pub reports: Vec<ProviderReport>,
@@ -126,8 +128,8 @@ pub struct FetchRequest {
     pub second_tier: Option<MetaSecondTier>,
     /// 有効な取得元
     pub enabled: Vec<ProviderId>,
-    /// 項目ごとの優先順位
-    pub priorities: MetaPriorities,
+    /// 項目ごとの優先順位（和書・洋書などの区分ごと）。統合のとき、ISBN に合う区分のものを使う
+    pub priorities: MetaPrioritySets,
     /// キャッシュを読まずに取り直す（手で直した項目を守るのは呼び出し側の役目。FR-META-07）
     pub force_refresh: bool,
 }
@@ -139,7 +141,7 @@ impl FetchRequest {
             isbn: isbn.to_string(),
             second_tier: None,
             enabled: ProviderId::ALL.to_vec(),
-            priorities: MetaPriorities::default(),
+            priorities: MetaPrioritySets::default(),
             force_refresh: false,
         }
     }
@@ -154,7 +156,7 @@ impl FetchRequest {
         self
     }
 
-    pub fn with_priorities(mut self, priorities: MetaPriorities) -> Self {
+    pub fn with_priorities(mut self, priorities: MetaPrioritySets) -> Self {
         self.priorities = priorities;
         self
     }
@@ -300,9 +302,12 @@ impl MetadataService {
     ) -> MetaFetchResult {
         let Some(isbn) = isbn else {
             tracing::warn!(isbn = %req.isbn, "ISBN として読めないため、取得しません");
+            let profile = PriorityProfile::Japanese;
+            let priorities = req.priorities.for_profile(profile).normalized(profile);
             return MetaFetchResult {
                 isbn13: req.isbn.clone(),
-                merged: merge(&req.isbn, &[], req.second_tier.as_ref(), &req.priorities),
+                merged: merge(&req.isbn, &[], req.second_tier.as_ref(), &priorities),
+                profile,
                 candidates: Vec::new(),
                 reports: Vec::new(),
                 offline: false,
@@ -331,15 +336,14 @@ impl MetadataService {
         let network_reports: Vec<&ProviderReport> = reports.iter().filter(|r| r.network).collect();
         let offline = !network_reports.is_empty()
             && network_reports.iter().all(|r| r.outcome.is_network_error());
-        let merged = merge(
-            &isbn,
-            &candidates,
-            req.second_tier.as_ref(),
-            &req.priorities,
-        );
+        // ISBN の区分（和書・洋書など）に合う優先順位を選び、その区分の既定でそろえてから統合する
+        let profile = PriorityProfile::for_isbn(Some(&isbn));
+        let priorities = req.priorities.for_profile(profile).normalized(profile);
+        let merged = merge(&isbn, &candidates, req.second_tier.as_ref(), &priorities);
         MetaFetchResult {
             isbn13: isbn,
             merged,
+            profile,
             candidates,
             reports,
             offline,

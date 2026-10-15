@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppInfo } from "@/bindings/AppInfo";
 import type { BackupInfo } from "@/bindings/BackupInfo";
-import type { MetaPriorities } from "@/bindings/MetaPriorities";
+import type { MetaPrioritySets } from "@/bindings/MetaPrioritySets";
 import type { ProviderSettings } from "@/bindings/ProviderSettings";
 import type { ProviderStatus } from "@/bindings/ProviderStatus";
 import type { ProviderTestResult } from "@/bindings/ProviderTestResult";
@@ -47,22 +47,43 @@ const info: AppInfo = {
   pendingOps: 0,
 };
 
-const PRIORITIES: MetaPriorities = {
-  groups: {
-    title: ["openbd", "ndl", "google", "openlibrary"],
-    title_kana: ["ndl"],
-    authors: ["openbd", "ndl", "google", "openlibrary"],
-    publisher: ["openbd", "ndl", "google", "openlibrary"],
-    published_on: ["openbd", "ndl", "google", "openlibrary"],
-    list_price: ["barcode", "openbd", "ndl"],
-    ref_price_incl: ["openbd", "ndl"],
-    c_code: ["barcode", "openbd"],
-    ndc: ["ndl"],
-    pages_and_size: ["ndl", "openbd", "google", "openlibrary"],
-    series: ["openbd", "ndl"],
-    language: ["openbd", "ndl", "google", "openlibrary"],
-    description: ["openbd", "google", "openlibrary"],
-    cover: ["openbd", "google", "openlibrary"],
+// 区分ごとの優先順位。和書は従来の既定。洋書などは、書名・著者・出版社・言語・発行日・内容紹介・書影で Google と Open Library が先
+const PRIORITIES: MetaPrioritySets = {
+  japanese: {
+    groups: {
+      title: ["openbd", "ndl", "google", "openlibrary"],
+      title_kana: ["ndl"],
+      authors: ["openbd", "ndl", "google", "openlibrary"],
+      publisher: ["openbd", "ndl", "google", "openlibrary"],
+      published_on: ["openbd", "ndl", "google", "openlibrary"],
+      list_price: ["barcode", "openbd", "ndl"],
+      ref_price_incl: ["openbd", "ndl"],
+      c_code: ["barcode", "openbd"],
+      ndc: ["ndl"],
+      pages_and_size: ["ndl", "openbd", "google", "openlibrary"],
+      series: ["openbd", "ndl"],
+      language: ["openbd", "ndl", "google", "openlibrary"],
+      description: ["openbd", "google", "openlibrary"],
+      cover: ["openbd", "google", "openlibrary"],
+    },
+  },
+  foreign: {
+    groups: {
+      title: ["google", "openlibrary", "ndl", "openbd"],
+      title_kana: ["ndl"],
+      authors: ["google", "openlibrary", "ndl", "openbd"],
+      publisher: ["google", "openlibrary", "ndl", "openbd"],
+      published_on: ["google", "openlibrary", "ndl", "openbd"],
+      list_price: ["barcode", "openbd", "ndl"],
+      ref_price_incl: ["openbd", "ndl"],
+      c_code: ["barcode", "openbd"],
+      ndc: ["ndl"],
+      pages_and_size: ["ndl", "openbd", "google", "openlibrary"],
+      series: ["openbd", "ndl"],
+      language: ["google", "openlibrary", "ndl", "openbd"],
+      description: ["google", "openlibrary", "openbd"],
+      cover: ["google", "openlibrary", "openbd"],
+    },
   },
 };
 
@@ -603,8 +624,15 @@ describe("取得元（FR-CONF-02、FR-META-03）", () => {
     await waitFor(() => expect(calls("set_provider_settings")).toHaveLength(1));
     const saved = (calls("set_provider_settings")[0]![1] as { settings: ProviderSettings })
       .settings;
-    expect(saved.priorities.groups.title).toEqual(["ndl", "openbd", "google", "openlibrary"]);
-    expect(saved.priorities.groups.cover).toEqual(["openbd", "google", "openlibrary"]);
+    expect(saved.priorities.japanese.groups.title).toEqual([
+      "ndl",
+      "openbd",
+      "google",
+      "openlibrary",
+    ]);
+    expect(saved.priorities.japanese.groups.cover).toEqual(["openbd", "google", "openlibrary"]);
+    // 洋書などの組は、そのまま
+    expect(saved.priorities.foreign).toEqual(PRIORITIES.foreign);
 
     // 本体価格: 2段目は先頭に固定。その下の取得元は、2段目の上へは動かせない
     const price = screen.getByTestId("priority-list_price");
@@ -627,6 +655,131 @@ describe("取得元（FR-CONF-02、FR-META-03）", () => {
         name: ja.settings.providers.priorities.moveDown("本体価格", "NDLサーチ"),
       }),
     ).toBeDisabled();
+  });
+
+  it("優先順位: 切り替えは「和書」が初期で、「洋書など」の順を見せ、そのあいだ説明を出す", async () => {
+    renderSettings("providers");
+    const p = ja.settings.providers.priorities;
+    const japanese = await screen.findByRole("tab", { name: p.profiles.japanese });
+    const foreign = screen.getByRole("tab", { name: p.profiles.foreign });
+    expect(screen.getByRole("tablist", { name: p.profileLabel })).toBeInTheDocument();
+    expect(japanese).toHaveAttribute("aria-selected", "true");
+    expect(foreign).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByText(p.profileNote)).toBeInTheDocument();
+
+    // 初期は和書の順（書名: openBD が先頭、書影: openBD が先頭）
+    const names = (testId: string) =>
+      within(screen.getByTestId(testId))
+        .getAllByRole("listitem")
+        .map((li) => li.textContent?.replace(/^\d+/, ""));
+    expect(names("priority-title")).toEqual([
+      "openBD",
+      "NDLサーチ",
+      "Google Books",
+      "Open Library",
+    ]);
+    expect(names("priority-cover")).toEqual(["openBD", "Google Books", "Open Library"]);
+
+    // 洋書などに切り替えると、その組の順が出る（Google・Open Library が先）
+    fireEvent.mouseDown(foreign);
+    await waitFor(() => expect(foreign).toHaveAttribute("aria-selected", "true"));
+    expect(japanese).toHaveAttribute("aria-selected", "false");
+    expect(names("priority-title")).toEqual([
+      "Google Books",
+      "Open Library",
+      "NDLサーチ",
+      "openBD",
+    ]);
+    expect(names("priority-cover")).toEqual(["Google Books", "Open Library", "openBD"]);
+    // 切り替えだけでは保存しない。説明は出たまま。2段目の固定の注記も同じ
+    expect(calls("set_provider_settings")).toHaveLength(0);
+    expect(screen.getByText(p.profileNote)).toBeInTheDocument();
+    expect(screen.getByText(p.fixedBarcode)).toBeInTheDocument();
+    // 2段目は、洋書などの組でも本体価格の先頭に固定
+    expect(screen.getByTestId("priority-list_price")).toHaveTextContent(
+      ja.settings.providers.sources.barcode,
+    );
+
+    // 和書に戻すと、和書の順
+    fireEvent.mouseDown(japanese);
+    await waitFor(() => expect(japanese).toHaveAttribute("aria-selected", "true"));
+    expect(names("priority-title")).toEqual([
+      "openBD",
+      "NDLサーチ",
+      "Google Books",
+      "Open Library",
+    ]);
+  });
+
+  it("優先順位: 洋書などで並べ替えても和書の順は変わらず、保存は両方の組を送る", async () => {
+    renderSettings("providers");
+    const p = ja.settings.providers.priorities;
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: p.profiles.foreign }));
+    const title = await screen.findByTestId("priority-title");
+    // 洋書などの書名: Google Books を 1 つ下へ（Google Books、Open Library → Open Library、Google Books）
+    fireEvent.click(
+      within(title).getByRole("button", { name: p.moveDown("書名・副書名", "Google Books") }),
+    );
+
+    await waitFor(() => expect(calls("set_provider_settings")).toHaveLength(1));
+    const saved = (calls("set_provider_settings")[0]![1] as { settings: ProviderSettings })
+      .settings;
+    expect(saved.priorities.foreign.groups.title).toEqual([
+      "openlibrary",
+      "google",
+      "ndl",
+      "openbd",
+    ]);
+    // 洋書などの組の、ほかの行はそのまま
+    expect(saved.priorities.foreign.groups.cover).toEqual(["google", "openlibrary", "openbd"]);
+    // 和書の組は、変わらないまま両方を送る
+    expect(saved.priorities.japanese).toEqual(PRIORITIES.japanese);
+    expect(Object.keys(saved.priorities).sort()).toEqual(["foreign", "japanese"]);
+
+    // 保存後も洋書などの組を見たまま。並べ替えた順が出る
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId("priority-title"))
+          .getAllByRole("listitem")
+          .map((li) => li.textContent?.replace(/^\d+/, "")),
+      ).toEqual(["Open Library", "Google Books", "NDLサーチ", "openBD"]),
+    );
+    expect(screen.getByRole("tab", { name: p.profiles.foreign })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    // 和書に切り替えても、和書の順は元のまま
+    fireEvent.mouseDown(screen.getByRole("tab", { name: p.profiles.japanese }));
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId("priority-title"))
+          .getAllByRole("listitem")
+          .map((li) => li.textContent?.replace(/^\d+/, "")),
+      ).toEqual(["openBD", "NDLサーチ", "Google Books", "Open Library"]),
+    );
+
+    // 和書で並べ替えると、洋書などの並べ替えを保ったまま保存する
+    fireEvent.click(
+      within(screen.getByTestId("priority-title")).getByRole("button", {
+        name: p.moveDown("書名・副書名", "openBD"),
+      }),
+    );
+    await waitFor(() => expect(calls("set_provider_settings")).toHaveLength(2));
+    const second = (calls("set_provider_settings")[1]![1] as { settings: ProviderSettings })
+      .settings;
+    expect(second.priorities.japanese.groups.title).toEqual([
+      "ndl",
+      "openbd",
+      "google",
+      "openlibrary",
+    ]);
+    expect(second.priorities.foreign.groups.title).toEqual([
+      "openlibrary",
+      "google",
+      "ndl",
+      "openbd",
+    ]);
   });
 
   it("User-Agent の連絡先を保存できる。理由つきの失敗は通知する", async () => {

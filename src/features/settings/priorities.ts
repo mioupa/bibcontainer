@@ -2,7 +2,12 @@
 // 2段目（バーコード）は、本体価格と Cコードで常に最優先なので、先頭に固定して動かせない。
 import type { MetaGroup } from "@/bindings/MetaGroup";
 import type { MetaPriorities } from "@/bindings/MetaPriorities";
+import type { MetaPrioritySets } from "@/bindings/MetaPrioritySets";
 import type { MetaSource } from "@/bindings/MetaSource";
+import type { PriorityProfile } from "@/bindings/PriorityProfile";
+
+/** 優先順位の組（区分）。ISBN が 978-4 の本は和書、それ以外の ISBN の本は洋書など（ISBN がない本は和書）。画面に出す順。 */
+export const PRIORITY_PROFILES: readonly PriorityProfile[] = ["japanese", "foreign"];
 
 /** 画面に出す項目の行の順（FR-META-04 の表の順）。 */
 export const META_GROUPS: readonly MetaGroup[] = [
@@ -56,4 +61,14 @@ export function withGroupOrder(
   order: readonly MetaSource[],
 ): MetaPriorities {
   return { groups: { ...priorities.groups, [group]: [...order] } };
+}
+
+/** 区分 `profile` の 1 つの行の順位だけを差し替えた優先順位の組。ほかの行も、もう一方の区分も、そのまま。 */
+export function withProfileGroupOrder(
+  sets: MetaPrioritySets,
+  profile: PriorityProfile,
+  group: MetaGroup,
+  order: readonly MetaSource[],
+): MetaPrioritySets {
+  return { ...sets, [profile]: withGroupOrder(sets[profile], group, order) };
 }

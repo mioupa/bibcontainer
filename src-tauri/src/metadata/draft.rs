@@ -358,7 +358,8 @@ pub fn status_after_refetch(current: MetaStatus, decided: MetaStatus) -> MetaSta
 mod tests {
     use bibcontainer_metadata::providers::{GoogleBooks, Ndl, OpenBd};
     use bibcontainer_metadata::{
-        Candidate, MetaPriorities, MetaSecondTier, Provider, ProviderReport, RawResponse, merge,
+        Candidate, MetaPriorities, MetaSecondTier, PriorityProfile, Provider, ProviderReport,
+        RawResponse, merge,
     };
 
     use super::*;
@@ -607,6 +608,7 @@ mod tests {
         MetaFetchResult {
             isbn13: ONIGIRI.into(),
             merged: merge(ONIGIRI, &candidates, None, &MetaPriorities::default()),
+            profile: PriorityProfile::Japanese,
             candidates,
             reports: network_reports,
             offline,

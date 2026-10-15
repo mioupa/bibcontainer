@@ -16,13 +16,18 @@ use bibcontainer_metadata::service::{
     DEFAULT_CACHE_TTL, DEFAULT_NOT_FOUND_TTL, FetchRequest, MetadataService, ProviderOutcome,
 };
 use bibcontainer_metadata::types::*;
-use bibcontainer_metadata::{ProviderReport, Transport};
+use bibcontainer_metadata::{
+    MetaFetchResult, MetaPriorities, MetaPrioritySets, PriorityProfile, ProviderReport, Transport,
+    merge,
+};
 use common::fixture;
 use tokio::time::Instant;
 
 const ONIGIRI: &str = "9784780802047";
 const KOKORO: &str = "9784003101117";
 const YUKIGUNI: &str = "9784101001012";
+/// 洋書（978-0）。NDL・Open Library は実際の応答、Google は合成の volume のフィクスチャがある。
+const CLEAN_CODE: &str = "9780132350884";
 const MISSING: &str = "9784123456784";
 
 type Handler = Box<dyn Fn(&str) -> Result<HttpResponse, TransportError> + Send + Sync>;
@@ -881,6 +886,169 @@ async fn fetch_many_batches_openbd_and_paces_the_others() {
     let results = r.service.fetch_many(&reqs).await;
     assert_eq!(results[0].merged, results[1].merged);
     assert_eq!(r.http.urls().len(), 4);
+}
+
+/// `fixtures_handler` に、Google の ISBN 検索が Clean Code（洋書）を返す応答を足したもの。
+fn with_google_clean_code(inner: Handler) -> Handler {
+    Box::new(move |url: &str| {
+        if let Some(q) = url.split("volumes?q=isbn:").nth(1)
+            && q.split('&').next() == Some(CLEAN_CODE)
+        {
+            let volume: serde_json::Value =
+                serde_json::from_str(&fixture("google_synthetic_volume_hjEFCAAAQBAJ.json"))
+                    .unwrap();
+            let body =
+                serde_json::json!({"kind": "books#volumes", "totalItems": 1, "items": [volume]});
+            return response(200, "application/json; charset=UTF-8", body.to_string());
+        }
+        inner(url)
+    })
+}
+
+fn title_source(result: &MetaFetchResult) -> Option<MetaSource> {
+    result.merged.source(MetaField::Title)
+}
+
+#[tokio::test(start_paused = true)]
+async fn fetch_many_picks_the_priority_set_by_each_isbn() {
+    let r = rig_with(
+        FakeHttp::new(with_google_clean_code(fixtures_handler())),
+        None,
+    );
+    // 洋書・和書・和書・洋書（重複。ISBN-10 の表記）を 1 回の呼び出しで頼む
+    let reqs = vec![
+        FetchRequest::new(CLEAN_CODE),
+        FetchRequest::new(KOKORO),
+        FetchRequest::new(ONIGIRI),
+        FetchRequest::new("0-13-235088-2"),
+    ];
+    let results = r.service.fetch_many(&reqs).await;
+    assert_eq!(results.len(), 4);
+
+    // 洋書: Google > Open Library > NDL > openBD。NDL の `Clean code` ではなく Google の値
+    for i in [0, 3] {
+        let res = &results[i];
+        assert_eq!(res.isbn13, CLEAN_CODE);
+        assert_eq!(res.profile, PriorityProfile::Foreign);
+        assert_eq!(res.merged.text(MetaField::Title), Some("Clean Code"));
+        assert_eq!(
+            res.merged.text(MetaField::Subtitle),
+            Some("A Handbook of Agile Software Craftsmanship")
+        );
+        assert_eq!(title_source(res), Some(MetaSource::Google));
+        assert_eq!(
+            res.merged.source(MetaField::Subtitle),
+            Some(MetaSource::Google)
+        );
+        assert_eq!(
+            res.merged.source(MetaField::Description),
+            Some(MetaSource::Google)
+        );
+        assert_eq!(
+            res.merged.source(MetaField::Cover),
+            Some(MetaSource::Google)
+        );
+        // NDL の値は、候補（他の取得元の値）に残る
+        let ndl_title = res
+            .candidates
+            .iter()
+            .find(|c| c.provider == ProviderId::Ndl)
+            .and_then(|c| c.title.clone());
+        assert_eq!(ndl_title.as_deref(), Some("Clean code"));
+        assert!(
+            res.merged
+                .choice(MetaField::Title)
+                .unwrap()
+                .others
+                .iter()
+                .any(|p| p.source == MetaSource::Ndl
+                    && p.value == MetaValue::Text("Clean code".into()))
+        );
+        // ページ数・大きさなどは、洋書でも和書と同じ順（NDL > openBD > Google > Open Library）
+        let as_japanese = merge(
+            CLEAN_CODE,
+            &res.candidates,
+            None,
+            &MetaPriorities::default(),
+        );
+        for f in [MetaField::Pages, MetaField::SizeText, MetaField::Ndc] {
+            assert_eq!(res.merged.chosen(f), as_japanese.chosen(f), "{f:?}");
+        }
+    }
+    // 和書: 今までどおり（openBD > NDL > Google > Open Library）
+    for i in [1, 2] {
+        assert_eq!(results[i].profile, PriorityProfile::Japanese);
+        assert_eq!(title_source(&results[i]), Some(MetaSource::Openbd));
+    }
+    assert_eq!(results[1].merged.text(MetaField::Title), Some("こころ"));
+    assert_eq!(
+        results[2].merged.text(MetaField::Title),
+        Some("おにぎりレシピ101")
+    );
+    // 取得元への問い合わせは、重複した ISBN を 1 回にまとめて 3 冊分
+    assert_eq!(r.http.urls_containing("ndlsearch.ndl.go.jp").len(), 3);
+
+    // 洋書の組だけを変えても、和書の統合は変わらない。洋書は変わる（取得はキャッシュから）
+    let mut sets = MetaPrioritySets::default();
+    sets.foreign
+        .set(MetaGroup::Title, vec![MetaSource::Ndl, MetaSource::Google]);
+    r.http.clear();
+    let reqs = vec![
+        FetchRequest::new(CLEAN_CODE).with_priorities(sets.clone()),
+        FetchRequest::new(KOKORO).with_priorities(sets.clone()),
+    ];
+    let results = r.service.fetch_many(&reqs).await;
+    assert_eq!(title_source(&results[0]), Some(MetaSource::Ndl));
+    assert_eq!(results[0].merged.text(MetaField::Title), Some("Clean code"));
+    assert_eq!(title_source(&results[1]), Some(MetaSource::Openbd));
+    assert!(
+        results
+            .iter()
+            .all(|res| res.reports.iter().all(|p| p.from_cache))
+    );
+    assert!(r.http.urls().is_empty(), "{:?}", r.http.urls());
+
+    // 和書の組だけを変えると、和書は変わり、洋書は変わらない
+    let mut sets = MetaPrioritySets::default();
+    sets.japanese
+        .set(MetaGroup::Title, vec![MetaSource::Ndl, MetaSource::Openbd]);
+    let reqs = vec![
+        FetchRequest::new(CLEAN_CODE).with_priorities(sets.clone()),
+        FetchRequest::new(KOKORO).with_priorities(sets),
+    ];
+    let results = r.service.fetch_many(&reqs).await;
+    assert_eq!(title_source(&results[0]), Some(MetaSource::Google));
+    assert_eq!(title_source(&results[1]), Some(MetaSource::Ndl));
+}
+
+#[tokio::test]
+async fn an_unreadable_isbn_reports_the_japanese_profile() {
+    let r = rig_with(
+        FakeHttp::new(with_google_clean_code(fixtures_handler())),
+        None,
+    );
+    let result = r.service.fetch(&FetchRequest::new("9784003101118")).await;
+    assert_eq!(result.profile, PriorityProfile::Japanese);
+    assert!(r.http.urls().is_empty());
+}
+
+#[tokio::test]
+async fn a_set_missing_sources_is_completed_with_the_defaults_of_its_own_profile() {
+    let r = rig_with(
+        FakeHttp::new(with_google_clean_code(fixtures_handler())),
+        None,
+    );
+    // 書名の行に openBD だけを書く。足りない取得元は、洋書なら Google、Open Library、NDL の順（洋書の既定）で続く。
+    // 和書の既定（NDL、Google、Open Library）で足していれば、NDL の書名になってしまう
+    let mut sets = MetaPrioritySets::default();
+    sets.foreign.set(MetaGroup::Title, vec![MetaSource::Openbd]);
+    let req = FetchRequest::new(CLEAN_CODE)
+        .with_enabled(vec![ProviderId::Google, ProviderId::Ndl])
+        .with_priorities(sets);
+    let result = r.service.fetch(&req).await;
+    assert_eq!(result.profile, PriorityProfile::Foreign);
+    assert_eq!(result.candidates.len(), 2);
+    assert_eq!(title_source(&result), Some(MetaSource::Google));
 }
 
 impl Rig {

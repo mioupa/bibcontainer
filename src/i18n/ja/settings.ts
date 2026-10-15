@@ -86,6 +86,13 @@ export const settings = {
     priorities: {
       heading: "項目ごとの優先順位",
       description: "上にある取得元の値から順に使います。矢印で並べ替えます。",
+      profileLabel: "優先順位を設定する本の種類",
+      profiles: {
+        japanese: "和書（ISBN 978-4）",
+        foreign: "洋書など（それ以外）",
+      },
+      profileNote:
+        "ISBN が 978-4 で始まる本は「和書」の順、それ以外の ISBN の本は「洋書など」の順を使います。ISBN のない本は「和書」の順です。",
       fixedBarcode: "2段目（バーコード）は、本体価格と Cコードで常に最優先です",
       moveUp: (group: string, source: string) => `${group}: ${source}を上へ`,
       moveDown: (group: string, source: string) => `${group}: ${source}を下へ`,

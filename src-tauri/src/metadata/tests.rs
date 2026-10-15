@@ -365,6 +365,177 @@ fn at16_refetch_does_not_overwrite_a_manually_edited_title() {
     assert_eq!(book.field_sources["title"], "openbd");
 }
 
+/// 洋書（978-0）の Clean Code に対する Google の応答。NDL の `Clean code` と書き方が違う。
+fn google_clean_code() -> Result<HttpResponse, TransportError> {
+    google_json(
+        200,
+        json!({
+            "kind": "books#volumes",
+            "totalItems": 1,
+            "items": [{
+                "volumeInfo": {
+                    "title": "Clean Code",
+                    "subtitle": "A Handbook of Agile Software Craftsmanship",
+                    "authors": ["Robert C. Martin"],
+                    "publisher": "Pearson Education",
+                    "publishedDate": "2008-08-01",
+                    "language": "en",
+                    "pageCount": 464,
+                    "industryIdentifiers": [{ "type": "ISBN_13", "identifier": CLEAN_CODE }],
+                }
+            }]
+        })
+        .to_string(),
+    )
+}
+
+fn set_enabled(rig: &Rig, enabled: &[(ProviderId, bool)]) {
+    let mut s = rig.block(rig.state.get_provider_settings()).unwrap();
+    for (id, on) in enabled {
+        s.enabled.insert(*id, *on);
+    }
+    rig.block(rig.state.set_provider_settings(s)).unwrap();
+}
+
+/// 洋書は、書名・副書名を Google > Open Library > NDL の順で採る。NDL の書名（図書館の書き方）で登録済みの本も、
+/// 手動の再取得で Google・Open Library の値になる。手で直した項目は上書きしない。再取得はキャッシュを使わず通信する。
+#[test]
+fn refetch_of_a_registered_foreign_book_replaces_the_ndl_title_with_google_and_open_library_values()
+{
+    let rig = rig_with_google(|url| {
+        if url.contains(&format!("q=isbn:{CLEAN_CODE}")) {
+            google_clean_code()
+        } else {
+            google_json(200, r#"{"kind":"books#volumes","totalItems":0}"#)
+        }
+    });
+    // 登録のときは NDL だけが使える（Google・Open Library は無効）。書名は NDL の `Clean code`。
+    // 本は 2 冊（A は Open Library だけ、B は Google も有効にして、それぞれ再取得する）
+    set_enabled(
+        &rig,
+        &[
+            (ProviderId::Google, false),
+            (ProviderId::OpenLibrary, false),
+        ],
+    );
+    let a = register(&rig, CLEAN_CODE, None);
+    let b = register(&rig, CLEAN_CODE, None);
+    for id in [&a, &b] {
+        let book = rig.book(id);
+        assert_eq!(book.title, "Clean code");
+        assert_eq!(
+            book.subtitle.as_deref(),
+            Some("a handbook of agile software craftsmanship")
+        );
+        assert_eq!(book.field_sources["title"], "ndl");
+        assert_eq!(book.field_sources["subtitle"], "ndl");
+        // 出版社を手で直す
+        rig.update(
+            id,
+            vec![FieldChange::manual("publisher", "手で直した出版社")],
+            UpdateOptions::default(),
+        );
+        assert_eq!(rig.book(id).publisher.as_deref(), Some("手で直した出版社"));
+    }
+    assert_eq!(rig.http.count("googleapis.com"), 0);
+    assert_eq!(rig.http.count("openlibrary.org"), 0);
+
+    // A: Open Library を有効にして再取得。書名・副書名が Open Library の値になり、由来も変わる
+    set_enabled(&rig, &[(ProviderId::OpenLibrary, true)]);
+    rig.http.clear();
+    let summary = rig
+        .block(rig.state.refetch_books(vec![a.clone()], false))
+        .unwrap();
+    let it = item(&summary, &a);
+    assert_eq!(it.outcome, RefetchOutcome::Updated, "{it:?}");
+    assert!(it.written.contains(&"title".to_owned()), "{it:?}");
+    assert!(it.written.contains(&"subtitle".to_owned()), "{it:?}");
+    assert_eq!(it.skipped_manual, vec!["publisher".to_owned()], "{it:?}");
+    let book = rig.book(&a);
+    assert_eq!(book.title, "Clean Code");
+    assert_eq!(
+        book.subtitle.as_deref(),
+        Some("A Handbook of Agile Software Craftsmanship")
+    );
+    assert_eq!(book.field_sources["title"], "openlibrary");
+    assert_eq!(book.field_sources["subtitle"], "openlibrary");
+    // 手で直した出版社は、そのまま
+    assert_eq!(book.publisher.as_deref(), Some("手で直した出版社"));
+    assert_eq!(book.field_sources["publisher"], "manual");
+    assert!(book.manual_fields.contains(&"publisher".to_owned()));
+    // 登録のときに NDL の応答がキャッシュされているが、読まずに通信した（Google は無効のまま）
+    assert_eq!(rig.http.count("ndlsearch.ndl.go.jp"), 1);
+    assert_eq!(rig.http.count("openlibrary.org/search.json"), 1);
+    assert_eq!(rig.http.count("googleapis.com"), 0);
+
+    // B: Google も有効にして再取得。Google の値が Open Library より先になる
+    set_enabled(&rig, &[(ProviderId::Google, true)]);
+    rig.http.clear();
+    let summary = rig
+        .block(rig.state.refetch_books(vec![b.clone()], false))
+        .unwrap();
+    let it = item(&summary, &b);
+    assert_eq!(it.outcome, RefetchOutcome::Updated, "{it:?}");
+    assert!(it.written.contains(&"title".to_owned()), "{it:?}");
+    assert!(it.written.contains(&"subtitle".to_owned()), "{it:?}");
+    assert_eq!(it.skipped_manual, vec!["publisher".to_owned()], "{it:?}");
+    let book = rig.book(&b);
+    assert_eq!(book.title, "Clean Code");
+    assert_eq!(
+        book.subtitle.as_deref(),
+        Some("A Handbook of Agile Software Craftsmanship")
+    );
+    assert_eq!(book.field_sources["title"], "google");
+    assert_eq!(book.field_sources["subtitle"], "google");
+    assert_eq!(book.publisher.as_deref(), Some("手で直した出版社"));
+    assert_eq!(book.field_sources["publisher"], "manual");
+    // 前の回で Open Library・NDL の応答がキャッシュされているが、読まずに 3 つとも通信した
+    assert_eq!(rig.http.count("ndlsearch.ndl.go.jp"), 1);
+    assert_eq!(rig.http.count("openlibrary.org/search.json"), 1);
+    assert_eq!(rig.http.count("googleapis.com/books/v1/volumes?q=isbn"), 1);
+
+    // 上書きを選んでも、洋書の順（Google が先）のまま。手修正は外れて、出版社も Google の値になる
+    let summary = rig
+        .block(rig.state.refetch_books(vec![b.clone()], true))
+        .unwrap();
+    assert!(item(&summary, &b).skipped_manual.is_empty());
+    let book = rig.book(&b);
+    assert_eq!(book.title, "Clean Code");
+    assert_eq!(book.publisher.as_deref(), Some("Pearson Education"));
+    assert_eq!(book.field_sources["publisher"], "google");
+    assert!(!book.manual_fields.contains(&"publisher".to_owned()));
+}
+
+/// 和書は、これまでどおり（openBD > NDL）。洋書の組を変えても、和書の再取得は変わらない。
+#[test]
+fn a_japanese_book_keeps_the_japanese_order_and_a_foreign_only_change_does_not_affect_it() {
+    let rig = Rig::new();
+    let mut s = rig.block(rig.state.get_provider_settings()).unwrap();
+    s.priorities
+        .foreign
+        .set(MetaGroup::Title, vec![MetaSource::Ndl, MetaSource::Openbd]);
+    rig.block(rig.state.set_provider_settings(s)).unwrap();
+    let id = register(&rig, ONIGIRI, None);
+    assert_eq!(rig.book(&id).field_sources["title"], "openbd");
+    rig.block(rig.state.refetch_books(vec![id.clone()], false))
+        .unwrap();
+    let book = rig.book(&id);
+    assert_eq!(book.title, "おにぎりレシピ101");
+    assert_eq!(book.field_sources["title"], "openbd");
+
+    // 和書の組を変えると和書に効く
+    let mut s = rig.block(rig.state.get_provider_settings()).unwrap();
+    s.priorities
+        .japanese
+        .set(MetaGroup::Title, vec![MetaSource::Ndl, MetaSource::Openbd]);
+    rig.block(rig.state.set_provider_settings(s)).unwrap();
+    rig.block(rig.state.refetch_books(vec![id.clone()], false))
+        .unwrap();
+    let book = rig.book(&id);
+    assert_eq!(book.field_sources["subtitle"], "ndl");
+    assert_eq!(book.subtitle.as_deref(), Some("EVERYDAY ONIGIRI"));
+}
+
 #[test]
 fn refetch_keeps_second_tier_values_but_replaces_other_provider_values() {
     let rig = Rig::new();
@@ -824,6 +995,7 @@ fn settings_change_which_providers_are_used_and_the_priorities_and_the_user_agen
     // NDL を先にし、openBD を無効にする。連絡先も変える
     s.enabled.insert(ProviderId::Openbd, false);
     s.priorities
+        .japanese
         .set(MetaGroup::Title, vec![MetaSource::Ndl, MetaSource::Openbd]);
     s.contact_url = "https://example.org/contact".into();
     let saved = rig.block(rig.state.set_provider_settings(s)).unwrap();

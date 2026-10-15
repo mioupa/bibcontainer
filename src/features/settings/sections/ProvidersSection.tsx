@@ -4,20 +4,25 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownIcon, ArrowUpIcon, PlugZapIcon } from "lucide-react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
+import type { MetaGroup } from "@/bindings/MetaGroup";
+import type { MetaSource } from "@/bindings/MetaSource";
+import type { PriorityProfile } from "@/bindings/PriorityProfile";
 import type { ProviderSettings } from "@/bindings/ProviderSettings";
 import type { ProviderStatus } from "@/bindings/ProviderStatus";
 import type { ProviderTestResult } from "@/bindings/ProviderTestResult";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Group } from "@/features/settings/fields";
 import { settingsKeys, useProviderSettings } from "@/features/settings/hooks";
 import {
   META_GROUPS,
+  PRIORITY_PROFILES,
   isFixedSource,
   moveSource,
   orderOf,
-  withGroupOrder,
+  withProfileGroupOrder,
 } from "@/features/settings/priorities";
 import { type TestTone, describeTestResult } from "@/features/settings/testResult";
 import { ja } from "@/i18n/ja";
@@ -233,83 +238,102 @@ function PrioritiesGroup({
   onChange: (priorities: ProviderSettings["priorities"]) => void;
 }) {
   const p = ja.settings.providers;
+  // 見ている組（和書・洋書など）。覚えておくのはこの画面を開いている間だけ
+  const [profile, setProfile] = useState<PriorityProfile>("japanese");
   return (
     <Group title={p.priorities.heading} description={p.priorities.description}>
-      <ul className="flex flex-col divide-y">
-        {META_GROUPS.map((group) => {
-          const order = orderOf(settings.priorities, group);
-          const groupName = p.groups[group];
-          return (
-            <li
-              key={group}
-              className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 text-sm"
-              data-testid={`priority-${group}`}
-            >
-              <span className="w-40 shrink-0 font-medium">{groupName}</span>
-              <ol className="flex flex-1 flex-wrap items-center gap-2">
-                {order.map((source, index) => {
-                  const name = p.sources[source];
-                  const fixed = isFixedSource(source);
-                  return (
-                    <li
-                      key={source}
-                      className={cn(
-                        "flex items-center gap-0.5 rounded-md border py-0.5 pr-0.5 pl-2",
-                        fixed && "bg-muted text-muted-foreground",
-                      )}
-                    >
-                      <span className="mr-1 text-xs text-muted-foreground tabular-nums">
-                        {index + 1}
-                      </span>
-                      {name}
-                      {!fixed && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label={p.priorities.moveUp(groupName, name)}
-                            disabled={index === 0 || isFixedSource(order[index - 1] ?? source)}
-                            onClick={() =>
-                              onChange(
-                                withGroupOrder(
-                                  settings.priorities,
-                                  group,
-                                  moveSource(order, index, -1),
-                                ),
-                              )
-                            }
-                          >
-                            <ArrowUpIcon />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label={p.priorities.moveDown(groupName, name)}
-                            disabled={index === order.length - 1}
-                            onClick={() =>
-                              onChange(
-                                withGroupOrder(
-                                  settings.priorities,
-                                  group,
-                                  moveSource(order, index, 1),
-                                ),
-                              )
-                            }
-                          >
-                            <ArrowDownIcon />
-                          </Button>
-                        </>
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            </li>
-          );
-        })}
-      </ul>
+      <Tabs value={profile} onValueChange={(value) => setProfile(value as PriorityProfile)}>
+        <TabsList aria-label={p.priorities.profileLabel}>
+          {PRIORITY_PROFILES.map((id) => (
+            <TabsTrigger key={id} value={id}>
+              {p.priorities.profiles[id]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <p className="text-xs text-muted-foreground">{p.priorities.profileNote}</p>
+        {PRIORITY_PROFILES.map((id) => (
+          <TabsContent key={id} value={id}>
+            <PriorityList
+              priorities={settings.priorities[id]}
+              onReorder={(group, order) =>
+                onChange(withProfileGroupOrder(settings.priorities, id, group, order))
+              }
+            />
+          </TabsContent>
+        ))}
+      </Tabs>
       <p className="text-xs text-muted-foreground">{p.priorities.fixedBarcode}</p>
     </Group>
+  );
+}
+
+/** 1 つの組（和書か洋書など）の、項目の行ごとの優先順位。矢印で並べ替える。 */
+function PriorityList({
+  priorities,
+  onReorder,
+}: {
+  priorities: ProviderSettings["priorities"][PriorityProfile];
+  onReorder: (group: MetaGroup, order: MetaSource[]) => void;
+}) {
+  const p = ja.settings.providers;
+  return (
+    <ul className="flex flex-col divide-y">
+      {META_GROUPS.map((group) => {
+        const order = orderOf(priorities, group);
+        const groupName = p.groups[group];
+        return (
+          <li
+            key={group}
+            className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 text-sm"
+            data-testid={`priority-${group}`}
+          >
+            <span className="w-40 shrink-0 font-medium">{groupName}</span>
+            <ol className="flex flex-1 flex-wrap items-center gap-2">
+              {order.map((source, index) => {
+                const name = p.sources[source];
+                const fixed = isFixedSource(source);
+                return (
+                  <li
+                    key={source}
+                    className={cn(
+                      "flex items-center gap-0.5 rounded-md border py-0.5 pr-0.5 pl-2",
+                      fixed && "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    <span className="mr-1 text-xs text-muted-foreground tabular-nums">
+                      {index + 1}
+                    </span>
+                    {name}
+                    {!fixed && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label={p.priorities.moveUp(groupName, name)}
+                          disabled={index === 0 || isFixedSource(order[index - 1] ?? source)}
+                          onClick={() => onReorder(group, moveSource(order, index, -1))}
+                        >
+                          <ArrowUpIcon />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label={p.priorities.moveDown(groupName, name)}
+                          disabled={index === order.length - 1}
+                          onClick={() => onReorder(group, moveSource(order, index, 1))}
+                        >
+                          <ArrowDownIcon />
+                        </Button>
+                      </>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

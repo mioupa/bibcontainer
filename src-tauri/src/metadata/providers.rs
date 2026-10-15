@@ -220,6 +220,7 @@ impl MetadataState {
         for isbn in test_isbns(id) {
             let req = bibcontainer_metadata::FetchRequest::new(isbn)
                 .with_enabled(vec![id])
+                .with_priorities(active.settings.priorities.clone())
                 .force_refresh();
             let result = active.service.fetch(&req).await;
             let outcome = result

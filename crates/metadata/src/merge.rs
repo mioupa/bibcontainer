@@ -1,6 +1,7 @@
 //! 取得元ごとの候補の統合（FR-META-04／05）。
 //!
 //! 項目ごとに、優先順位（`MetaPriorities`）の順に値のある取得元を探し、最初のものを採用する。
+//! 優先順位は、ISBN の区分（和書・洋書など。`PriorityProfile`）ごとに 1 組ずつ持つ（`MetaPrioritySets`）。
 //! 採用しなかった取得元の値は「他の取得元の値」として残し、編集フォームで選び直せるようにする。
 //!
 //! 規則:
@@ -16,12 +17,42 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::isbn::to_isbn13;
 use crate::types::{
     Candidate, CandidateAuthor, CandidateCover, MetaField, MetaGroup, MetaSecondTier, MetaSource,
     MetaValue,
 };
 
-/// 項目の行（`MetaGroup`）ごとの優先順位。
+/// 優先順位の組を選ぶ区分。ISBN の登録グループ記号で決める（`for_isbn`）。
+///
+/// - `Japanese`（和書）: ISBN-13 が `9784` で始まるもの（ISBN-10 は `4` で始まるもの）。ISBN がない本・読めない ISBN も、こちら。
+/// - `Foreign`（洋書など）: それ以外のすべての ISBN（978-0・978-1・978-3・979-…）。
+///
+/// 洋書は、NDL の書名が図書館の書誌の書き方（`Clean code`、副題が小文字）で、内容紹介も書影もないため、
+/// Google・Open Library を先にした別の既定の順を持つ。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum PriorityProfile {
+    #[default]
+    Japanese,
+    Foreign,
+}
+
+impl PriorityProfile {
+    pub const ALL: [PriorityProfile; 2] = [PriorityProfile::Japanese, PriorityProfile::Foreign];
+
+    /// ISBN から区分を決める。ハイフン・全角・ISBN-10 は、ISBN-13 にそろえて見る。
+    /// `None`・ISBN として読めない文字列は `Japanese`。
+    pub fn for_isbn(isbn: Option<&str>) -> PriorityProfile {
+        match isbn.and_then(to_isbn13) {
+            Some(isbn13) if !isbn13.starts_with("9784") => PriorityProfile::Foreign,
+            _ => PriorityProfile::Japanese,
+        }
+    }
+}
+
+/// 項目の行（`MetaGroup`）ごとの優先順位（1 つの区分の分）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -30,46 +61,72 @@ pub struct MetaPriorities {
 }
 
 /// 既定の優先順位（FR-META-04 の表。楽天・Amazon は未実装なので除く）。Open Library は、取れる項目の行の最後に置く。
-fn default_order(group: MetaGroup) -> Vec<MetaSource> {
+/// 洋書の区分は、書名・副書名・著者・出版社・言語・発行日・内容紹介・書影で、Google > Open Library を先にし、
+/// シリーズ・巻次は NDL を先にする（ほかの行は和書と同じ）。
+fn default_order(profile: PriorityProfile, group: MetaGroup) -> Vec<MetaSource> {
     use MetaSource::{Barcode, Google, Ndl, OpenLibrary, Openbd};
-    match group {
-        MetaGroup::Title | MetaGroup::Authors | MetaGroup::Publisher | MetaGroup::Language => {
+    match (profile, group) {
+        (PriorityProfile::Foreign, MetaGroup::Series) => vec![Ndl, Openbd],
+        (
+            PriorityProfile::Foreign,
+            MetaGroup::Title
+            | MetaGroup::Authors
+            | MetaGroup::Publisher
+            | MetaGroup::Language
+            | MetaGroup::PublishedOn,
+        ) => vec![Google, OpenLibrary, Ndl, Openbd],
+        (PriorityProfile::Foreign, MetaGroup::Description | MetaGroup::Cover) => {
+            vec![Google, OpenLibrary, Openbd]
+        }
+        (_, MetaGroup::Title | MetaGroup::Authors | MetaGroup::Publisher | MetaGroup::Language) => {
             vec![Openbd, Ndl, Google, OpenLibrary]
         }
-        MetaGroup::TitleKana => vec![Ndl],
-        MetaGroup::PublishedOn => vec![Openbd, Ndl, Google, OpenLibrary],
-        MetaGroup::ListPrice => vec![Barcode, Openbd, Ndl],
-        MetaGroup::RefPriceIncl => vec![Openbd, Ndl],
-        MetaGroup::CCode => vec![Barcode, Openbd],
-        MetaGroup::Ndc => vec![Ndl],
-        MetaGroup::PagesAndSize => vec![Ndl, Openbd, Google, OpenLibrary],
-        MetaGroup::Series => vec![Openbd, Ndl],
-        MetaGroup::Description => vec![Openbd, Google, OpenLibrary],
-        MetaGroup::Cover => vec![Openbd, Google, OpenLibrary],
+        (_, MetaGroup::TitleKana) => vec![Ndl],
+        (_, MetaGroup::PublishedOn) => vec![Openbd, Ndl, Google, OpenLibrary],
+        (_, MetaGroup::ListPrice) => vec![Barcode, Openbd, Ndl],
+        (_, MetaGroup::RefPriceIncl) => vec![Openbd, Ndl],
+        (_, MetaGroup::CCode) => vec![Barcode, Openbd],
+        (_, MetaGroup::Ndc) => vec![Ndl],
+        (_, MetaGroup::PagesAndSize) => vec![Ndl, Openbd, Google, OpenLibrary],
+        (_, MetaGroup::Series) => vec![Openbd, Ndl],
+        (_, MetaGroup::Description) => vec![Openbd, Google, OpenLibrary],
+        (_, MetaGroup::Cover) => vec![Openbd, Google, OpenLibrary],
     }
 }
 
 impl Default for MetaPriorities {
+    /// 和書の区分の既定。
     fn default() -> Self {
-        MetaPriorities {
-            groups: MetaGroup::ALL
-                .into_iter()
-                .map(|g| (g, default_order(g)))
-                .collect(),
-        }
+        MetaPriorities::default_for(PriorityProfile::Japanese)
     }
 }
 
 impl MetaPriorities {
+    /// 区分ごとの既定の順。
+    pub fn default_for(profile: PriorityProfile) -> Self {
+        MetaPriorities {
+            groups: MetaGroup::ALL
+                .into_iter()
+                .map(|g| (g, default_order(profile, g)))
+                .collect(),
+        }
+    }
+
     /// 実際に使う順。設定の順（重複は除く）に、設定にない既定の取得元を末尾に足したもの。
+    /// 足す取得元は和書の区分の既定から選ぶ。洋書の区分は `order_in` を使う。
     pub fn order(&self, group: MetaGroup) -> Vec<MetaSource> {
+        self.order_in(PriorityProfile::Japanese, group)
+    }
+
+    /// `order` と同じで、足す取得元を `profile` の既定から選ぶ。
+    pub fn order_in(&self, profile: PriorityProfile, group: MetaGroup) -> Vec<MetaSource> {
         let mut order: Vec<MetaSource> = Vec::new();
         for s in self.groups.get(&group).into_iter().flatten() {
             if !order.contains(s) {
                 order.push(*s);
             }
         }
-        for s in default_order(group) {
+        for s in default_order(profile, group) {
             if !order.contains(&s) {
                 order.push(s);
             }
@@ -77,9 +134,68 @@ impl MetaPriorities {
         order
     }
 
+    /// 全部の行を `order_in(profile, ..)` にそろえたもの（欠けた行は既定、重複は除く、足りない取得元は末尾）。
+    pub fn normalized(&self, profile: PriorityProfile) -> Self {
+        MetaPriorities {
+            groups: MetaGroup::ALL
+                .into_iter()
+                .map(|g| (g, self.order_in(profile, g)))
+                .collect(),
+        }
+    }
+
     /// 1 つの行の順位を差し替える。
     pub fn set(&mut self, group: MetaGroup, order: Vec<MetaSource>) {
         self.groups.insert(group, order);
+    }
+}
+
+/// 区分（`PriorityProfile`）ごとの優先順位。設定・取得の依頼はこの形で持ち、統合のときに ISBN で選ぶ。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct MetaPrioritySets {
+    /// 和書（ISBN 978-4。ISBN がない本も）
+    pub japanese: MetaPriorities,
+    /// 洋書など（それ以外の ISBN）
+    pub foreign: MetaPriorities,
+}
+
+impl Default for MetaPrioritySets {
+    fn default() -> Self {
+        MetaPrioritySets {
+            japanese: MetaPriorities::default_for(PriorityProfile::Japanese),
+            foreign: MetaPriorities::default_for(PriorityProfile::Foreign),
+        }
+    }
+}
+
+impl MetaPrioritySets {
+    pub fn for_profile(&self, profile: PriorityProfile) -> &MetaPriorities {
+        match profile {
+            PriorityProfile::Japanese => &self.japanese,
+            PriorityProfile::Foreign => &self.foreign,
+        }
+    }
+
+    pub fn for_profile_mut(&mut self, profile: PriorityProfile) -> &mut MetaPriorities {
+        match profile {
+            PriorityProfile::Japanese => &mut self.japanese,
+            PriorityProfile::Foreign => &mut self.foreign,
+        }
+    }
+
+    /// ISBN に合う区分の優先順位（`PriorityProfile::for_isbn`）。
+    pub fn for_isbn(&self, isbn: Option<&str>) -> &MetaPriorities {
+        self.for_profile(PriorityProfile::for_isbn(isbn))
+    }
+
+    /// 両方の区分を、それぞれの既定でそろえたもの（`MetaPriorities::normalized`）。
+    pub fn normalized(&self) -> Self {
+        MetaPrioritySets {
+            japanese: self.japanese.normalized(PriorityProfile::Japanese),
+            foreign: self.foreign.normalized(PriorityProfile::Foreign),
+        }
     }
 }
 

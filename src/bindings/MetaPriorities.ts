@@ -3,6 +3,6 @@ import type { MetaGroup } from "./MetaGroup";
 import type { MetaSource } from "./MetaSource";
 
 /**
- * 項目の行（`MetaGroup`）ごとの優先順位。
+ * 項目の行（`MetaGroup`）ごとの優先順位（1 つの区分の分）。
  */
 export type MetaPriorities = { groups: { [key in MetaGroup]?: Array<MetaSource> }, };

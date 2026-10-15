@@ -2,7 +2,11 @@
 
 mod common;
 
-use bibcontainer_metadata::merge::{MetaPick, MetaPriorities, merge};
+use PriorityProfile::{Foreign, Japanese};
+use bibcontainer_metadata::MetaMerged;
+use bibcontainer_metadata::merge::{
+    MetaPick, MetaPriorities, MetaPrioritySets, PriorityProfile, merge,
+};
 use bibcontainer_metadata::provider::{Provider, RawResponse};
 use bibcontainer_metadata::providers::{GoogleBooks, Ndl, OpenBd, OpenLibrary};
 use bibcontainer_metadata::types::*;
@@ -590,4 +594,458 @@ fn open_library_is_appended_to_priorities_that_were_saved_without_it() {
         ]
     );
     assert_eq!(MetaSource::OpenLibrary.as_str(), "openlibrary");
+}
+
+// ---------------------------------------------------------------------------
+// 区分（和書・洋書など）ごとの優先順位
+// ---------------------------------------------------------------------------
+
+/// 978-4（和書）の ISBN と、978-0（洋書）の ISBN。チェックデジットは合っている。
+const JP_ISBN: &str = "9784003101117";
+const US_ISBN: &str = "9780132350884";
+
+#[test]
+fn the_profile_follows_the_isbn_registration_group() {
+    // 和書: 978-4（ISBN-10 は 4 で始まる）。ハイフン・全角・空白があっても同じ
+    for isbn in [
+        "9784003101117",
+        "978-4-00-310111-7",
+        "４-００-３１０１１１-１",
+        "4003101111",
+        " 9784003101117 ",
+        "９７８４００３１０１１１７",
+    ] {
+        assert_eq!(PriorityProfile::for_isbn(Some(isbn)), Japanese, "{isbn}");
+    }
+    // 洋書など: それ以外のすべての ISBN（978-0・978-1・978-3・979-…）
+    for isbn in [
+        "9780132350884",
+        "0-13-235088-2",
+        "0132350882",
+        "9781493934362",
+        "9783161484100",
+        "9791032300060",
+        "979-10-323-0006-0",
+    ] {
+        assert_eq!(PriorityProfile::for_isbn(Some(isbn)), Foreign, "{isbn}");
+    }
+    // 読めない・ない: 和書
+    for isbn in [
+        None,
+        Some(""),
+        Some("abc"),
+        Some("9784003101118"), // チェックデジットの不一致
+        Some("97800000000"),
+        Some("9780132350885"), // 洋書の形でもチェックデジットが合わなければ読めない
+    ] {
+        assert_eq!(PriorityProfile::for_isbn(isbn), Japanese, "{isbn:?}");
+    }
+    assert_eq!(PriorityProfile::default(), Japanese);
+    // IPC の名前
+    assert_eq!(serde_json::to_string(&Japanese).unwrap(), "\"japanese\"");
+    assert_eq!(serde_json::to_string(&Foreign).unwrap(), "\"foreign\"");
+}
+
+#[test]
+fn the_japanese_defaults_are_the_orders_before_profiles_existed() {
+    use MetaSource::{Barcode, Google, Ndl, OpenLibrary, Openbd};
+    let j = MetaPriorities::default_for(Japanese);
+    assert_eq!(j, MetaPriorities::default());
+    assert_eq!(MetaPrioritySets::default().japanese, j);
+    let order = |g| j.order(g);
+    for g in [
+        MetaGroup::Title,
+        MetaGroup::Authors,
+        MetaGroup::Publisher,
+        MetaGroup::Language,
+        MetaGroup::PublishedOn,
+    ] {
+        assert_eq!(order(g), vec![Openbd, Ndl, Google, OpenLibrary], "{g:?}");
+    }
+    assert_eq!(order(MetaGroup::TitleKana), vec![Ndl]);
+    assert_eq!(order(MetaGroup::ListPrice), vec![Barcode, Openbd, Ndl]);
+    assert_eq!(order(MetaGroup::RefPriceIncl), vec![Openbd, Ndl]);
+    assert_eq!(order(MetaGroup::CCode), vec![Barcode, Openbd]);
+    assert_eq!(order(MetaGroup::Ndc), vec![Ndl]);
+    assert_eq!(
+        order(MetaGroup::PagesAndSize),
+        vec![Ndl, Openbd, Google, OpenLibrary]
+    );
+    assert_eq!(order(MetaGroup::Series), vec![Openbd, Ndl]);
+    assert_eq!(
+        order(MetaGroup::Description),
+        vec![Openbd, Google, OpenLibrary]
+    );
+    assert_eq!(order(MetaGroup::Cover), vec![Openbd, Google, OpenLibrary]);
+}
+
+#[test]
+fn the_foreign_defaults_put_google_and_open_library_first_in_the_rows_that_matter() {
+    use MetaSource::{Google, Ndl, OpenLibrary, Openbd};
+    let jp = MetaPriorities::default_for(Japanese);
+    let f = MetaPriorities::default_for(Foreign);
+    assert_eq!(MetaPrioritySets::default().foreign, f);
+    let changed = [
+        MetaGroup::Title,
+        MetaGroup::Authors,
+        MetaGroup::Publisher,
+        MetaGroup::Language,
+        MetaGroup::PublishedOn,
+        MetaGroup::Description,
+        MetaGroup::Cover,
+        MetaGroup::Series,
+    ];
+    for g in MetaGroup::ALL {
+        if changed.contains(&g) {
+            continue;
+        }
+        assert_eq!(f.order(g), jp.order(g), "{g:?} は和書と同じ");
+    }
+    for g in [
+        MetaGroup::Title,
+        MetaGroup::Authors,
+        MetaGroup::Publisher,
+        MetaGroup::Language,
+        MetaGroup::PublishedOn,
+    ] {
+        assert_eq!(
+            f.order_in(Foreign, g),
+            vec![Google, OpenLibrary, Ndl, Openbd],
+            "{g:?}"
+        );
+    }
+    for g in [MetaGroup::Description, MetaGroup::Cover] {
+        assert_eq!(
+            f.order_in(Foreign, g),
+            vec![Google, OpenLibrary, Openbd],
+            "{g:?}"
+        );
+    }
+    // シリーズ・巻次は、洋書では NDL を先にする（Google・Open Library はシリーズを返さない）
+    assert_eq!(f.order_in(Foreign, MetaGroup::Series), vec![Ndl, Openbd]);
+    // どの行も、取得元の顔ぶれは和書と同じ（並びだけが違う）
+    for g in MetaGroup::ALL {
+        let mut a = jp.order(g);
+        let mut b = f.order_in(Foreign, g);
+        a.sort_by_key(|s| s.as_str());
+        b.sort_by_key(|s| s.as_str());
+        assert_eq!(a, b, "{g:?}");
+    }
+}
+
+/// 同じ内容の候補を、取得元ごとに値がはっきり分かる形で作る。`isbn` だけが違う。
+fn labelled_candidates(isbn: &str) -> Vec<Candidate> {
+    fn author(name: &str) -> Vec<CandidateAuthor> {
+        vec![CandidateAuthor {
+            name: name.into(),
+            kana: None,
+            role: None,
+        }]
+    }
+    fn cover(provider: ProviderId, url: &str) -> Vec<CandidateCover> {
+        vec![CandidateCover {
+            provider,
+            url: url.into(),
+        }]
+    }
+    let mut a = Candidate::empty(ProviderId::Openbd, isbn);
+    a.title = Some("T-openbd".into());
+    a.subtitle = Some("S-openbd".into());
+    a.authors = author("A-openbd");
+    a.publisher = Some("P-openbd".into());
+    a.published_on = Some("2001".into());
+    a.list_price = Some(1000);
+    a.ref_price_incl = Some(1100);
+    a.c_code = Some("0077".into());
+    a.pages = Some(100);
+    a.size_text = Some("20cm".into());
+    a.language = Some("ja".into());
+    a.description = Some("D-openbd".into());
+    a.series = Some("Series-openbd".into());
+    a.volume = Some("1".into());
+    a.covers = cover(ProviderId::Openbd, "https://example.org/openbd.jpg");
+
+    let mut n = Candidate::empty(ProviderId::Ndl, isbn);
+    n.title = Some("T-ndl".into());
+    n.subtitle = Some("S-ndl".into());
+    n.title_kana = Some("ヨミ".into());
+    n.authors = author("A-ndl");
+    n.publisher = Some("P-ndl".into());
+    n.published_on = Some("2002".into());
+    n.list_price = Some(1001);
+    n.ref_price_incl = Some(1101);
+    n.ndc = Some("913.6".into());
+    n.pages = Some(101);
+    n.size_text = Some("21cm".into());
+    n.language = Some("ja".into());
+    n.series = Some("Series-ndl".into());
+    n.volume = Some("2".into());
+
+    let mut g = Candidate::empty(ProviderId::Google, isbn);
+    g.title = Some("T-google".into());
+    g.subtitle = Some("S-google".into());
+    g.authors = author("A-google");
+    g.publisher = Some("P-google".into());
+    g.published_on = Some("2003".into());
+    g.pages = Some(102);
+    g.language = Some("en".into());
+    g.description = Some("D-google".into());
+    g.covers = cover(ProviderId::Google, "https://example.org/google.jpg");
+
+    let mut o = Candidate::empty(ProviderId::OpenLibrary, isbn);
+    o.title = Some("T-ol".into());
+    o.subtitle = Some("S-ol".into());
+    o.authors = author("A-ol");
+    o.publisher = Some("P-ol".into());
+    o.published_on = Some("2004".into());
+    o.pages = Some(103);
+    o.language = Some("en-ol".into());
+    o.description = Some("D-ol".into());
+    o.covers = cover(ProviderId::OpenLibrary, "https://example.org/ol.jpg");
+
+    vec![a, n, g, o]
+}
+
+fn merge_by_isbn(
+    isbn: &str,
+    candidates: &[Candidate],
+    tier: Option<&MetaSecondTier>,
+) -> MetaMerged {
+    let sets = MetaPrioritySets::default();
+    merge(isbn, candidates, tier, sets.for_isbn(Some(isbn)))
+}
+
+#[test]
+fn the_same_candidates_pick_different_sources_for_a_japanese_and_a_foreign_isbn() {
+    let tier = MetaSecondTier {
+        c_code: Some("0098".into()),
+        list_price: Some(1234),
+    };
+    let jp = merge_by_isbn(JP_ISBN, &labelled_candidates(JP_ISBN), Some(&tier));
+    let us = merge_by_isbn(US_ISBN, &labelled_candidates(US_ISBN), Some(&tier));
+
+    // 書名・副書名・著者・出版社・発行日・言語・内容紹介・書影は、和書は openBD、洋書は Google
+    for f in [
+        MetaField::Title,
+        MetaField::Subtitle,
+        MetaField::Authors,
+        MetaField::Publisher,
+        MetaField::PublishedOn,
+        MetaField::Language,
+        MetaField::Description,
+        MetaField::Cover,
+    ] {
+        assert_eq!(jp.source(f), Some(MetaSource::Openbd), "和書 {f:?}");
+        assert_eq!(us.source(f), Some(MetaSource::Google), "洋書 {f:?}");
+    }
+    assert_eq!(jp.text(MetaField::Title), Some("T-openbd"));
+    assert_eq!(us.text(MetaField::Title), Some("T-google"));
+    assert_eq!(us.text(MetaField::Subtitle), Some("S-google"));
+    assert_eq!(us.authors()[0].name, "A-google");
+    assert_eq!(us.text(MetaField::Publisher), Some("P-google"));
+    // 洋書の他の取得元の値は、Open Library、NDL、openBD の順に候補へ残る
+    let others: Vec<MetaSource> = us
+        .choice(MetaField::Title)
+        .unwrap()
+        .others
+        .iter()
+        .map(|p| p.source)
+        .collect();
+    assert_eq!(
+        others,
+        vec![MetaSource::OpenLibrary, MetaSource::Ndl, MetaSource::Openbd]
+    );
+    // 書影は Google > Open Library > openBD の順に試す
+    let providers: Vec<ProviderId> = us.covers_in_order().iter().map(|c| c.provider).collect();
+    assert_eq!(
+        providers,
+        vec![
+            ProviderId::Google,
+            ProviderId::OpenLibrary,
+            ProviderId::Openbd
+        ]
+    );
+    let providers: Vec<ProviderId> = jp.covers_in_order().iter().map(|c| c.provider).collect();
+    assert_eq!(
+        providers,
+        vec![
+            ProviderId::Openbd,
+            ProviderId::Google,
+            ProviderId::OpenLibrary
+        ]
+    );
+
+    // ヨミ・NDC・価格・Cコード・ページ数・大きさは、区分によらず同じ取得元・同じ値
+    for f in [
+        MetaField::TitleKana,
+        MetaField::Ndc,
+        MetaField::ListPrice,
+        MetaField::RefPriceIncl,
+        MetaField::CCode,
+        MetaField::Pages,
+        MetaField::SizeText,
+    ] {
+        assert_eq!(jp.source(f), us.source(f), "{f:?}");
+        assert_eq!(jp.chosen(f), us.chosen(f), "{f:?}");
+    }
+    assert_eq!(us.source(MetaField::ListPrice), Some(MetaSource::Barcode));
+    assert_eq!(us.number(MetaField::ListPrice), Some(1234));
+    assert_eq!(us.source(MetaField::CCode), Some(MetaSource::Barcode));
+    assert_eq!(us.text(MetaField::CCode), Some("0098"));
+    assert_eq!(us.source(MetaField::Ndc), Some(MetaSource::Ndl));
+    assert_eq!(us.source(MetaField::TitleKana), Some(MetaSource::Ndl));
+    assert_eq!(us.source(MetaField::Pages), Some(MetaSource::Ndl));
+    // シリーズ・巻次は、和書は openBD、洋書は NDL
+    assert_eq!(jp.source(MetaField::Series), Some(MetaSource::Openbd));
+    assert_eq!(us.source(MetaField::Series), Some(MetaSource::Ndl));
+    assert_eq!(us.source(MetaField::RefPriceIncl), Some(MetaSource::Openbd));
+}
+
+#[test]
+fn a_foreign_book_falls_back_along_google_open_library_ndl_openbd() {
+    // Google がなければ Open Library、それもなければ NDL、最後に openBD
+    let all = labelled_candidates(US_ISBN);
+    let without = |gone: &[ProviderId]| -> Vec<Candidate> {
+        all.iter()
+            .filter(|c| !gone.contains(&c.provider))
+            .cloned()
+            .collect()
+    };
+    let title_source =
+        |cands: &[Candidate]| merge_by_isbn(US_ISBN, cands, None).source(MetaField::Title);
+    assert_eq!(
+        title_source(&without(&[ProviderId::Google])),
+        Some(MetaSource::OpenLibrary)
+    );
+    assert_eq!(
+        title_source(&without(&[ProviderId::Google, ProviderId::OpenLibrary])),
+        Some(MetaSource::Ndl)
+    );
+    assert_eq!(
+        title_source(&without(&[
+            ProviderId::Google,
+            ProviderId::OpenLibrary,
+            ProviderId::Ndl
+        ])),
+        Some(MetaSource::Openbd)
+    );
+    // 和書は、Google・Open Library があっても openBD、なければ NDL
+    let jp_all = labelled_candidates(JP_ISBN);
+    assert_eq!(
+        merge_by_isbn(JP_ISBN, &jp_all, None).source(MetaField::Title),
+        Some(MetaSource::Openbd)
+    );
+    let no_openbd: Vec<Candidate> = jp_all
+        .into_iter()
+        .filter(|c| c.provider != ProviderId::Openbd)
+        .collect();
+    assert_eq!(
+        merge_by_isbn(JP_ISBN, &no_openbd, None).source(MetaField::Title),
+        Some(MetaSource::Ndl)
+    );
+}
+
+#[test]
+fn a_book_without_an_isbn_uses_the_japanese_set() {
+    let sets = MetaPrioritySets::default();
+    assert_eq!(sets.for_isbn(None), &sets.japanese);
+    assert_eq!(sets.for_isbn(Some("読めない")), &sets.japanese);
+    assert_eq!(sets.for_isbn(Some(US_ISBN)), &sets.foreign);
+    assert_eq!(sets.for_profile(Foreign), &sets.foreign);
+}
+
+#[test]
+fn the_real_clean_code_fixtures_choose_the_google_title_for_a_foreign_isbn() {
+    // NDL の実際の応答（`Clean code`、副書名は小文字）と Open Library の実際の応答、Google は合成の volume
+    let google = {
+        let volume: serde_json::Value =
+            serde_json::from_str(&fixture("google_synthetic_volume_hjEFCAAAQBAJ.json")).unwrap();
+        let search =
+            serde_json::json!({"kind": "books#volumes", "totalItems": 1, "items": [volume]});
+        let raw = RawResponse {
+            provider: ProviderId::Google,
+            isbn13: US_ISBN.into(),
+            body: search.to_string(),
+        };
+        GoogleBooks::new(None).parse(&raw).unwrap().unwrap()
+    };
+    let cands = vec![ndl(US_ISBN), google, clean_code_open_library()];
+    let ndl_title = cands[0].title.clone();
+    assert_eq!(ndl_title.as_deref(), Some("Clean code"));
+
+    let m = merge_by_isbn(US_ISBN, &cands, None);
+    assert_eq!(m.text(MetaField::Title), Some("Clean Code"));
+    assert_eq!(
+        m.text(MetaField::Subtitle),
+        Some("A Handbook of Agile Software Craftsmanship")
+    );
+    assert_eq!(m.source(MetaField::Title), Some(MetaSource::Google));
+    assert_eq!(m.source(MetaField::Subtitle), Some(MetaSource::Google));
+    assert_eq!(m.source(MetaField::Cover), Some(MetaSource::Google));
+    // 和書の順で統合すると NDL の書名になってしまう（これまでの動き）
+    let old = merge(US_ISBN, &cands, None, &MetaPriorities::default());
+    assert_eq!(old.text(MetaField::Title), Some("Clean code"));
+    assert_eq!(old.source(MetaField::Title), Some(MetaSource::Ndl));
+}
+
+#[test]
+fn each_set_is_normalized_with_its_own_defaults() {
+    use MetaSource::{Google, Ndl, OpenLibrary, Openbd};
+    let mut sets = MetaPrioritySets::default();
+    sets.japanese.set(MetaGroup::Title, vec![Ndl]);
+    sets.foreign.set(MetaGroup::Title, vec![Ndl]);
+    sets.foreign.groups.remove(&MetaGroup::Cover);
+    sets.japanese
+        .set(MetaGroup::Authors, vec![Google, Google, Ndl]);
+    let n = sets.normalized();
+    // 足りない取得元は、その区分の既定の順で末尾に足される
+    assert_eq!(
+        n.japanese.groups[&MetaGroup::Title],
+        vec![Ndl, Openbd, Google, OpenLibrary]
+    );
+    assert_eq!(
+        n.foreign.groups[&MetaGroup::Title],
+        vec![Ndl, Google, OpenLibrary, Openbd]
+    );
+    // 行がなければ、その区分の既定
+    assert_eq!(
+        n.foreign.groups[&MetaGroup::Cover],
+        vec![Google, OpenLibrary, Openbd]
+    );
+    // 重複は除く
+    assert_eq!(
+        n.japanese.groups[&MetaGroup::Authors],
+        vec![Google, Ndl, Openbd, OpenLibrary]
+    );
+    // 全部の行がそろう。2 回かけても変わらない
+    assert_eq!(n.japanese.groups.len(), MetaGroup::ALL.len());
+    assert_eq!(n.foreign.groups.len(), MetaGroup::ALL.len());
+    assert_eq!(n.normalized(), n);
+    // 区分を取り違えない: 和書の組を洋書の既定で、洋書の組を和書の既定でそろえると別物になる
+    assert_ne!(
+        sets.japanese.normalized(Foreign).groups[&MetaGroup::Title],
+        n.japanese.groups[&MetaGroup::Title]
+    );
+}
+
+#[test]
+fn the_sets_roundtrip_through_json_in_the_shape_the_ui_sees() {
+    let mut sets = MetaPrioritySets::default();
+    sets.foreign
+        .set(MetaGroup::Title, vec![MetaSource::Ndl, MetaSource::Google]);
+    let v = serde_json::to_value(&sets).unwrap();
+    assert_eq!(
+        v["japanese"]["groups"]["title"],
+        serde_json::json!(["openbd", "ndl", "google", "openlibrary"])
+    );
+    assert_eq!(
+        v["foreign"]["groups"]["title"],
+        serde_json::json!(["ndl", "google"])
+    );
+    assert_eq!(
+        v["foreign"]["groups"]["cover"],
+        serde_json::json!(["google", "openlibrary", "openbd"])
+    );
+    let back: MetaPrioritySets = serde_json::from_value(v).unwrap();
+    assert_eq!(back, sets);
 }
