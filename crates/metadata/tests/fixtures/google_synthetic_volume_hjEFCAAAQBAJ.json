@@ -1,0 +1,35 @@
+{
+  "kind": "books#volume",
+  "id": "hjEFCAAAQBAJ",
+  "etag": "synthetic",
+  "selfLink": "https://www.googleapis.com/books/v1/volumes/hjEFCAAAQBAJ",
+  "volumeInfo": {
+    "title": "Clean Code",
+    "subtitle": "A Handbook of Agile Software Craftsmanship",
+    "authors": ["Robert C. Martin"],
+    "publisher": "Pearson Education",
+    "publishedDate": "2008-08-01",
+    "description": "Even bad code can function. But if code isn&#39;t clean, it can bring a development organization to its knees.<br><br>Noted software expert <b>Robert C. Martin</b> presents a revolutionary paradigm with <i>Clean Code</i>: <a href=\"https://example.org/clean?a=1&amp;b=2\">A Handbook of Agile Software Craftsmanship</a>.<p><b>What you will learn:</b></p><ul><li>How to tell the difference between good and bad code</li><li>How to write good code &amp; how to transform bad code into good code</li><li>How to create good names, good functions, good objects, and good classes</li></ul><p>Readers will come away from this book understanding&nbsp;&#8211; &#x201C;how to code well&#x201D;.</p>",
+    "industryIdentifiers": [
+      {"type": "ISBN_13", "identifier": "9780132350884"},
+      {"type": "ISBN_10", "identifier": "0132350882"}
+    ],
+    "readingModes": {"text": false, "image": true},
+    "pageCount": 464,
+    "printType": "BOOK",
+    "categories": ["Computers"],
+    "maturityRating": "NOT_MATURE",
+    "allowAnonLogging": true,
+    "contentVersion": "0.0.1.0.preview.1",
+    "imageLinks": {
+      "smallThumbnail": "http://books.google.com/books/publisher/content?id=hjEFCAAAQBAJ&printsec=frontcover&img=1&zoom=5&edge=curl&imgtk=SYNTHETIC&source=gbs_api",
+      "thumbnail": "http://books.google.com/books/publisher/content?id=hjEFCAAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&imgtk=SYNTHETIC&source=gbs_api"
+    },
+    "language": "en",
+    "previewLink": "http://books.google.com/books?id=hjEFCAAAQBAJ&printsec=frontcover&dq=isbn:9780132350884&hl=&cd=1&source=gbs_api",
+    "infoLink": "https://play.google.com/store/books/details?id=hjEFCAAAQBAJ&source=gbs_api",
+    "canonicalVolumeLink": "https://play.google.com/store/books/details?id=hjEFCAAAQBAJ"
+  },
+  "saleInfo": {"country": "JP", "saleability": "NOT_FOR_SALE", "isEbook": true},
+  "accessInfo": {"country": "JP", "viewability": "PARTIAL"}
+}

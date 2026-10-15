@@ -132,6 +132,14 @@ fn fixtures_handler() -> Handler {
                 std::fs::read_to_string(path).unwrap_or_else(|_| fixture("ndl_notfound.xml"));
             return response(200, "text/xml;charset=UTF-8", body);
         }
+        // Google の Dynamic Links（検索が該当なしのときの回避策）。この偽物では、どの ISBN も知らない
+        if url.contains("books?bibkeys=ISBN:") {
+            return response(
+                200,
+                "application/javascript; charset=ISO-8859-1",
+                "cb({});".to_string(),
+            );
+        }
         if let Some(q) = url.split("volumes?q=isbn:").nth(1) {
             let isbn = q.split('&').next().unwrap();
             let file = match isbn {
@@ -710,7 +718,11 @@ async fn not_found_is_cached_for_a_shorter_time() {
     assert!(r.http.urls().is_empty());
     r.clock.fetch_add(2 * 3600, Ordering::SeqCst);
     r.service.fetch(&FetchRequest::new(MISSING)).await;
-    assert_eq!(r.http.urls().len(), 4, "25 時間後は取り直す");
+    assert_eq!(
+        r.http.urls().len(),
+        5,
+        "25 時間後は取り直す（Google は、検索が該当なしなので Dynamic Links も 1 回）"
+    );
     assert_eq!(DEFAULT_NOT_FOUND_TTL, Duration::from_secs(86_400));
 }
 

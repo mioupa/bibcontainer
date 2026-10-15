@@ -1146,6 +1146,101 @@ fn test_provider_tells_an_invalid_key_from_a_quota_problem() {
     }
 }
 
+/// Google の ISBN 検索が 0 件を返し続けているとき（2026-10-01 ごろからの障害）の接続テスト。検索は 0 件、
+/// Dynamic Links（books.google.com。キーなし）が volume ID を返し、`volumes/<ID>` で書誌を取る。
+/// `dynamic_links`・`volume` で、その 2 つの応答を決める。
+fn rig_with_broken_google_search(
+    dynamic_links: impl Fn(&str) -> Result<HttpResponse, TransportError> + Send + Sync + 'static,
+    volume: impl Fn(&str) -> Result<HttpResponse, TransportError> + Send + Sync + 'static,
+) -> Rig {
+    let rig = Rig::new();
+    rig.block(rig.state.set_api_key(ProviderId::Google, "AIza-key"))
+        .unwrap();
+    let base = online_handler();
+    rig.http.set_handler(Box::new(move |url| {
+        if url.contains("books?bibkeys=") {
+            dynamic_links(url)
+        } else if url.contains("googleapis.com/books/v1/volumes/") {
+            volume(url)
+        } else if url.contains("googleapis.com") {
+            google_json(200, fixture("google_synthetic_notfound.json"))
+        } else {
+            base(url)
+        }
+    }));
+    rig
+}
+
+fn kokoro_dynamic_links(_: &str) -> Result<HttpResponse, TransportError> {
+    response(
+        200,
+        "application/javascript; charset=ISO-8859-1",
+        fixture("google_dynamiclinks_9784003101117.jsonp").into_bytes(),
+    )
+}
+
+#[test]
+fn test_provider_finds_a_book_through_dynamic_links_while_isbn_search_is_broken() {
+    let rig = rig_with_broken_google_search(kokoro_dynamic_links, |_| {
+        google_json(200, fixture("google_synthetic_volume_fz5TPAAACAAJ.json"))
+    });
+    let r = rig
+        .block(rig.state.test_provider(ProviderId::Google))
+        .unwrap();
+    assert_eq!(r.outcome, ProviderOutcome::Found);
+    assert_eq!(r.verdict, ProviderTestVerdict::Found);
+    assert_eq!(r.isbn13, KOKORO);
+    assert_eq!(r.tried, vec![KOKORO]);
+    assert_eq!(r.title.as_deref(), Some("こころ"));
+    assert!(r.has_cover);
+    // 検索 1 回 + volume 1 回（googleapis.com）と、Dynamic Links 1 回（books.google.com）
+    assert_eq!(rig.http.count("googleapis.com"), 2);
+    assert_eq!(rig.http.count("books.google.com/books?bibkeys="), 1);
+    // API キーは、books.google.com には送らない
+    for url in rig.http.urls() {
+        if url.contains("books.google.com") {
+            assert!(!url.contains("key="), "{url}");
+            assert!(!url.contains("AIza-key"), "{url}");
+        } else if url.contains("googleapis.com") {
+            assert!(url.contains("key=AIza-key"), "{url}");
+        }
+    }
+}
+
+#[test]
+fn test_provider_reads_errors_of_the_dynamic_links_fallback_for_what_they_are() {
+    // volume の取得が、キーが無効だと返した: 検索のエラーと同じく「キーが無効」
+    let invalid_key = r#"{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID"}]}}"#;
+    let rig =
+        rig_with_broken_google_search(kokoro_dynamic_links, move |_| google_json(400, invalid_key));
+    let r = rig
+        .block(rig.state.test_provider(ProviderId::Google))
+        .unwrap();
+    assert!(matches!(
+        &r.outcome,
+        ProviderOutcome::HttpError { status: 400, .. }
+    ));
+    assert_eq!(r.verdict, ProviderTestVerdict::InvalidKey);
+    assert_eq!(r.tried, vec![KOKORO], "エラーなら、次の本は試さない");
+    assert_eq!(rig.http.count("googleapis.com"), 2);
+
+    // Dynamic Links（キーを使わない）の 403 は、キーのせいにしない
+    let rig = rig_with_broken_google_search(
+        |_| response(403, "text/html", b"<html>blocked</html>".to_vec()),
+        |_| panic!("volume は取りにいかない"),
+    );
+    let r = rig
+        .block(rig.state.test_provider(ProviderId::Google))
+        .unwrap();
+    assert!(matches!(
+        &r.outcome,
+        ProviderOutcome::HttpError { status: 403, .. }
+    ));
+    assert_eq!(r.verdict, ProviderTestVerdict::HttpError);
+    assert_eq!(r.tried, vec![KOKORO]);
+    assert_eq!(rig.http.count("googleapis.com"), 1);
+}
+
 #[test]
 fn test_provider_gives_the_http_status_as_is_for_providers_without_a_key() {
     // 401・403 を「API キーが無効」と読むのは、キーを使う取得元（Google）だけ

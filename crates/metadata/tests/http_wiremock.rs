@@ -341,6 +341,95 @@ async fn google_key_goes_in_the_query_when_given() {
     );
 }
 
+/// Google の検索が 0 件のときの回避策（Dynamic Links → volume）を、本物の HTTP 層で通す。
+/// API キーは検索と volume（API のホスト）にだけ付き、Dynamic Links のホスト（books.google.com）には行かない。
+#[tokio::test]
+async fn google_fallback_sends_the_key_to_the_api_host_only() {
+    const CLEAN_CODE: &str = "9780132350884";
+    const KEY: &str = "TOP-SECRET-KEY";
+    let api = MockServer::start().await;
+    let links = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/books/v1/volumes"))
+        .and(query_param("q", format!("isbn:{CLEAN_CODE}")))
+        .and(query_param("key", KEY))
+        .respond_with(json_body("google_synthetic_notfound.json"))
+        .mount(&api)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/books/v1/volumes/hjEFCAAAQBAJ"))
+        .and(query_param("key", KEY))
+        .respond_with(json_body("google_synthetic_volume_hjEFCAAAQBAJ.json"))
+        .mount(&api)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/books"))
+        .and(query_param("bibkeys", format!("ISBN:{CLEAN_CODE}")))
+        .and(query_param("jscmd", "viewapi"))
+        .and(query_param("callback", "cb"))
+        .and(query_param_is_missing("key"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(
+            fixture("google_dynamiclinks_9780132350884.jsonp"),
+            "application/javascript; charset=ISO-8859-1",
+        ))
+        .mount(&links)
+        .await;
+
+    let service = MetadataService::new(
+        vec![Arc::new(GoogleBooks::with_base_urls(
+            &api.uri(),
+            &links.uri(),
+            Some(KEY.to_string()),
+        ))],
+        Arc::new(transport(0)),
+    );
+    let result = service
+        .fetch(&FetchRequest::new(CLEAN_CODE).with_enabled(vec![ProviderId::Google]))
+        .await;
+    assert_eq!(
+        result.reports[0].outcome,
+        ProviderOutcome::Found,
+        "{:?}",
+        result.reports
+    );
+    assert_eq!(result.merged.text(MetaField::Title), Some("Clean Code"));
+    let covers = result.merged.covers_in_order();
+    assert_eq!(covers.len(), 2);
+    assert!(
+        covers[0].url.ends_with("&img=1&zoom=0"),
+        "{}",
+        covers[0].url
+    );
+    assert!(
+        covers[1].url.ends_with("&img=1&zoom=1"),
+        "{}",
+        covers[1].url
+    );
+
+    let api_requests = api.received_requests().await.unwrap();
+    assert_eq!(api_requests.len(), 2, "検索と volume");
+    for r in &api_requests {
+        assert!(
+            r.url.query_pairs().any(|(k, v)| k == "key" && v == KEY),
+            "{}",
+            r.url
+        );
+    }
+    let links_requests = links.received_requests().await.unwrap();
+    assert_eq!(links_requests.len(), 1, "Dynamic Links は 1 回");
+    for r in &links_requests {
+        assert!(r.url.query_pairs().all(|(k, _)| k != "key"), "{}", r.url);
+        assert!(!r.url.as_str().contains(KEY), "{}", r.url);
+        assert!(r.headers.get("authorization").is_none());
+        assert!(r.headers.get("x-goog-api-key").is_none());
+        assert!(r.headers.get("referer").is_none());
+    }
+    // どの通信にも、設定した User-Agent が付く
+    for r in api_requests.iter().chain(links_requests.iter()) {
+        assert_eq!(r.headers.get("user-agent").unwrap(), UA);
+    }
+}
+
 #[tokio::test]
 async fn openbd_batch_over_http_splits_by_100() {
     let server = MockServer::start().await;

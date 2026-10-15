@@ -33,26 +33,153 @@ pub fn clean_description(s: &str) -> Option<String> {
     (!t.is_empty()).then(|| t.to_string())
 }
 
-static BLOCK_BREAK: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)<br\s*/?>|</p>|</div>|</li>|</h[1-6]>").expect("正規表現"));
-static HTML_TAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^>]*>").expect("正規表現"));
+/// HTML のコメントとタグ（`<…>`）。
+static HTML_MARKUP: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?s)<!--.*?-->|<[^>]*>").expect("正規表現"));
+/// タグの名前（`<`、`</` のあと）。
+static HTML_TAG_NAME: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^<\s*/?\s*([A-Za-z][A-Za-z0-9]*)").expect("正規表現"));
+/// 文字参照（`&amp;`、`&#39;`、`&#x3042;`）。
+static HTML_ENTITY: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,15});")
+        .expect("正規表現")
+});
 static BLANK_LINES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n{3,}").expect("正規表現"));
 
-/// 内容紹介に含まれる簡単な HTML（`<br>`、`<b>`、`&amp;`）を取り除く（Google Books・Open Library）。
-/// 段落を区切るタグは改行にし、そのほかのタグは除く。3 つ以上続く改行は 2 つにする。
+/// タグが作る改行。`Line` は行を改める（連続しても 1 回）、`Paragraph` は空行を 1 つ入れる（連続しても 1 つ）、
+/// `Br` は `<br>` 1 つにつき 1 回の改行（`<br><br>` は空行）。
+#[derive(Clone, Copy)]
+enum HtmlBreak {
+    Br,
+    Line,
+    Paragraph,
+}
+
+fn html_break(tag: &str) -> Option<HtmlBreak> {
+    let name = HTML_TAG_NAME.captures(tag)?[1].to_ascii_lowercase();
+    match name.as_str() {
+        "br" => Some(HtmlBreak::Br),
+        "p" | "div" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "blockquote" => {
+            Some(HtmlBreak::Paragraph)
+        }
+        "li" | "ul" | "ol" | "dl" | "dt" | "dd" | "tr" | "hr" => Some(HtmlBreak::Line),
+        _ => None,
+    }
+}
+
+/// タグを除いた本文と、タグが作る改行を組み立てる。改行はすぐに入れず、次の文字が来たときに入れる
+/// （本文の前後と、改行どうしのあいだに、余計な空行ができないように）。
+struct HtmlText {
+    out: String,
+    /// 次の文字の前に入れる改行の数
+    pending: usize,
+}
+
+impl HtmlText {
+    fn text(&mut self, t: &str) {
+        // 改行の直後（と本文の先頭）の空白は、HTML では意味がないので捨てる。ふつうの文字のあいだの空白は残す
+        let t = if self.pending > 0 || self.out.is_empty() {
+            t.trim_start_matches(|c: char| c.is_ascii_whitespace())
+        } else {
+            t
+        };
+        if t.is_empty() {
+            return;
+        }
+        if !self.out.is_empty() {
+            self.out.push_str(&"\n".repeat(self.pending.min(2)));
+        }
+        self.pending = 0;
+        self.out.push_str(t);
+    }
+
+    fn brk(&mut self, kind: HtmlBreak) {
+        // 改行の前の空白も意味がない
+        let kept = self
+            .out
+            .trim_end_matches(|c: char| c.is_ascii_whitespace())
+            .len();
+        self.out.truncate(kept);
+        self.pending = match kind {
+            HtmlBreak::Br => self.pending + 1,
+            HtmlBreak::Line => self.pending.max(1),
+            HtmlBreak::Paragraph => self.pending.max(2),
+        };
+    }
+}
+
+/// 文字参照を 1 回だけ戻す（`&amp;lt;` は `&lt;` になり、`<` にはならない）。知らない名前はそのまま残す。
+fn decode_entities(s: &str) -> String {
+    HTML_ENTITY
+        .replace_all(s, |caps: &regex::Captures| {
+            let body = &caps[1];
+            let decoded = if let Some(number) = body.strip_prefix('#') {
+                match number.strip_prefix(['x', 'X']) {
+                    Some(hex) => u32::from_str_radix(hex, 16),
+                    None => number.parse::<u32>(),
+                }
+                .ok()
+                .and_then(char::from_u32)
+            } else {
+                match body {
+                    "amp" => Some('&'),
+                    "lt" => Some('<'),
+                    "gt" => Some('>'),
+                    "quot" => Some('"'),
+                    "apos" => Some('\''),
+                    "nbsp" => Some(' '),
+                    "ndash" => Some('\u{2013}'),
+                    "mdash" => Some('\u{2014}'),
+                    "hellip" => Some('\u{2026}'),
+                    "lsquo" => Some('\u{2018}'),
+                    "rsquo" => Some('\u{2019}'),
+                    "ldquo" => Some('\u{201C}'),
+                    "rdquo" => Some('\u{201D}'),
+                    "middot" => Some('\u{00B7}'),
+                    "copy" => Some('\u{00A9}'),
+                    "reg" => Some('\u{00AE}'),
+                    _ => None,
+                }
+            };
+            match decoded {
+                // 0 と制御文字（改行と tab は除く）は入れない。`&nbsp;`（U+00A0）は半角の空白にする
+                Some('\u{00A0}') => " ".to_string(),
+                Some(c) if c == '\0' || (c.is_control() && !matches!(c, '\n' | '\t')) => {
+                    String::new()
+                }
+                Some(c) => c.to_string(),
+                None => caps[0].to_string(),
+            }
+        })
+        .into_owned()
+}
+
+/// 内容紹介に含まれる HTML を取り除く（Google Books・Open Library）。
+///
+/// - 段落・見出し・`<div>` の前後は空行 1 つ、`<br>` は 1 つにつき改行 1 回（`<br><br>` は空行）、
+///   `<ul>`・`<ol>`・`<li>` の前後は行を改める（項目ごとに 1 行）。改行が重なっても、空行は 1 つまで。
+/// - そのほかのタグ（`<i>`・`<b>`・`<em>`・`<strong>`・`<span …>`・`<a …>` など）と、コメントは除いて、中の文字は残す。
+/// - 文字参照（`&amp;`・`&quot;`・`&nbsp;`・`&#39;`・`&#x3042;` など）は戻す。タグを除いたあとに戻すので、
+///   `&lt;b&gt;` は文字として `<b>` になる（タグとしては扱わない）。
+/// - 行末の空白を除き、3 つ以上続く改行は 2 つにし、前後の空行と空白を除く。
 pub fn strip_html(s: &str) -> String {
-    let t = BLOCK_BREAK.replace_all(s, "\n");
-    let t = HTML_TAG.replace_all(&t, "");
-    let t = t
-        .replace("&nbsp;", " ")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&apos;", "'")
-        .replace("&amp;", "&");
+    let mut text = HtmlText {
+        out: String::with_capacity(s.len()),
+        pending: 0,
+    };
+    let mut last = 0;
+    for m in HTML_MARKUP.find_iter(s) {
+        text.text(&s[last..m.start()]);
+        last = m.end();
+        if let Some(kind) = html_break(m.as_str()) {
+            text.brk(kind);
+        }
+    }
+    text.text(&s[last..]);
+
+    let t = decode_entities(&text.out);
     let t: String = t.lines().map(str::trim_end).collect::<Vec<_>>().join("\n");
-    BLANK_LINES.replace_all(&t, "\n\n").into_owned()
+    BLANK_LINES.replace_all(&t, "\n\n").trim().to_string()
 }
 
 /// 書名を「書名」と「副書名」に分ける。ISBD の区切り（半角空白・コロン・半角空白）の最初の 1 か所で切る。
@@ -921,7 +1048,80 @@ mod tests {
             strip_html("先生と私。<br><br><b>改版</b>。&quot;K&quot;と&amp;遺書"),
             "先生と私。\n\n改版。\"K\"と&遺書"
         );
-        assert_eq!(strip_html("a<p>b</p><p>c</p>"), "ab\nc");
+        // 段落は空行 1 つ。前後の空行は付かない
+        assert_eq!(strip_html("a<p>b</p><p>c</p>"), "a\n\nb\n\nc");
+        assert_eq!(strip_html("<p>a</p>"), "a");
+        // `<br>` は 1 つにつき改行 1 回。3 つ以上でも空行は 1 つ
+        assert_eq!(strip_html("a<br>b<br/>c<BR />d"), "a\nb\nc\nd");
+        assert_eq!(strip_html("a<br><br><br><br>b"), "a\n\nb");
+        assert_eq!(strip_html("<br>a<br>"), "a");
+        // 改行が重なっても、空行は 1 つまで
+        assert_eq!(strip_html("a<br></p><p><br>b"), "a\n\nb");
+    }
+
+    #[test]
+    fn html_lists_become_one_line_per_item() {
+        assert_eq!(
+            strip_html("<p>Contents:</p><ul><li>One</li><li>Two<br>(more)</li></ul><p>End</p>"),
+            "Contents:\n\nOne\nTwo\n(more)\n\nEnd"
+        );
+        // 整形用の改行・空白が間にあっても、空行は増えない
+        assert_eq!(
+            strip_html("Intro\n<ol>\n  <li> A </li>\n  <li>B</li>\n</ol>\nOutro"),
+            "Intro\nA\nB\nOutro"
+        );
+        assert_eq!(strip_html("x<ul><li>a</li></ul>y"), "x\na\ny");
+    }
+
+    #[test]
+    fn inline_tags_are_dropped_and_their_text_is_kept() {
+        assert_eq!(
+            strip_html(
+                r#"<b>Bold</b> and <i>italic</i>, <em>em</em> <strong>strong</strong> <span class="x">span</span> <a href="https://example.org/?a=1&amp;b=2">link</a>."#
+            ),
+            "Bold and italic, em strong span link."
+        );
+        // コメントも除く
+        assert_eq!(strip_html("a<!-- note <br> -->b"), "ab");
+        // 本文の中の空白は残す
+        assert_eq!(strip_html("a <b>b</b> c"), "a b c");
+    }
+
+    #[test]
+    fn html_entities_are_decoded_once() {
+        assert_eq!(
+            strip_html("&lt;b&gt; &amp;amp; &quot;q&quot; &#39;s&#39; &apos;t&apos;"),
+            "<b> &amp; \"q\" 's' 't'"
+        );
+        // 10 進・16 進の数値参照
+        assert_eq!(
+            strip_html("&#12354;&#x3042;&#X3042; &#65;&#x41;"),
+            "あああ AA"
+        );
+        // &nbsp; は半角の空白
+        assert_eq!(strip_html("a&nbsp;b&#160;c"), "a b c");
+        // よく使う名前
+        assert_eq!(
+            strip_html("a&ndash;b&mdash;c&hellip;&rsquo;&ldquo;x&rdquo;"),
+            "a\u{2013}b\u{2014}c\u{2026}\u{2019}\u{201C}x\u{201D}"
+        );
+        // 知らない名前、閉じていないもの、範囲外の数値は、そのまま残す
+        assert_eq!(
+            strip_html("&unknown; &amp &#xD800; &#99999999;"),
+            "&unknown; &amp &#xD800; &#99999999;"
+        );
+        // タグを除いたあとに戻すので、`&lt;br&gt;` はタグではなく文字
+        assert_eq!(strip_html("a&lt;br&gt;b"), "a<br>b");
+    }
+
+    #[test]
+    fn html_output_has_no_leading_trailing_or_repeated_blank_lines() {
+        assert_eq!(strip_html("  \n\n<p>a</p>\n\n\n\n<p>b</p>\n  "), "a\n\nb");
+        assert_eq!(strip_html("a  <br>  b  "), "a\nb");
+        assert_eq!(strip_html("<p></p><br>"), "");
+        assert_eq!(strip_html(""), "");
+        // タグのない文章は、改行の形（`\r\n`・3 つ以上の改行）だけを整える
+        assert_eq!(strip_html("a\r\n\r\n\r\n\r\nb"), "a\n\nb");
     }
 
     #[test]

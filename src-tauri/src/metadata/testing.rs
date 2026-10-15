@@ -90,6 +90,14 @@ pub fn online_handler() -> Handler {
                 .unwrap_or_else(|_| fixture("ndl_notfound.xml"));
             return response(200, "text/xml;charset=UTF-8", body.into_bytes());
         }
+        // Google の Dynamic Links（検索が該当なしのときの回避策）。この偽物では、どの ISBN も知らない
+        if url.contains("books?bibkeys=ISBN:") {
+            return response(
+                200,
+                "application/javascript; charset=ISO-8859-1",
+                b"cb({});".to_vec(),
+            );
+        }
         if let Some(q) = url.split("volumes?q=isbn:").nth(1) {
             if !url.contains("key=") {
                 return response(

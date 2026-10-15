@@ -427,6 +427,148 @@ fn google_item_without_identifiers_is_used_as_is() {
     assert_eq!(c.title.as_deref(), Some("識別子なし"));
 }
 
+/// volume 1 件の応答（`GET /books/v1/volumes/<ID>`）。検索が使えないあいだの回避策（Dynamic Links で ID を得て取る）で届く。
+/// フィクスチャは合成（`google_synthetic_volume_*.json`。キーを使えない環境で作った）。実際の応答の形に合わせてある。
+fn google_volume(isbn: &str, body: &str) -> Option<Candidate> {
+    GoogleBooks::new(None)
+        .parse(&raw(ProviderId::Google, isbn, body.to_string()))
+        .unwrap()
+}
+
+#[test]
+fn google_volume_by_id_is_read_like_a_search_item() {
+    let c = google_volume(
+        "9780132350884",
+        &fixture("google_synthetic_volume_hjEFCAAAQBAJ.json"),
+    )
+    .unwrap();
+    assert_eq!(c.title.as_deref(), Some("Clean Code"));
+    assert_eq!(
+        c.subtitle.as_deref(),
+        Some("A Handbook of Agile Software Craftsmanship")
+    );
+    assert_eq!(c.authors, vec![author("Robert C. Martin", None, None)]);
+    assert_eq!(c.publisher.as_deref(), Some("Pearson Education"));
+    assert_eq!(c.published_on.as_deref(), Some("2008-08-01"));
+    assert_eq!(c.pages, Some(464));
+    assert_eq!(c.language.as_deref(), Some("en"));
+    // description の HTML: 段落・`<br>` は改行、リストは 1 項目 1 行、インラインのタグは除く、実体参照・数値参照は戻す
+    assert_eq!(
+        c.description.as_deref(),
+        Some(
+            "Even bad code can function. But if code isn't clean, it can bring a development organization to its knees.\n\n\
+             Noted software expert Robert C. Martin presents a revolutionary paradigm with Clean Code: A Handbook of Agile Software Craftsmanship.\n\n\
+             What you will learn:\n\n\
+             How to tell the difference between good and bad code\n\
+             How to write good code & how to transform bad code into good code\n\
+             How to create good names, good functions, good objects, and good classes\n\n\
+             Readers will come away from this book understanding \u{2013} \u{201C}how to code well\u{201D}."
+        )
+    );
+    // 書影: 最上位の id から、大きい方（zoom=0）→ zoom=1。`imageLinks` の `publisher/content…imgtk` の URL は使わない
+    let urls: Vec<&str> = c.covers.iter().map(|c| c.url.as_str()).collect();
+    assert_eq!(
+        urls,
+        vec![
+            "https://books.google.com/books/content?id=hjEFCAAAQBAJ&printsec=frontcover&img=1&zoom=0",
+            "https://books.google.com/books/content?id=hjEFCAAAQBAJ&printsec=frontcover&img=1&zoom=1",
+        ]
+    );
+    assert!(c.covers.iter().all(|c| c.provider == ProviderId::Google));
+
+    let c = google_volume(
+        "9784003101117",
+        &fixture("google_synthetic_volume_fz5TPAAACAAJ.json"),
+    )
+    .unwrap();
+    assert_eq!(c.title.as_deref(), Some("こころ"));
+    assert_eq!(c.authors, vec![author("夏目漱石", None, None)]);
+    assert_eq!(c.published_on.as_deref(), Some("1989"));
+    assert_eq!(
+        c.description.as_deref(),
+        Some("先生と私の物語。\n\n改版。\"K\"の死と&遺書。")
+    );
+    let urls: Vec<&str> = c.covers.iter().map(|c| c.url.as_str()).collect();
+    assert_eq!(
+        urls,
+        vec![
+            "https://books.google.com/books/content?id=fz5TPAAACAAJ&printsec=frontcover&img=1&zoom=0",
+            "https://books.google.com/books/content?id=fz5TPAAACAAJ&printsec=frontcover&img=1&zoom=1",
+        ]
+    );
+}
+
+#[test]
+fn google_volume_with_another_isbn_is_not_found() {
+    // こころの volume に、Clean Code の ISBN で問い合わせた（Dynamic Links が別の本の ID を返した）
+    assert_eq!(
+        google_volume(
+            "9780132350884",
+            &fixture("google_synthetic_volume_fz5TPAAACAAJ.json")
+        ),
+        None
+    );
+    // ISBN-10 だけの識別子も、13 桁に直して照合する
+    let body = r#"{"kind":"books#volume","id":"abcd1234","volumeInfo":{"title":"T","industryIdentifiers":[{"type":"ISBN_10","identifier":"4003101111"}]}}"#;
+    assert!(google_volume("9784003101117", body).is_some());
+    assert_eq!(google_volume("9784780802047", body), None);
+}
+
+#[test]
+fn google_volume_without_identifiers_is_used_as_is_and_without_image_links_has_no_cover() {
+    let body = r#"{"kind":"books#volume","id":"abcd1234","volumeInfo":{"title":"識別子なし","authors":["甲"]}}"#;
+    let c = google_volume("9784003101117", body).unwrap();
+    assert_eq!(c.title.as_deref(), Some("識別子なし"));
+    assert!(c.covers.is_empty(), "imageLinks がなければ書影なし");
+
+    // `kind` がなくても、最上位に volumeInfo があれば volume 1 件として読む
+    let body = r#"{"id":"abcd1234","volumeInfo":{"title":"kind なし","imageLinks":{"thumbnail":"http://books.google.com/books/content?id=abcd1234&zoom=1"}}}"#;
+    let c = google_volume("9784003101117", body).unwrap();
+    assert_eq!(c.title.as_deref(), Some("kind なし"));
+    assert_eq!(c.covers.len(), 2);
+
+    // imageLinks があっても、最上位の id がない・形が違うときは、書影を作らない（URL に入れない）
+    for id in [r#""id":"a/../b","#, r#""id":"x","#, ""] {
+        let body = format!(
+            r#"{{"kind":"books#volume",{id}"volumeInfo":{{"title":"T","imageLinks":{{"thumbnail":"http://books.google.com/books/content?id=zzzz9999&zoom=1"}}}}}}"#
+        );
+        let c = google_volume("9784003101117", &body).unwrap();
+        assert!(c.covers.is_empty(), "{id}");
+    }
+    // 空の imageLinks は書影なし
+    let body =
+        r#"{"kind":"books#volume","id":"abcd1234","volumeInfo":{"title":"T","imageLinks":{}}}"#;
+    assert!(
+        google_volume("9784003101117", body)
+            .unwrap()
+            .covers
+            .is_empty()
+    );
+}
+
+#[test]
+fn google_search_items_keep_their_own_cover_handling() {
+    // volume の JSON を検索の応答の `items` に入れた形は、検索の規則のまま
+    // （`imageLinks` の URL から、`edge=curl` を外し、zoom=0 を先にする）。単独の volume の規則（id から組み立てる）にはならない
+    let volume: serde_json::Value =
+        serde_json::from_str(&fixture("google_synthetic_volume_hjEFCAAAQBAJ.json")).unwrap();
+    let search = serde_json::json!({"kind": "books#volumes", "totalItems": 1, "items": [volume]});
+    let c = google_volume("9780132350884", &search.to_string()).unwrap();
+    let urls: Vec<&str> = c.covers.iter().map(|c| c.url.as_str()).collect();
+    assert_eq!(
+        urls,
+        vec![
+            "https://books.google.com/books/publisher/content?id=hjEFCAAAQBAJ&printsec=frontcover&img=1&zoom=0&imgtk=SYNTHETIC&source=gbs_api",
+            "https://books.google.com/books/publisher/content?id=hjEFCAAAQBAJ&printsec=frontcover&img=1&zoom=1&imgtk=SYNTHETIC&source=gbs_api",
+        ]
+    );
+    // 検索が 0 件の応答（Google の障害のあいだの応答。`totalItems: 0`）は、これまでどおり該当なし
+    assert_eq!(
+        google_volume("9780132350884", &fixture("google_synthetic_notfound.json")),
+        None
+    );
+}
+
 // ---------------------------------------------------------------------------
 // 能力情報
 // ---------------------------------------------------------------------------

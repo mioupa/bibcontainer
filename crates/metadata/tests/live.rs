@@ -161,6 +161,42 @@ async fn live_google_books_with_key() {
     assert!(c.is_some());
 }
 
+/// Google の ISBN 検索が 0 件を返す障害（2026-10-01 ごろから）への回避策（Dynamic Links → volume）。
+/// 1 冊で 3 回の通信（検索・Dynamic Links・volume。1 秒ずつあける）。Google が直って、最初の検索で見つかるようになっても、
+/// この期待（書名・書影・内容紹介の HTML が除かれていること）は変わらない。
+#[tokio::test]
+#[ignore = "実際のネットワークと API キーを使う"]
+async fn live_google_books_finds_a_book_even_while_isbn_search_is_broken() {
+    let Some(key) = google_key() else {
+        println!("GOOGLE_BOOKS_API_KEY がないので飛ばす");
+        return;
+    };
+    let t = transport();
+    let p = GoogleBooks::new(Some(key));
+    let raw = p.fetch_raw(&t, "9780132350884").await.unwrap();
+    let c = p.parse(&raw).unwrap().expect("Google Books に収録がある");
+    println!("{c:#?}");
+    // 検索が直っていれば検索の応答、障害のあいだは volume 1 件の応答
+    println!(
+        "volume 1 件の応答（回避策）か: {}",
+        raw.body.contains("\"books#volume\"")
+    );
+    assert!(
+        c.title.as_deref().is_some_and(|t| t.contains("Clean Code")),
+        "{:?}",
+        c.title
+    );
+    assert!(c.authors.iter().any(|a| a.name.contains("Martin")));
+    assert_eq!(c.language.as_deref(), Some("en"));
+    assert!(!c.covers.is_empty());
+    if let Some(d) = &c.description {
+        assert!(
+            !d.contains("<br") && !d.contains("<p>") && !d.contains("<i>"),
+            "{d}"
+        );
+    }
+}
+
 #[tokio::test]
 #[ignore = "実際のネットワークを使う"]
 async fn live_google_books_without_key_is_rejected() {
