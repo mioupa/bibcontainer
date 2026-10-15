@@ -26,6 +26,7 @@
 - 0015 同期の画面（上部バーの表示、設定の「同期」の節、モック）、0016 同期のアプリへの組み込み（いつ動かすか、状態の組み立て、設定・置き換え・再接続・復元の流れ、スレッドとロック）
 - 0017 Open Library の取得元（Google Books の ISBN 検索の障害への対応。検索 API → 版の JSON、書影 ID の URL、優先順位は最後）、0018 Google Books の ISBN 検索の回避策（Dynamic Links → `volumes/<ID>`）、0019 洋書の著者名（NDL の `foaf:name`、`名 姓` の形、英語の責任表示からの役割。0007 §4 を一部改める）
 - 0020 統合の優先順位を ISBN の国番号で 2 組に（978-4 と ISBN なしは和書、それ以外は洋書など。設定の `priorities` は `{ japanese, foreign }`）
+- 0021 実機で見つかった取得結果の誤りの修正（巻次の製本の種類・レーベル番号、再取得で古い取得元の値を消す `clear_stale`、書影の縦横比、大文字だけの著者名）
 - 画面どうしの受け渡しは `src/stores/screenStore.ts`（画面の切り替え）と `src/stores/editorStore.ts`（フォームを開く）だけで行う
 
 ## 守ること
