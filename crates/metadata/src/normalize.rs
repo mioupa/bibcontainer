@@ -721,6 +721,20 @@ pub fn has_kana(s: &str) -> bool {
     s.chars().any(|c| matches!(c, '\u{3040}'..='\u{30FF}'))
 }
 
+/// 漢字・ひらがな・カタカナ（と `々`・`〆`）を含むか。含まなければ、英字など日本語以外の文字だけの表記。
+pub fn has_cjk_or_kana(s: &str) -> bool {
+    s.chars().any(|c| {
+        matches!(c,
+            '\u{3040}'..='\u{30FF}'
+            | '\u{3005}'..='\u{3007}'
+            | '\u{3400}'..='\u{4DBF}'
+            | '\u{4E00}'..='\u{9FFF}'
+            | '\u{F900}'..='\u{FAFF}'
+            | '\u{FF66}'..='\u{FF9F}'
+            | '\u{20000}'..='\u{2FFFF}')
+    })
+}
+
 /// 名前の直後に役割がくっついている形（`川端康成著`）を分ける。
 fn split_glued_role(t: &str) -> Option<(&str, String)> {
     for role in GLUED_SAFE {
@@ -812,7 +826,57 @@ fn strip_trailing_parenthetical(s: &str) -> &str {
     t
 }
 
-/// 著者名 1 人分を整える。`夏目,漱石,1867-1916` → `夏目漱石`、`Tolstoy,Leo,1828-1910` → `Tolstoy, Leo`、
+/// 英字の名前の末尾に付く生没年。`, 1775-1817`、`, 1952-`、`, -1817`、`, 1775-1817.`、`, b. 1950`、`, d. 1817`、`, ca. 1775-1817`、
+/// 空白だけで続く `1952-` も。`b.`・`d.` などの記号はコンマのあとだけ（`Robert D. 1952-` の `D.` は名前の一部）。
+static LIFE_DATES: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?i)(?:\s*,\s*(?:(?:b|d|fl|ca)\.\s*)?|\s+)(?:\d{1,4}\??\s*[-\u{2013}\u{2014}]\s*(?:\d{1,4}\??)?|[-\u{2013}\u{2014}]\s*\d{1,4}\??|\d{3,4}\??)\.?\s*$",
+    )
+    .expect("正規表現")
+});
+
+/// 末尾の生没年と、そのあとに残るコンマ・空白を除く。
+fn strip_life_dates(s: &str) -> &str {
+    let t = s.trim();
+    let t = match LIFE_DATES.find(t) {
+        Some(m) => &t[..m.start()],
+        None => t,
+    };
+    t.trim_end_matches(|c: char| c == ',' || c.is_whitespace())
+}
+
+/// 「姓, 名, 肩書き…」を並べた部分（コンマで区切った語）を「名 姓 肩書き…」の順にする。1 語ならそのまま。
+fn natural_latin_order<S: AsRef<str>>(parts: &[S]) -> String {
+    let joined = match parts {
+        [] => String::new(),
+        [only] => only.as_ref().to_string(),
+        [last, given, suffix @ ..] => {
+            let mut words = vec![given.as_ref(), last.as_ref()];
+            words.extend(suffix.iter().map(AsRef::as_ref));
+            words.join(" ")
+        }
+    };
+    joined.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// 英字の人名 1 人分を整える（NDL の `foaf:name`、openBD の `姓,名,生没年` など）。
+///
+/// 末尾の生没年（`, 1775-1817`、`, 1952-`、`, b. 1950` など）を捨て、`姓, 名` を `名 姓` の順にする
+/// （`Martin, Robert C.` → `Robert C. Martin`、`Smith, John, Jr.` → `John Smith Jr.`）。
+/// コンマのない名前（団体名や `Robert C. Martin`）はそのまま。NFKC と空白の整理は `clean_text` と同じ。
+pub fn latin_person_name(raw: &str) -> Option<String> {
+    let t = clean_text(raw)?;
+    let t = strip_life_dates(&t);
+    let parts: Vec<&str> = t
+        .split(',')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    let name = natural_latin_order(&parts);
+    (!name.is_empty()).then_some(name)
+}
+
+/// 著者名 1 人分を整える。`夏目,漱石,1867-1916` → `夏目漱石`、`Tolstoy,Leo,1828-1910` → `Leo Tolstoy`（英字は `latin_person_name`）、
 /// `[岩波書店]` → `岩波書店`、`山田, 玲子 (料理)` → `山田玲子`。
 pub fn clean_person_name(raw: &str) -> Option<String> {
     let t = nfkc(raw);
@@ -829,6 +893,8 @@ pub fn clean_person_name(raw: &str) -> Option<String> {
                     .flat_map(|p| p.split_whitespace())
                     .collect::<Vec<_>>()
                     .concat()
+            } else if t.contains(',') && parts.iter().all(|p| !has_cjk_or_kana(p)) {
+                latin_person_name(t)?
             } else {
                 parts.join(", ")
             }
@@ -875,7 +941,237 @@ fn push_author(out: &mut Vec<CandidateAuthor>, name: &str, role: Option<String>)
     }
 }
 
+/// 英字の語の並びで、`語` の前後が語の境界（英数字でない文字か、文字列の端）になっている最初の出現。
+/// 大文字小文字は区別しない。見つかれば元の文字列でのバイト位置（開始、終了）。
+fn find_word_ci(hay: &str, needle: &str) -> Option<(usize, usize)> {
+    let needle: Vec<char> = needle.chars().flat_map(char::to_lowercase).collect();
+    if needle.is_empty() {
+        return None;
+    }
+    for (i, _) in hay.char_indices() {
+        if hay[..i]
+            .chars()
+            .next_back()
+            .is_some_and(char::is_alphanumeric)
+        {
+            continue;
+        }
+        let Some(len) = match_len_ci(&hay[i..], &needle) else {
+            continue;
+        };
+        if hay[i + len..]
+            .chars()
+            .next()
+            .is_some_and(char::is_alphanumeric)
+        {
+            continue;
+        }
+        return Some((i, i + len));
+    }
+    None
+}
+
+/// `hay` の先頭が `needle`（小文字にした文字の並び）と大文字小文字を無視して合うとき、その長さ（バイト）。
+fn match_len_ci(hay: &str, needle: &[char]) -> Option<usize> {
+    let mut consumed = 0;
+    let mut k = 0;
+    for ch in hay.chars() {
+        if k == needle.len() {
+            break;
+        }
+        for lower in ch.to_lowercase() {
+            if needle.get(k) != Some(&lower) {
+                return None;
+            }
+            k += 1;
+        }
+        consumed += ch.len_utf8();
+    }
+    (k == needle.len()).then_some(consumed)
+}
+
+/// 英語の責任表示の語から役割へ。`edited by` の `edited` のように、` by ` の前の語を調べる。
+fn latin_role_keyword(word: &str) -> Option<&'static str> {
+    Some(match word {
+        "edited" | "editor" | "editors" | "ed" | "compiled" | "compiler" => "編",
+        "translated" | "translator" | "translators" | "trans" => "訳",
+        "illustrated" | "illustrations" | "illustrator" | "illustrators" => "絵",
+        "foreword" | "preface" => "序文",
+        "introduction" | "afterword" | "notes" | "commentary" => "解説",
+        "adapted" => "翻案",
+        "written" | "author" => "著",
+        _ => return None,
+    })
+}
+
+/// ` by ` より前の語句（`edited with an introduction and notes`）の役割。語がなければ（`by Jane Austen`）`著`。
+/// 最初に出てくる役割の語を使い、知らない語だけなら役割なし。
+fn latin_role_from_phrase(phrase: &str) -> Option<&'static str> {
+    let words: Vec<String> = phrase
+        .split(|c: char| !c.is_alphanumeric() && c != '.')
+        .map(|w| w.trim_matches('.').to_lowercase())
+        .filter(|w| !w.is_empty())
+        .collect();
+    if words.is_empty() {
+        return Some("著");
+    }
+    words.iter().find_map(|w| latin_role_keyword(w))
+}
+
+/// 責任表示の 1 区切り（`;` で分けたもの）の役割。`by` がなければ `著`（`Jane Austen`）。
+fn latin_segment_role(segment: &str) -> Option<&'static str> {
+    match find_word_ci(segment, "by") {
+        None => Some("著"),
+        Some((start, _)) => latin_role_from_phrase(&segment[..start]),
+    }
+}
+
+/// 英字の責任表示から、構造化された人名（NDL の `foaf:name`）で著者を作る。
+///
+/// - 名前と順序は `foaf_names`（`Martin, Robert C.` → `Robert C. Martin`。`latin_person_name`）。責任表示にだけある人は無視する。
+/// - 役割は責任表示を `;` で区切った中の、その人の姓（コンマの前）が最初に出てくる区切りから決める。
+///   `by` がなければ `著`、あれば ` by ` より前の最初の役割の語（`edited` → 編、`foreword` → 序文、`introduction` → 解説 など）。
+///   知らない語や、どの区切りにも出てこない人は役割なし。
+/// - ヨミは付けない。
+///
+/// 責任表示が空、または漢字・かなを含むとき（日本語の本）、人名が 1 つも読めないときは `None`（呼び出し側が従来の `parse_authors` を使う）。
+pub fn parse_latin_statement_authors(
+    statement: &str,
+    foaf_names: &[String],
+) -> Option<Vec<CandidateAuthor>> {
+    let statement = nfkc(statement);
+    if statement.trim().is_empty() || has_cjk_or_kana(&statement) {
+        return None;
+    }
+    let segments: Vec<&str> = statement
+        .split(';')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+    let mut out: Vec<CandidateAuthor> = Vec::new();
+    for raw in foaf_names {
+        let Some(text) = clean_text(raw) else {
+            continue;
+        };
+        let name = if has_cjk_or_kana(&text) {
+            clean_person_name(&text)
+        } else {
+            latin_person_name(&text)
+        };
+        let Some(name) = name else { continue };
+        let surname = strip_life_dates(&text)
+            .split(',')
+            .next()
+            .unwrap_or("")
+            .trim();
+        let role = if surname.is_empty() {
+            None
+        } else {
+            segments
+                .iter()
+                .find(|seg| find_word_ci(seg, surname).is_some())
+                .and_then(|seg| latin_segment_role(seg))
+        };
+        let author = CandidateAuthor {
+            name,
+            kana: None,
+            role: role.map(str::to_string),
+        };
+        if !out.contains(&author) {
+            out.push(author);
+        }
+    }
+    (!out.is_empty()).then_some(out)
+}
+
+/// `…` と `...`、`[et al.]`、`et al.`。
+static ET_AL: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)\[\s*et\s+al\.?\s*\]|\bet\s+al\b\.?|\.{3}|\u{2026}").expect("正規表現")
+});
+
+/// 人どうしを分ける ` and `・` & `（コンマ、空白のあとだけ。`AT&T` は分けない）。
+static LATIN_CONJUNCTION: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)(?:\s|,)\s*(?:and|&)\s+").expect("正規表現"));
+
+/// `1952-`、`1821-1881`、`?-1900`、`1952?` など、年・生没年だけの文字列か。
+fn is_date_tail(s: &str) -> bool {
+    !s.is_empty()
+        && s.chars()
+            .all(|c| c.is_ascii_digit() || matches!(c, '-' | '?' | '.' | '\u{2013}'))
+        && s.chars().any(|c| c.is_ascii_digit() || c == '?')
+}
+
+/// 空白で区切られた「姓,名,生没年」の並び（NDL 由来の openBD）で、`tok` が前の語 `prev` と同じ人の続きか。
+///
+/// 英字の名前が空白を含むと（`Martin,Robert C.,1952-`）、空白で切れて `Martin,Robert` と `C.,1952-` になる。
+/// 前の語が英字で、この語も英字で、コンマがない（`C.`）か、最初のコンマのあとが年（`C.,1952-`）なら続き。
+/// 新しい人の語は `姓,名` の形（最初のコンマのあとが年でない）か、日本語。
+fn continues_latin_person(prev: &str, tok: &str) -> bool {
+    if has_cjk_or_kana(prev) || has_cjk_or_kana(tok) {
+        return false;
+    }
+    match tok.split_once(',') {
+        None => true,
+        Some((_, tail)) => is_date_tail(tail),
+    }
+}
+
+/// 空白で区切られた語を、`continues_latin_person` で人ごとにまとめる。
+fn group_person_tokens<'a>(tokens: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    let mut groups: Vec<String> = Vec::new();
+    let mut prev: Option<&str> = None;
+    for tok in tokens {
+        match (groups.last_mut(), prev) {
+            (Some(group), Some(p)) if continues_latin_person(p, tok) => {
+                group.push(' ');
+                group.push_str(tok);
+            }
+            _ => groups.push(tok.to_string()),
+        }
+        prev = Some(tok);
+    }
+    groups
+}
+
+/// 漢字・かなを含まない区切り（英字の責任表示、または英字だけの `姓,名,生没年`）。空白では人を分けない。
+///
+/// `...`・`[et al.]` を除き、先頭の `<語> by ` は役割の語（`foreword by`、`edited by`）にして外す。
+/// 人は ` and `・` & ` だけで分け、1 人の中身は 1 つの名前にする（`Robert C. Martin`）。
+/// ただし最初の語が `姓,名` の形なら、openBD の `Dostoyevsky,Fyodor,1821-1881 Tolstoy,Leo,1828-1910` と同じに、
+/// 空白で区切られた語を `continues_latin_person` で人ごとにまとめる。
+/// `by` がなければ役割なし（NDL の構造化された人名を使えるときの `著` の既定は `parse_latin_statement_authors` だけ）。
+fn parse_latin_segment(segment: &str, out: &mut Vec<CandidateAuthor>) {
+    let cleaned = ET_AL.replace_all(segment, " ");
+    let s = cleaned.trim();
+    let (role, rest) = match find_word_ci(s, "by") {
+        Some((start, end)) => (latin_role_from_phrase(&s[..start]), &s[end..]),
+        None => (None, s),
+    };
+    for chunk in LATIN_CONJUNCTION.split(rest) {
+        let chunk = chunk.trim_matches(|c: char| c == ',' || c.is_whitespace());
+        if chunk.is_empty() {
+            continue;
+        }
+        let comma_first = chunk
+            .split_whitespace()
+            .next()
+            .is_some_and(|first| first.contains(','));
+        let persons = if comma_first {
+            group_person_tokens(chunk.split_whitespace())
+        } else {
+            vec![chunk.to_string()]
+        };
+        for person in persons {
+            push_author(out, &person, role.map(str::to_string));
+        }
+    }
+}
+
 fn parse_author_segment(segment: &str, out: &mut Vec<CandidateAuthor>) {
+    if !has_cjk_or_kana(segment) {
+        parse_latin_segment(segment, out);
+        return;
+    }
     let tokens: Vec<&str> = segment.split_whitespace().collect();
     if tokens.is_empty() {
         return;
@@ -933,9 +1229,10 @@ fn parse_author_segment(segment: &str, out: &mut Vec<CandidateAuthor>) {
             // 英字だけの複数語は 1 人の名前（John Smith）
             push_author(out, &names.join(" "), None);
         } else {
-            // 役割がなければ、空白で区切られた語はそれぞれ別の著者（NDL 由来の openBD は「姓,名,生没年 姓,名,生没年」の形）
-            for t in names {
-                push_author(out, t, None);
+            // 役割がなければ、空白で区切られた語はそれぞれ別の著者（NDL 由来の openBD は「姓,名,生没年 姓,名,生没年」の形）。
+            // ただし英字の名前が空白を含むときの続きの語（`C.,1952-`）は前の人にまとめる。
+            for person in group_person_tokens(names) {
+                push_author(out, &person, None);
             }
         }
     }
@@ -947,7 +1244,9 @@ fn parse_author_segment(segment: &str, out: &mut Vec<CandidateAuthor>) {
 /// - `山田玲子／著 水野菜生／英訳`（openBD の版元データ）
 /// - `山田玲子 著` `川端康成著` `尾田栄一郎∥著` `米川, 正夫（訳・解説）` `[岩波書店] [編]`（NDL）
 /// - `ドストエーフスキイ作 ; 米川正夫譯`（`;` と `、` で人を区切る）
-/// - `夏目,漱石,1867-1916`、`Tolstoy,Leo,1828-1910 中村,融,1911-1990`（NDL 由来の openBD。役割なし）
+/// - `夏目,漱石,1867-1916`、`Tolstoy,Leo,1828-1910 中村,融,1911-1990`（NDL 由来の openBD。役割なし。英字の名前は `Leo Tolstoy` の順）
+/// - 漢字・かなを含まない区切りは、空白で人を分けない（`Robert C. Martin ... [et al.]`、`foreword by James O. Coplien`、
+///   `edited by A and B`。`parse_latin_segment`）。NDL は構造化された人名があればそちらを使う（`parse_latin_statement_authors`）。
 ///
 /// 役割は `著`・`訳`・`編`・`監修`・`画`・`作`・`文`・`絵`・`英訳` など。同じ人（名前と役割が同じ）は 1 つにまとめる。
 pub fn parse_authors(raw: &str) -> Vec<CandidateAuthor> {
@@ -964,6 +1263,7 @@ pub fn parse_authors(raw: &str) -> Vec<CandidateAuthor> {
 ///
 /// 原文の名前は `山田, 玲子, 料理`（姓, 名, 肩書き）のように、著者の名前のあとに別の語が続くことがある。
 /// 先頭から何個の部分で著者の名前になるかを数え、ヨミも同じ個数の部分だけ使う（`ヤマダ, レイコ, リョウリ` → `ヤマダ レイコ`）。
+/// 英字の名前は `姓, 名` を `名 姓` の順にしたもの（`parse_authors` の結果）とも照合する。
 pub fn attach_kana(authors: &mut [CandidateAuthor], pairs: &[(String, String)]) {
     for author in authors.iter_mut() {
         if author.kana.is_some() {
@@ -979,7 +1279,10 @@ pub fn attach_kana(authors: &mut [CandidateAuthor], pairs: &[(String, String)]) 
             let mut count = None;
             for (i, p) in parts.iter().enumerate() {
                 acc.extend(p.chars().filter(|c| c.is_alphanumeric()));
-                if acc == key {
+                let natural_order_matches = i > 0
+                    && parts[..=i].iter().all(|p| !has_cjk_or_kana(p))
+                    && name_key(&natural_latin_order(&parts[..=i])) == key;
+                if acc == key || natural_order_matches {
                     count = Some(i + 1);
                     break;
                 }
@@ -1478,14 +1781,14 @@ mod tests {
         );
         assert_eq!(
             parse_authors("Dostoyevsky,Fyodor,1821-1881 江川,卓,1927-2001"),
-            vec![a("Dostoyevsky, Fyodor", None), a("江川卓", None)]
+            vec![a("Fyodor Dostoyevsky", None), a("江川卓", None)]
         );
         assert_eq!(
             parse_authors(
                 "Ｄｏｓｔｏｅｖｓｋｉｉ，ＦｙｏｄｏｒＭｉｋｈａｉｌｏｖｉｃｈ 米川／正夫"
             ),
             vec![
-                a("Dostoevskii, FyodorMikhailovich", None),
+                a("FyodorMikhailovich Dostoevskii", None),
                 a("米川正夫", None)
             ]
         );
@@ -1541,5 +1844,412 @@ mod tests {
         assert_eq!(authors[0].kana.as_deref(), Some("ナツメ ソウセキ"));
         assert_eq!(authors[1].kana, None);
         assert_eq!(authors[2].kana.as_deref(), Some("ヤマダ レイコ"));
+    }
+
+    // -----------------------------------------------------------------------
+    // 英字の著者
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn latin_person_name_drops_dates_and_puts_the_given_name_first() {
+        for (raw, want) in [
+            ("Martin, Robert C.", "Robert C. Martin"),
+            ("Austen, Jane, 1775-1817", "Jane Austen"),
+            ("Austen, Jane, 1775-1817.", "Jane Austen"),
+            ("Martin, Robert C., 1952-", "Robert C. Martin"),
+            ("Someone, Jane, -1817", "Jane Someone"),
+            ("Someone, Jane, 1817", "Jane Someone"),
+            ("Someone, Jane, 1775?-1817?", "Jane Someone"),
+            ("Someone, Jane, b. 1950", "Jane Someone"),
+            ("Someone, Jane, d. 1817", "Jane Someone"),
+            ("Someone, Jane, ca. 1775-1817", "Jane Someone"),
+            ("Someone, Jane, 1775 - 1817", "Jane Someone"),
+            // 空白だけで続く生没年
+            ("Someone, Jane 1775-1817", "Jane Someone"),
+            // 姓, 名, 肩書き（Jr. など）は 名 姓 肩書き
+            ("Smith, John, Jr.", "John Smith Jr."),
+            ("Smith, John, Jr., 1950-", "John Smith Jr."),
+            // 名前のイニシャル（D.）は生没年の記号ではない
+            ("Martin, Robert D. 1952-", "Robert D. Martin"),
+            ("Martin, Robert D.", "Robert D. Martin"),
+            // コンマのない名前（団体名、すでに 名 姓 の順）はそのまま
+            ("Penguin Books", "Penguin Books"),
+            ("Robert C. Martin", "Robert C. Martin"),
+            ("Homer", "Homer"),
+            // 全角・余分な空白は clean_text と同じに整える
+            ("Ｍａｒｔｉｎ，  Ｒｏｂｅｒｔ  Ｃ．", "Robert C. Martin"),
+            ("  Coplien,James O.  ", "James O. Coplien"),
+        ] {
+            assert_eq!(latin_person_name(raw).as_deref(), Some(want), "{raw}");
+        }
+        assert_eq!(latin_person_name("  "), None);
+        assert_eq!(latin_person_name(""), None);
+    }
+
+    #[test]
+    fn clean_person_name_uses_the_latin_form_for_latin_names_only() {
+        assert_eq!(
+            clean_person_name("Tolstoy,Leo,1828-1910").as_deref(),
+            Some("Leo Tolstoy")
+        );
+        assert_eq!(
+            clean_person_name("Martin, Robert C.").as_deref(),
+            Some("Robert C. Martin")
+        );
+        assert_eq!(
+            clean_person_name("Martin,Robert C.,1952-").as_deref(),
+            Some("Robert C. Martin")
+        );
+        // 日本語の名前は従来どおり（詰める）
+        assert_eq!(
+            clean_person_name("夏目, 漱石, 1867-1916").as_deref(),
+            Some("夏目漱石")
+        );
+        // コンマのない英字（`/` や `‖` の区切りだけ）は並べ替えない
+        assert_eq!(clean_person_name("AC/DC").as_deref(), Some("AC, DC"));
+    }
+
+    #[test]
+    fn latin_role_keywords() {
+        for (phrase, want) in [
+            ("edited", Some("編")),
+            ("Edited", Some("編")),
+            ("editor", Some("編")),
+            ("ed.", Some("編")),
+            ("compiled", Some("編")),
+            ("translated", Some("訳")),
+            ("translator", Some("訳")),
+            ("trans.", Some("訳")),
+            ("illustrated", Some("絵")),
+            ("illustrations", Some("絵")),
+            ("illustrator", Some("絵")),
+            ("foreword", Some("序文")),
+            ("preface", Some("序文")),
+            ("introduction", Some("解説")),
+            ("afterword", Some("解説")),
+            ("notes", Some("解説")),
+            ("commentary", Some("解説")),
+            ("adapted", Some("翻案")),
+            ("written", Some("著")),
+            // 最初に出てくる語を使う
+            ("edited with an introduction and notes", Some("編")),
+            (
+                "with the original Penguin Classics introduction",
+                Some("解説"),
+            ),
+            ("translated from the French", Some("訳")),
+            ("with a foreword", Some("序文")),
+            ("illustrated and edited", Some("絵")),
+            // ` by ` の前に語がなければ（`by Jane Austen`）著
+            ("", Some("著")),
+            ("  ", Some("著")),
+            // 知らない語は役割なし
+            ("revised", None),
+            ("photographs", None),
+        ] {
+            assert_eq!(latin_role_from_phrase(phrase), want, "{phrase:?}");
+        }
+        assert_eq!(latin_segment_role("Jane Austen"), Some("著"));
+        assert_eq!(latin_segment_role("by Jane Austen"), Some("著"));
+        assert_eq!(latin_segment_role("written by Jane Austen"), Some("著"));
+        assert_eq!(latin_segment_role("foreword by X"), Some("序文"));
+        assert_eq!(latin_segment_role("revised by X"), None);
+        // `by` は語として探す（Ruby の by ではない）
+        assert_eq!(latin_segment_role("Ruby Bybee"), Some("著"));
+    }
+
+    #[test]
+    fn find_word_ci_respects_word_boundaries_and_case() {
+        assert_eq!(find_word_ci("Robert C. Martin", "martin"), Some((10, 16)));
+        assert_eq!(find_word_ci("Martinez", "Martin"), None);
+        assert_eq!(find_word_ci("Dr. Martin-Smith", "Martin"), Some((4, 10)));
+        assert_eq!(find_word_ci("edited by A", "BY"), Some((7, 9)));
+        assert!(find_word_ci("Gabriel García Márquez", "garcía márquez").is_some());
+        assert_eq!(find_word_ci("abc", ""), None);
+    }
+
+    #[test]
+    fn latin_segments_are_not_split_on_whitespace() {
+        // 1 人。`...`・`[et al.]` は除く
+        assert_eq!(
+            parse_authors("Robert C. Martin ... [et al.]"),
+            vec![a("Robert C. Martin", None)]
+        );
+        assert_eq!(
+            parse_authors("Robert C. Martin … et al."),
+            vec![a("Robert C. Martin", None)]
+        );
+        assert_eq!(
+            parse_authors("Robert C. Martin, et al."),
+            vec![a("Robert C. Martin", None)]
+        );
+        assert_eq!(parse_authors("Gary S. Was"), vec![a("Gary S. Was", None)]);
+        assert_eq!(parse_authors("Jane Austen"), vec![a("Jane Austen", None)]);
+        // `by` の前の語が役割。` and `・` & ` で人を分ける
+        assert_eq!(
+            parse_authors("edited by Alice Smith and Bob Jones"),
+            vec![a("Alice Smith", Some("編")), a("Bob Jones", Some("編"))]
+        );
+        assert_eq!(
+            parse_authors("translated by Alice Smith & Bob Jones"),
+            vec![a("Alice Smith", Some("訳")), a("Bob Jones", Some("訳"))]
+        );
+        assert_eq!(
+            parse_authors("foreword by James O. Coplien"),
+            vec![a("James O. Coplien", Some("序文"))]
+        );
+        assert_eq!(
+            parse_authors("with an introduction by Tony Tanner"),
+            vec![a("Tony Tanner", Some("解説"))]
+        );
+        assert_eq!(
+            parse_authors("by Jane Austen"),
+            vec![a("Jane Austen", Some("著"))]
+        );
+        // 知らない語は役割なし（名前に混ぜない）
+        assert_eq!(
+            parse_authors("revised by Alice Smith"),
+            vec![a("Alice Smith", None)]
+        );
+        // `;` で区切った責任表示
+        assert_eq!(
+            parse_authors("Robert C. Martin ... [et al.] ; foreword by James O. Coplien"),
+            vec![
+                a("Robert C. Martin", None),
+                a("James O. Coplien", Some("序文"))
+            ]
+        );
+        assert_eq!(
+            parse_authors("Jane Austen ; edited with an introduction and notes by Vivien Jones"),
+            vec![a("Jane Austen", None), a("Vivien Jones", Some("編"))]
+        );
+        // 団体名・括弧
+        assert_eq!(
+            parse_authors("[Penguin Books]"),
+            vec![a("Penguin Books", None)]
+        );
+        assert_eq!(parse_authors("AT&T Labs"), vec![a("AT&T Labs", None)]);
+        // `姓, 名` はコンマのあとの空白を詰めて、名 姓 の順にする
+        assert_eq!(
+            parse_authors("Smith, John and Doe, Jane"),
+            vec![a("John Smith", None), a("Jane Doe", None)]
+        );
+        // 英字の `姓,名,生没年` が空白で並ぶ（NDL 由来の openBD）。英字だけでも人ごとに分ける
+        assert_eq!(
+            parse_authors("Dostoyevsky,Fyodor,1821-1881 Tolstoy,Leo,1828-1910"),
+            vec![a("Fyodor Dostoyevsky", None), a("Leo Tolstoy", None)]
+        );
+        assert_eq!(parse_authors("..."), vec![]);
+        assert_eq!(parse_authors("[et al.]"), vec![]);
+    }
+
+    #[test]
+    fn openbd_whitespace_split_rejoins_latin_names_with_spaces() {
+        // 英字の名前が空白を含むと、空白で切れた語が続きになる（`C.,1952-`）
+        assert_eq!(
+            parse_authors("Martin,Robert C.,1952- 角,征典"),
+            vec![a("Robert C. Martin", None), a("角征典", None)]
+        );
+        assert_eq!(
+            parse_authors("Martin,Robert C. 角,征典"),
+            vec![a("Robert C. Martin", None), a("角征典", None)]
+        );
+        assert_eq!(
+            parse_authors("Dostoyevsky,Fyodor,1821-1881 江川,卓,1927-2001"),
+            vec![a("Fyodor Dostoyevsky", None), a("江川卓", None)]
+        );
+        // 日本語の人が先でも、英字の人が続く
+        assert_eq!(
+            parse_authors("江川,卓,1927-2001 Dostoyevsky,Fyodor,1821-1881"),
+            vec![a("江川卓", None), a("Fyodor Dostoyevsky", None)]
+        );
+        // 英字 2 人（どちらも `姓,名`）は続きにしない
+        assert_eq!(
+            parse_authors("Martin,Robert C.,1952- Fowler,Martin,1963- 角,征典"),
+            vec![
+                a("Robert C. Martin", None),
+                a("Martin Fowler", None),
+                a("角征典", None)
+            ]
+        );
+        // 日本語の語は、前が英字でも続きにしない
+        assert_eq!(
+            parse_authors("Homer ホメロス"),
+            vec![a("Homer", None), a("ホメロス", None)]
+        );
+    }
+
+    #[test]
+    fn continuation_rule() {
+        for (prev, tok, want) in [
+            ("Martin,Robert", "C.,1952-", true),
+            ("Martin,Robert", "C.", true),
+            ("Martin,Robert", "1952-", true),
+            ("Martin,Robert", "Charles,1952-1960", true),
+            ("Martin,Robert", "Fowler,Martin,1963-", false),
+            ("Martin,Robert", "Fowler,Martin", false),
+            ("Martin,Robert", "Jr.,Sr.", false),
+            ("Martin,Robert", "角,征典", false),
+            ("Martin,Robert", "ホメロス", false),
+            ("角,征典", "C.", false),
+        ] {
+            assert_eq!(continues_latin_person(prev, tok), want, "{prev} / {tok}");
+        }
+    }
+
+    #[test]
+    fn japanese_translation_statements_keep_the_role_word_logic() {
+        // 漢字・かなを含む責任表示は従来どおり。英字の名前と役割 `著` は 1 人のまま
+        assert_eq!(
+            parse_authors("Robert C. Martin 著 ; 花井志生 訳"),
+            vec![a("Robert C. Martin", Some("著")), a("花井志生", Some("訳"))]
+        );
+        assert_eq!(
+            parse_authors("Robert C.Martin著 ; 花井志生訳"),
+            vec![a("Robert C.Martin", Some("著")), a("花井志生", Some("訳"))]
+        );
+        assert_eq!(
+            parse_authors("ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ 著 ; 花井志生 訳"),
+            vec![a("RobertC.Martin", Some("著")), a("花井志生", Some("訳"))]
+        );
+        assert_eq!(
+            parse_authors("ドストエーフスキイ作 ; 米川正夫譯"),
+            vec![
+                a("ドストエーフスキイ", Some("作")),
+                a("米川正夫", Some("訳"))
+            ]
+        );
+    }
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(ToString::to_string).collect()
+    }
+
+    #[test]
+    fn latin_statement_authors_from_structured_names() {
+        // Clean Code
+        assert_eq!(
+            parse_latin_statement_authors(
+                "Robert C. Martin ... [et al.] ; foreword by James O. Coplien",
+                &names(&["Martin, Robert C.", "Coplien, James O."])
+            ),
+            Some(vec![
+                a("Robert C. Martin", Some("著")),
+                a("James O. Coplien", Some("序文"))
+            ])
+        );
+        // Pride and Prejudice（2003 年版）
+        assert_eq!(
+            parse_latin_statement_authors(
+                "Jane Austen ; edited with an introduction and notes by Vivien Jones ; with the original Penguin Classics introduction by Tony Tanner",
+                &names(&["Austen, Jane", "Jones, Vivien", "Tanner, Tony"])
+            ),
+            Some(vec![
+                a("Jane Austen", Some("著")),
+                a("Vivien Jones", Some("編")),
+                a("Tony Tanner", Some("解説"))
+            ])
+        );
+        // 同じ区切りの人は同じ役割（`edited by A and B`）。foaf の順を保つ。生没年は捨てる
+        assert_eq!(
+            parse_latin_statement_authors(
+                "edited by Alice Smith and Bob Jones",
+                &names(&["Jones, Bob, 1950-", "Smith, Alice, 1960-"])
+            ),
+            Some(vec![
+                a("Bob Jones", Some("編")),
+                a("Alice Smith", Some("編"))
+            ])
+        );
+        // 責任表示にだけある人は無視する。責任表示のどこにもいない人は役割なし。知らない語も役割なし
+        assert_eq!(
+            parse_latin_statement_authors(
+                "Jane Austen ; revised by Someone Else ; photographs by Pat Lee",
+                &names(&["Austen, Jane", "Else, Someone", "Lee, Pat", "Nobody, Ann"])
+            ),
+            Some(vec![
+                a("Jane Austen", Some("著")),
+                a("Someone Else", None),
+                a("Pat Lee", None),
+                a("Ann Nobody", None)
+            ])
+        );
+        // 姓は大文字小文字を区別せず、語の境界で探す（Austenite の中の Austen には当たらない）
+        assert_eq!(
+            parse_latin_statement_authors(
+                "an Austenite ; translated by JANE AUSTEN",
+                &names(&["Austen, Jane"])
+            ),
+            Some(vec![a("Jane Austen", Some("訳"))])
+        );
+        // 団体名（コンマなし）はそのまま
+        assert_eq!(
+            parse_latin_statement_authors(
+                "Penguin Books ; illustrated by Pat Lee",
+                &names(&["Penguin Books", "Lee, Pat"])
+            ),
+            Some(vec![
+                a("Penguin Books", Some("著")),
+                a("Pat Lee", Some("絵"))
+            ])
+        );
+        // 姓, 名, Jr.
+        assert_eq!(
+            parse_latin_statement_authors("John Smith, Jr.", &names(&["Smith, John, Jr."])),
+            Some(vec![a("John Smith Jr.", Some("著"))])
+        );
+        // 同じ人が 2 回あっても 1 人
+        assert_eq!(
+            parse_latin_statement_authors(
+                "Jane Austen",
+                &names(&["Austen, Jane", "Austen, Jane, 1775-1817"])
+            ),
+            Some(vec![a("Jane Austen", Some("著"))])
+        );
+    }
+
+    #[test]
+    fn latin_statement_authors_do_not_apply_to_japanese_or_empty_input() {
+        let foaf = names(&["Martin, Robert C.", "花井, 志生"]);
+        // 責任表示に漢字・かなを含む（日本語の本）
+        assert_eq!(
+            parse_latin_statement_authors("Robert C. Martin 著 ; 花井志生 訳", &foaf),
+            None
+        );
+        assert_eq!(
+            parse_latin_statement_authors("ドストエーフスキイ作 ; 米川正夫譯", &foaf),
+            None
+        );
+        // 責任表示が空、構造化された名前がない
+        assert_eq!(parse_latin_statement_authors("", &foaf), None);
+        assert_eq!(parse_latin_statement_authors("   ", &foaf), None);
+        assert_eq!(parse_latin_statement_authors("Jane Austen", &[]), None);
+        assert_eq!(
+            parse_latin_statement_authors("Jane Austen", &names(&["", "  "])),
+            None
+        );
+    }
+
+    #[test]
+    fn kana_attaches_to_latin_names_in_natural_order() {
+        let mut authors = vec![
+            a("FyodorMikhailovich Dostoevskii", None),
+            a("Leo Tolstoy", None),
+        ];
+        attach_kana(
+            &mut authors,
+            &[
+                (
+                    "Dostoevskii,Fyodor Mikhailovich".into(),
+                    "ドストエフスキー，フョードル・ミハイロヴィチ".into(),
+                ),
+                ("Tolstoy, Leo, 1828-1910".into(), "".into()),
+            ],
+        );
+        assert_eq!(
+            authors[0].kana.as_deref(),
+            Some("ドストエフスキー フョードル・ミハイロヴィチ")
+        );
+        assert_eq!(authors[1].kana, None);
     }
 }

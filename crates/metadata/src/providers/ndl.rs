@@ -8,6 +8,10 @@
 //!   （`dcterms:identifier` の型が `ErrorISBN`）でも当たるので、ISBN の型が `ISBN` で、探した ISBN と合うレコードだけを使う。
 //!   シリーズ全体を 1 件にまとめたレコード（ISBN が何十個も並ぶ）は避け、NDL 自身のレコードと、項目が多いレコードを優先する。
 //! - 該当なしは HTTP 200 で、`<diagnostics>` に `Record does not exist` が入る。
+//! - 著者: 責任表示（`dc:creator`）が日本語（漢字・かなを含む）なら、名前と役割を責任表示から、ヨミを `foaf:Agent` から取る。
+//!   英字だけの責任表示（`Robert C. Martin ... [et al.] ; foreword by James O. Coplien`）は、空白で人を分けられないので、
+//!   構造化された人名（`dcterms:creator` の `foaf:name`、`Martin, Robert C.`）を使い、役割だけ責任表示から読む
+//!   （`normalize::parse_latin_statement_authors`）。
 
 use async_trait::async_trait;
 
@@ -16,7 +20,7 @@ use crate::http::HttpRequest;
 use crate::isbn::to_isbn13;
 use crate::normalize::{
     attach_kana, clean_text, has_kana, normalize_date, normalize_language, parse_authors,
-    parse_extent, parse_price, split_title,
+    parse_extent, parse_latin_statement_authors, parse_price, split_title,
 };
 use crate::provider::{Provider, ProviderAuth, ProviderInfo, RawResponse};
 use crate::transport::{ProviderRateLimit, Transport};
@@ -350,27 +354,44 @@ fn candidate_from(isbn13: &str, bib: &Node) -> Candidate {
     c.volume = first_described(bib, DCNDL, "volume").0;
     c.series = first_described(bib, DCNDL, "seriesTitle").0;
 
-    // 著者（名前と役割は dc:creator、ヨミは dcterms:creator の foaf:Agent）
-    let mut authors = Vec::new();
-    for creator in bib.children_named(DC, "creator") {
-        for a in parse_authors(creator.text()) {
-            if !authors.contains(&a) {
-                authors.push(a);
-            }
-        }
-    }
-    let kana_pairs: Vec<(String, String)> = bib
+    // 著者。英字の責任表示（`Robert C. Martin ... [et al.] ; foreword by James O. Coplien`）は、空白で人を分けられず
+    // 役割の語も日本語でないので、構造化された人名（dcterms:creator の foaf:name）を使い、役割だけ責任表示から読む。
+    // 日本語の本（責任表示に漢字・かながある）は、名前と役割を dc:creator から、ヨミを foaf:Agent から取る。
+    let statement = bib
+        .children_named(DC, "creator")
+        .map(|creator| creator.text())
+        .collect::<Vec<_>>()
+        .join(" ; ");
+    let foaf_names: Vec<String> = bib
         .children_named(DCTERMS, "creator")
         .filter_map(|c| c.child(FOAF, "Agent"))
-        .filter_map(|agent| {
-            Some((
-                agent.child(FOAF, "name")?.text().to_string(),
-                agent.child(DCNDL, "transcription")?.text().to_string(),
-            ))
-        })
+        .filter_map(|agent| text_of(agent.child(FOAF, "name")))
         .collect();
-    attach_kana(&mut authors, &kana_pairs);
-    c.authors = authors;
+    c.authors = match parse_latin_statement_authors(&statement, &foaf_names) {
+        Some(authors) => authors,
+        None => {
+            let mut authors = Vec::new();
+            for creator in bib.children_named(DC, "creator") {
+                for a in parse_authors(creator.text()) {
+                    if !authors.contains(&a) {
+                        authors.push(a);
+                    }
+                }
+            }
+            let kana_pairs: Vec<(String, String)> = bib
+                .children_named(DCTERMS, "creator")
+                .filter_map(|c| c.child(FOAF, "Agent"))
+                .filter_map(|agent| {
+                    Some((
+                        agent.child(FOAF, "name")?.text().to_string(),
+                        agent.child(DCNDL, "transcription")?.text().to_string(),
+                    ))
+                })
+                .collect();
+            attach_kana(&mut authors, &kana_pairs);
+            authors
+        }
+    };
 
     // 出版社（「発売」は発行元がほかにあるときは避ける）
     let publishers: Vec<(String, bool)> = bib

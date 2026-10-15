@@ -1,0 +1,192 @@
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+  <version>1.2</version>
+  <numberOfRecords>2</numberOfRecords>
+  <extraResponseData>
+    <facets>
+      <lst name="REPOSITORY_NO">
+        <int name="R100000001">1</int>
+        <int name="R100000136">1</int>
+      </lst>
+      <lst name="NDC">
+        <int name="0">2</int>
+      </lst>
+      <lst name="ISSUED_DATE">
+        <int name="2017">2</int>
+      </lst>
+      <lst name="LIBRARY">
+        <int name="さいたま市立中央図書館">1</int>
+        <int name="岐阜県図書館">1</int>
+        <int name="栃木県立図書館">1</int>
+        <int name="横浜市立図書館">1</int>
+        <int name="滋賀県立図書館">1</int>
+        <int name="石川県立図書館">1</int>
+      </lst>
+    </facets>
+  </extraResponseData>
+  <records>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000001-I09111102232259">
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000001</dcndl:bibRecordCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I09111102232259#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000001-I09111102232259#material">
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NSMARCNO">33700672</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4048930591"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4-04-893059-1</dcterms:identifier>
+            <dcterms:title>Ｃｌｅａｎ　Ｃｏｄｅ : アジャイルソフトウェア達人の技</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>Ｃｌｅａｎ　Ｃｏｄｅ : アジャイルソフトウェア達人の技</rdf:value>
+                <dcndl:transcription>クリーン　コード</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:uniformTitle>
+              <rdf:Description>
+                <rdf:value>Ｃｌｅａｎ　Ｃｏｄｅ</rdf:value>
+                <dcndl:transcription>クリーン　コード</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:uniformTitle>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ</foaf:name>
+                <dcndl:transcription>マーティン, ロバート, Ｃ．</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>花井, 志生</foaf:name>
+                <dcndl:transcription>ハナイ, シセイ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ 著 ; 花井志生 訳</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>ドワンゴ</foaf:name>
+                <dcndl:transcription>ドワンゴ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcterms:date>201712</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2017</dcterms:issued>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>索引あり</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcterms:description>アスキー・メディアワークス　２００９年刊の再刊</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>プログラミング（コンピュータ）</rdf:value>
+                <dcndl:transcription>プログラミング（コンピュータ）</dcndl:transcription>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/007．64"/>
+            <dc:subject rdf:datatype="http://ndl.go.jp/dcndl/terms/NDC8">007.64</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">ｊｐｎ</dcterms:language>
+            <dcndl:originalLanguage rdf:datatype="http://purl.org/dc/terms/ISO639-2">ｅｎｇ</dcndl:originalLanguage>
+            <dcterms:extent>５２７ｐ ; ２４ｃｍ</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="http://www.lib.pref.tochigi.lg.jp/winj/opac/switch-detail-iccap.do?bibid=1102232259"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000001-I09111102232259#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I09111102232259#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I11212757643#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I14211113548593#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I17111000001097694#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I21111190275285#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I25114545142#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784048930598#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>1</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970586434880899389">
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000136</dcndl:bibRecordCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970586434880899389#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970586434880899389#material">
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NIIBibID">BB25204384</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784048930598"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9784048930598</dcterms:identifier>
+            <dcterms:title>Clean Code (クリーンコード) : アジャイルソフトウェア達人の技</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>Clean Code (クリーンコード) : アジャイルソフトウェア達人の技</rdf:value>
+                <dcndl:transcription>クリーン コード : アジャイル ソフトウェア タツジン ノ ワザ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:alternative>
+              <rdf:Description>
+                <rdf:value>Clean code : a handbook of agile software craftsmanship</rdf:value>
+              </rdf:Description>
+            </dcndl:alternative>
+            <dcndl:alternative>
+              <rdf:Description>
+                <rdf:value>Clean code : アジャイルソフトウェア達人の技</rdf:value>
+              </rdf:Description>
+            </dcndl:alternative>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>Martin, Robert C.</foaf:name>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>花井, 志生</foaf:name>
+                <dcndl:transcription>ハナイ, シセイ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>Robert C.Martin著 ; 花井志生訳</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>ドワンゴ</foaf:name>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>KADOKAWA </foaf:name>
+                <dcterms:description>発売</dcterms:description>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2017.12</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2017</dcterms:issued>
+            <dcterms:description>参考文献: 各章末</dcterms:description>
+            <dcterms:description>索引あり</dcterms:description>
+            <dcterms:description>KADOKAWA/アスキー・メディアワークス刊の再刊</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>プログラミング(コンピュータ)</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc9/007.64"/>
+            <dc:subject rdf:datatype="http://ndl.go.jp/dcndl/terms/NDC8">007.64</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>24cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://cir.nii.ac.jp/crid/1970586434880899389"/>
+            <dcterms:relation rdf:resource="https://ci.nii.ac.jp/ncid/BB25204384#entity"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970586434880899389#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970586434880899389#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>2</recordPosition>
+    </record>
+  </records>
+</searchRetrieveResponse>

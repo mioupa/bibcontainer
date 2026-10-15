@@ -436,6 +436,26 @@ fn publisher_and_date_come_from_the_edition_json_then_the_search_doc() {
 }
 
 #[test]
+fn authors_are_one_person_per_array_element_and_never_split_or_reordered() {
+    // 1 要素が 1 人。空白を含む名前、「姓, 名」、役割らしい語・`and` が入っていても、分けず、並べ替えず、役割も付けない。
+    let search = search_with(
+        json!({"key": "/works/OL1W", "title": "T", "author_name": [
+            "Robert C. Martin", "Martin, Robert C.", "foreword by James O. Coplien", "Jane Austen and Vivien Jones"
+        ]}),
+        vec![json!({"key": "/books/OL1M", "isbn": [CLEAN_CODE]})],
+    );
+    assert_eq!(
+        parse(CLEAN_CODE, &search, None).unwrap().authors,
+        vec![
+            author("Robert C. Martin"),
+            author("Martin, Robert C."),
+            author("foreword by James O. Coplien"),
+            author("Jane Austen and Vivien Jones"),
+        ]
+    );
+}
+
+#[test]
 fn authors_fall_back_from_the_edition_doc_to_the_work() {
     let work = |a: Value| json!({"key": "/works/OL1W", "title": "T", "author_name": a});
     let ed = |extra: Value| {

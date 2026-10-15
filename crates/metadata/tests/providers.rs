@@ -110,7 +110,7 @@ fn openbd_multiple_authors_without_roles() {
     assert_eq!(
         c.authors,
         vec![
-            author("Dostoyevsky, Fyodor", None, None),
+            author("Fyodor Dostoyevsky", None, None),
             author("江川卓", Some("エガワ タク"), None)
         ]
     );
@@ -122,8 +122,28 @@ fn openbd_multiple_authors_without_roles() {
         c.authors[1],
         author("米川正夫", Some("ヨネカワ マサオ"), None)
     );
-    assert_eq!(c.authors[0].name, "Dostoevskii, FyodorMikhailovich");
+    assert_eq!(c.authors[0].name, "FyodorMikhailovich Dostoevskii");
+    // 英字の名前（`姓, 名` を `名 姓` に直したもの）にも、ONIX の collationkey のヨミが付く
+    assert_eq!(
+        c.authors[0].kana.as_deref(),
+        Some("ドストエフスキー フョードル・ミハイロヴィチ")
+    );
     assert_eq!(c.published_on.as_deref(), Some("1976-01"), "「1976-01」");
+}
+
+#[test]
+fn openbd_japanese_translation_of_a_western_book_keeps_both_authors() {
+    // クリーンコード（日本語訳）。NDL 由来の `summary.author` は `Martin,RobertC. 花井,志生`
+    // （英字の名前の中の空白は落ちている。ONIX の Contributor には `Martin, Robert C.` がある）。
+    // 空白で人を分けるので、2 人。英字の名前は `名 姓` の順。
+    let c = openbd("9784048930598");
+    assert_eq!(
+        c.authors,
+        vec![
+            author("RobertC. Martin", None, None),
+            author("花井志生", Some("ハナイ シセイ"), None)
+        ]
+    );
 }
 
 #[test]
@@ -281,6 +301,79 @@ fn ndl_skips_series_wide_aggregate_record_and_reads_volume() {
     assert_eq!(
         c.authors,
         vec![author("尾田栄一郎", Some("オダ エイイチロウ"), Some("著"))]
+    );
+}
+
+/// 実際の応答の SRU から、先頭の `record` 1 件だけを残した応答を作る。
+fn first_record_only(body: &str) -> String {
+    let second = body
+        .match_indices("<record>")
+        .nth(1)
+        .expect("record が 2 件以上ある")
+        .0;
+    let head = &body[..second];
+    // 行頭の空白ごと切り落として、閉じるタグを足す
+    let head = head.trim_end_matches([' ', '\t']);
+    format!("{head}  </records>\n</searchRetrieveResponse>\n")
+}
+
+#[test]
+fn ndl_western_book_takes_people_from_structured_names_and_roles_from_the_statement() {
+    // Clean Code（洋書）。`dc:creator` は `Robert C. Martin ... [et al.] ; foreword by James O. Coplien`。
+    // 空白で人を分けず、`foaf:name`（`Martin, Robert C.`）を `名 姓` にし、役割は責任表示から読む。ヨミはない。
+    let c = ndl("9780132350884").expect("NDL に収録がある");
+    assert_eq!(
+        c.authors,
+        vec![
+            author("Robert C. Martin", None, Some("著")),
+            author("James O. Coplien", None, Some("序文"))
+        ]
+    );
+    assert_eq!(c.title.as_deref(), Some("Clean code"));
+    assert_eq!(c.language.as_deref(), Some("en"));
+}
+
+#[test]
+fn ndl_western_book_with_editor_and_introduction() {
+    // Pride and Prejudice: 2 件のレコードのうち、項目の多い 2014 年版（NDC がある）が選ばれる。
+    // `Jane Austen ; edited with an introduction and notes by Vivien Jones`
+    let c = ndl("9780141439518").expect("NDL に収録がある");
+    assert_eq!(c.published_on.as_deref(), Some("2014"));
+    assert_eq!(
+        c.authors,
+        vec![
+            author("Jane Austen", None, Some("著")),
+            author("Vivien Jones", None, Some("編"))
+        ]
+    );
+    // もう一方（2003 年版）の責任表示は `… ; with the original Penguin Classics introduction by Tony Tanner`
+    let body = first_record_only(&fixture("ndl_9780141439518.xml"));
+    let c = Ndl::new()
+        .parse(&raw(ProviderId::Ndl, "9780141439518", body))
+        .unwrap()
+        .expect("先頭のレコード");
+    assert_eq!(c.published_on.as_deref(), Some("2003"));
+    assert_eq!(
+        c.authors,
+        vec![
+            author("Jane Austen", None, Some("著")),
+            author("Vivien Jones", None, Some("編")),
+            author("Tony Tanner", None, Some("解説"))
+        ]
+    );
+}
+
+#[test]
+fn ndl_japanese_translation_of_a_western_book_stays_on_the_japanese_path() {
+    // クリーンコード（日本語訳）。責任表示に漢字（著・訳）があるので従来どおり読む: 役割は語から、ヨミは foaf:Agent から。
+    // NDL 自身のレコード（先頭）の責任表示は `ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ 著 ; 花井志生 訳`（名前の中の空白は原データで落ちている）。
+    let c = ndl("9784048930598").expect("NDL に収録がある");
+    assert_eq!(
+        c.authors,
+        vec![
+            author("RobertC.Martin", Some("マーティン"), Some("著")),
+            author("花井志生", Some("ハナイ シセイ"), Some("訳"))
+        ]
     );
 }
 
@@ -543,6 +636,23 @@ fn google_volume_without_identifiers_is_used_as_is_and_without_image_links_has_n
             .unwrap()
             .covers
             .is_empty()
+    );
+}
+
+#[test]
+fn google_authors_are_one_person_per_array_element_and_never_split_or_reordered() {
+    // 1 要素が 1 人。空白を含む名前、「姓, 名」、役割らしい語・`...`・`and` が入っていても、分けず、並べ替えず、役割も付けない。
+    let body = r#"{"kind":"books#volume","id":"abcd1234","volumeInfo":{"title":"T","authors":["Robert C. Martin","Martin, Robert C.","foreword by James O. Coplien","Robert C. Martin ... [et al.]","Jane Austen and Vivien Jones"]}}"#;
+    let c = google_volume("9780132350884", body).unwrap();
+    assert_eq!(
+        c.authors,
+        vec![
+            author("Robert C. Martin", None, None),
+            author("Martin, Robert C.", None, None),
+            author("foreword by James O. Coplien", None, None),
+            author("Robert C. Martin ... [et al.]", None, None),
+            author("Jane Austen and Vivien Jones", None, None),
+        ]
     );
 }
 

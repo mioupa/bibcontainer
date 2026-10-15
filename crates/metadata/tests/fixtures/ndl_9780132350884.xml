@@ -1,0 +1,97 @@
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+  <version>1.2</version>
+  <numberOfRecords>1</numberOfRecords>
+  <extraResponseData>
+    <facets>
+      <lst name="REPOSITORY_NO">
+        <int name="R100000136">1</int>
+      </lst>
+      <lst name="NDC">
+      </lst>
+      <lst name="ISSUED_DATE">
+        <int name="2008">1</int>
+      </lst>
+      <lst name="LIBRARY">
+      </lst>
+    </facets>
+  </extraResponseData>
+  <records>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1971149384761529896">
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000136</dcndl:bibRecordCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1971149384761529896#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1971149384761529896#material">
+            <rdfs:seeAlso rdf:resource="http://lccn.loc.gov/2008024750"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/USMARCNO">2008024750</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NIIBibID">BA87924669</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9780132350884"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9780132350884</dcterms:identifier>
+            <dcterms:title>Clean code : a handbook of agile software craftsmanship : pbk.</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>Clean code : a handbook of agile software craftsmanship</rdf:value>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>: pbk.</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>Martin, Robert C.</foaf:name>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>Coplien, James O.</foaf:name>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>Robert C. Martin ... [et al.] ; foreword by James O. Coplien</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>Prentice Hall</foaf:name>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">US</dcndl:publicationPlace>
+            <dcterms:date>2008</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2008</dcterms:issued>
+            <dcterms:abstract>Robert C. Martin series</dcterms:abstract>
+            <dcterms:description>Includes bibliographical references and index</dcterms:description>
+            <dcterms:description>"The Object Mentors: Robert C. Martin Michael Feathers Timothy R. Ottinger Jeffrey J. Langr Brett L. Schuchert James W. Grenning Kevin Dean Wampler Object Mentor Inc." -- T.p.</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Agile software development</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Computer software -- Reliability</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dc:subject rdf:datatype="http://purl.org/dc/terms/LCC">QA76.76.D47</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">eng</dcterms:language>
+            <dcterms:extent>24 cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://cir.nii.ac.jp/crid/1971149384761529896"/>
+            <dcterms:relation rdf:resource="https://cir.nii.ac.jp/crid/1971712334740142633" rdfs:label="Robert C. Martin series"/>
+            <dcterms:relation rdf:resource="https://ci.nii.ac.jp/ncid/BA87924669#entity"/>
+            <dcterms:relation rdf:resource="https://lccn.loc.gov/2008024750"/>
+            <dcterms:isPartOf rdf:resource="https://cir.nii.ac.jp/crid/1971712334740142633" rdfs:label="Robert C. Martin series"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1971149384761529896#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1971149384761529896#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>1</recordPosition>
+    </record>
+  </records>
+</searchRetrieveResponse>

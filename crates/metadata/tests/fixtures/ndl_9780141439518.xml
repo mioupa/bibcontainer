@@ -1,0 +1,233 @@
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+  <version>1.2</version>
+  <numberOfRecords>2</numberOfRecords>
+  <extraResponseData>
+    <facets>
+      <lst name="REPOSITORY_NO">
+        <int name="R100000136">2</int>
+      </lst>
+      <lst name="NDC">
+        <int name="9">1</int>
+      </lst>
+      <lst name="ISSUED_DATE">
+        <int name="2003">1</int>
+        <int name="2014">1</int>
+      </lst>
+      <lst name="LIBRARY">
+        <int name="さいたま市立中央図書館">1</int>
+        <int name="堺市立中央図書館">1</int>
+        <int name="川崎市立図書館">1</int>
+        <int name="横浜市立図書館">1</int>
+        <int name="福島県立図書館">1</int>
+      </lst>
+    </facets>
+  </extraResponseData>
+  <records>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970023484894665009">
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000136</dcndl:bibRecordCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970023484894665009#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970023484894665009#material">
+            <rdfs:seeAlso rdf:resource="http://lccn.loc.gov/2003265779"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/USMARCNO">2003265779</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NIIBibID">BA66431572</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9780141439518"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9780141439518</dcterms:identifier>
+            <dcterms:title>Pride and prejudice</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>Pride and prejudice</rdf:value>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:alternative>
+              <rdf:Description>
+                <rdf:value>Pride &amp; prejudice</rdf:value>
+              </rdf:Description>
+            </dcndl:alternative>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>Austen, Jane</foaf:name>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>Jones, Vivien</foaf:name>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>Tanner, Tony</foaf:name>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>Jane Austen ; edited with an introduction and notes by Vivien Jones ; with the original Penguin Classics introduction by Tony Tanner</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>Penguin Books</foaf:name>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">GB</dcndl:publicationPlace>
+            <dcterms:date>2003</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2003</dcterms:issued>
+            <dcterms:abstract>Penguin classics</dcterms:abstract>
+            <dcterms:description>Includes bibliographical references (p. [xxxvii]-xxxix)</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Social classes -- Fiction</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Young women -- Fiction</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Prejudices -- Fiction</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Courtship -- Fiction</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Sisters -- Fiction</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>England -- Fiction</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Domestic fiction. lcsh</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Love stories. gsafd</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dc:subject rdf:datatype="http://purl.org/dc/terms/LCC">PR4034</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">eng</dcterms:language>
+            <dcterms:extent>20 cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://cir.nii.ac.jp/crid/1970023484894665009"/>
+            <dcterms:relation rdf:resource="https://cir.nii.ac.jp/crid/1970867909862077220" rdfs:label="Penguin classics"/>
+            <dcterms:relation rdf:resource="https://ci.nii.ac.jp/ncid/BA66431572#entity"/>
+            <dcterms:relation rdf:resource="https://lccn.loc.gov/2003265779"/>
+            <dcterms:isPartOf rdf:resource="https://cir.nii.ac.jp/crid/1970867909862077220" rdfs:label="Penguin classics"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970023484894665009#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I07111001102332273#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I11212291042#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I14211122077950#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I14223646541#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27221007000706633#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970023484894665009#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>1</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1971993809727168043">
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000136</dcndl:bibRecordCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1971993809727168043#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1971993809727168043#material">
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NIIBibID">BB2309791X</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9780141439518"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9780141439518</dcterms:identifier>
+            <dcterms:title>Pride and prejudice</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>Pride and prejudice</rdf:value>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:edition>Rev. ed</dcndl:edition>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>Austen, Jane</foaf:name>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>Jones, Vivien</foaf:name>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>Jane Austen ; edited with an introduction and notes by Vivien Jones</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>Penguin Books</foaf:name>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">GB</dcndl:publicationPlace>
+            <dcterms:date>2014</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2014</dcterms:issued>
+            <dcterms:abstract>Penguin classics</dcterms:abstract>
+            <dcterms:description>Includes bibliographical references (p. [xxxv]-xxxvii)</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Social classes -- Fiction</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Young women -- Fiction</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Prejudices -- Fiction</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Courtship -- Fiction</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Sisters -- Fiction</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>England -- Fiction</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc9/933.6"/>
+            <dc:subject rdf:datatype="http://purl.org/dc/terms/LCC">PR4034</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">eng</dcterms:language>
+            <dcterms:extent>20 cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://cir.nii.ac.jp/crid/1971993809727168043"/>
+            <dcterms:relation rdf:resource="https://cir.nii.ac.jp/crid/1970867909862077220" rdfs:label="Penguin classics"/>
+            <dcterms:relation rdf:resource="https://ci.nii.ac.jp/ncid/BB2309791X#entity"/>
+            <dcterms:isPartOf rdf:resource="https://cir.nii.ac.jp/crid/1970867909862077220" rdfs:label="Penguin classics"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1971993809727168043#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1971993809727168043#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>2</recordPosition>
+    </record>
+  </records>
+</searchRetrieveResponse>
