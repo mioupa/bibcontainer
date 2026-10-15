@@ -122,7 +122,9 @@ fn openbd_multiple_authors_without_roles() {
         c.authors[1],
         author("米川正夫", Some("ヨネカワ マサオ"), None)
     );
-    assert_eq!(c.authors[0].name, "FyodorMikhailovich Dostoevskii");
+    // `summary.author` は `Ｄｏｓｔｏｅｖｓｋｉｉ，ＦｙｏｄｏｒＭｉｋｈａｉｌｏｖｉｃｈ`（名の間の空白が落ちている）。
+    // ONIX の `PersonName`（`Ｄｏｓｔｏｅｖｓｋｉｉ，Ｆｙｏｄｏｒ　Ｍｉｋｈａｉｌｏｖｉｃｈ`）の綴りにそろう。
+    assert_eq!(c.authors[0].name, "Fyodor Mikhailovich Dostoevskii");
     // 英字の名前（`姓, 名` を `名 姓` に直したもの）にも、ONIX の collationkey のヨミが付く
     assert_eq!(
         c.authors[0].kana.as_deref(),
@@ -135,13 +137,36 @@ fn openbd_multiple_authors_without_roles() {
 fn openbd_japanese_translation_of_a_western_book_keeps_both_authors() {
     // クリーンコード（日本語訳）。NDL 由来の `summary.author` は `Martin,RobertC. 花井,志生`
     // （英字の名前の中の空白は落ちている。ONIX の Contributor には `Martin, Robert C.` がある）。
-    // 空白で人を分けるので、2 人。英字の名前は `名 姓` の順。
+    // 空白で人を分けるので、2 人。英字の名前は `名 姓` の順で、空白は ONIX の `PersonName` の綴りに直す。
     let c = openbd("9784048930598");
     assert_eq!(
         c.authors,
         vec![
-            author("RobertC. Martin", None, None),
+            author("Robert C. Martin", None, None),
             author("花井志生", Some("ハナイ シセイ"), None)
+        ]
+    );
+}
+
+#[test]
+fn openbd_japanese_translation_without_onix_contributors_fills_in_the_initials_only() {
+    // ONIX の Contributor を除くと、洋名の綴りの参照がない。頭文字のまわり（`RobertC.` → `Robert C.`）だけを補う。
+    let mut v: serde_json::Value =
+        serde_json::from_str(&fixture("openbd_9784048930598.json")).unwrap();
+    v["onix"]["DescriptiveDetail"]
+        .as_object_mut()
+        .unwrap()
+        .remove("Contributor")
+        .expect("Contributor がある");
+    let c = OpenBd::new()
+        .parse(&raw(ProviderId::Openbd, "9784048930598", v.to_string()))
+        .unwrap()
+        .expect("openBD に収録がある");
+    assert_eq!(
+        c.authors,
+        vec![
+            author("Robert C. Martin", None, None),
+            author("花井志生", None, None)
         ]
     );
 }
@@ -367,11 +392,30 @@ fn ndl_western_book_with_editor_and_introduction() {
 fn ndl_japanese_translation_of_a_western_book_stays_on_the_japanese_path() {
     // クリーンコード（日本語訳）。責任表示に漢字（著・訳）があるので従来どおり読む: 役割は語から、ヨミは foaf:Agent から。
     // NDL 自身のレコード（先頭）の責任表示は `ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ 著 ; 花井志生 訳`（名前の中の空白は原データで落ちている）。
+    // 応答のもう 1 件（CiNii）の `foaf:name` は `Martin, Robert C.` なので、その綴りに直す。ヨミと役割はそのまま。
     let c = ndl("9784048930598").expect("NDL に収録がある");
     assert_eq!(
         c.authors,
         vec![
-            author("RobertC.Martin", Some("マーティン"), Some("著")),
+            author("Robert C. Martin", Some("マーティン"), Some("著")),
+            author("花井志生", Some("ハナイ シセイ"), Some("訳"))
+        ]
+    );
+}
+
+#[test]
+fn ndl_japanese_translation_without_a_spaced_reference_fills_in_the_initials_only() {
+    // CiNii のレコードを除くと、空白のある綴りの参照がない（NDL 自身の `foaf:name` も `ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ`）。
+    // 頭文字のまわり（`RobertC.Martin` → `Robert C. Martin`）だけを補う。
+    let body = first_record_only(&fixture("ndl_9784048930598.xml"));
+    let c = Ndl::new()
+        .parse(&raw(ProviderId::Ndl, "9784048930598", body))
+        .unwrap()
+        .expect("先頭のレコード");
+    assert_eq!(
+        c.authors,
+        vec![
+            author("Robert C. Martin", Some("マーティン"), Some("著")),
             author("花井志生", Some("ハナイ シセイ"), Some("訳"))
         ]
     );

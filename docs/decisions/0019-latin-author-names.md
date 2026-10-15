@@ -86,6 +86,37 @@ openBD の版元以外の本の `summary.author` は、人を空白で区切り�
 - openBD: `openbd_9784048930598.json`（同じ本。`hanmoto` の連絡先などは他の openBD のフィクスチャと同じく除いた）。
 - 単体テスト: 名前の形（生没年、反転、`Jr.`、団体）、役割の語の表、ラテン文字の区切り（`Robert C. Martin ... [et al.]` → 1 人、`edited by A and B` → 2 人で「編」、`foreword by James O. Coplien` → 1 人で「序文」）、openBD の続きの規則、`Robert C. Martin 著 ; 花井志生 訳` → `Robert C. Martin` が 1 人のまま、Google と Open Library の名前が分かれないこと。
 
+### 8. 日本語訳の本で、洋名の欠けた空白を補う（2026-10-16 追記、ユーザー指示）
+
+**背景**: 日本語訳の本（978-4）では、元のデータ自体で洋名の空白が欠けている。Clean Code の日本語訳（9784048930598）では次のとおりだった。
+
+| 取得元 | 著者の文字列 | それまでの結果 | 同じ応答の中の構造化された名前 |
+|---|---|---|---|
+| openBD | `summary.author` が `Martin,RobertC. 花井,志生` | `RobertC. Martin` | ONIX の `Contributor[].PersonName` が `Martin, Robert C.` |
+| NDL（自館のレコード。選ばれる方） | `ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ 著 ; 花井志生 訳`。`foaf:name` も `ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ` | `RobertC.Martin`（著） | 同じ応答の CiNii のレコードの `foaf:name` が `Martin, Robert C.` |
+
+和書の区分（0020）では openBD・NDL が先に採用されるので、優先順位では直らない。
+
+**決定**（`normalize::restore_latin_name_spacing`。openBD と NDL の解析の最後に、漢字・かなを含まない著者名だけにかける。Google・Open Library にはかけない）:
+
+1. **同じ応答の中の構造化された名前で置き換える。** openBD は ONIX の `Contributor[].PersonName`（文字列か `.content`）、NDL は応答の**全レコード**の `dcterms:creator/foaf:Agent/foaf:name`（選ばれなかったレコードも含む。出版社などは使わない）のうち、漢字・かなを含まないものを、`latin_person_name` で `名 姓` にして参照にする。照合キー（NFKC のあと小文字にし、英数字だけを残す。`robertcmartin`）が合う参照があれば、その綴りに置き換える。役割・ヨミは変えない（ヨミは置き換えの前に付ける）。
+   - キーが合う参照が、空白・句読点だけが違う形で複数あれば、空白の多いものを使う（同数なら先のもの）。それ以外の違い（大文字小文字、アクセントなど）があれば、決められないので置き換えない。
+   - キーが空（英数字がない。キリル文字など）の名前は照合しない。
+2. **そのあと、頭文字のまわりの空白だけを補う**（`space_latin_initials`）。補うのは、小文字のすぐあとに頭文字（大文字 1 字とピリオド）が続く形（`RobertC.` → `Robert C.`）と、語頭の頭文字のすぐあとに大文字で始まる語が続く形（`C.Martin` → `C. Martin`、`J.R.R.Tolkien` → `J.R.R. Tolkien`）の 2 つだけ。`McDonald`・`DeMarco`・`MacArthur`・`St.John`・`O'Brien`、すでに空白のある名前は変えない。参照の綴りにも空白の欠けたもの（`Robert C.Martin`）がありうるので、置き換えたあとにもかける（整った名前には何もしない）。
+3. 置き換えで同じ著者（名前・ヨミ・役割が同じ）が重なったら、先のものだけを残す。
+
+**結果**:
+
+| フィクスチャ | それまで | いま |
+|---|---|---|
+| openBD 9784048930598 | `RobertC. Martin` | `Robert C. Martin`（役割・ヨミなしは同じ。ONIX の `collationkey` が空のため） |
+| NDL 9784048930598 | `RobertC.Martin`（著、ヨミ マーティン） | `Robert C. Martin`（著、ヨミ マーティン）。CiNii のレコードの `foaf:name` から |
+| openBD 9784003261460 | `FyodorMikhailovich Dostoevskii` | `Fyodor Mikhailovich Dostoevskii`（ONIX の `Ｄｏｓｔｏｅｖｓｋｉｉ，Ｆｙｏｄｏｒ　Ｍｉｋｈａｉｌｏｖｉｃｈ` から。ヨミはそのまま） |
+| openBD 9784003261354 | `Fyodor Dostoyevsky` | 同じ |
+
+- テスト: 上の表、CiNii のレコードを除いた NDL の応答（2 の補いだけで `Robert C. Martin`）、ONIX の `Contributor` を除いた openBD の応答（同じ）、照合キー・置き換え（合う・合わない・決められない・空白の多い方）・頭文字の補い（直す形と、変えない形）の単体テスト。
+- 頭文字の補いは推測を含むが、頭文字（大文字 1 字とピリオド）に接する 2 つの形に限ったので、正しい綴りを壊す例は見つけていない。`Ph.D.Smith` は `Ph.D. Smith` になる。
+
 ## 理由
 
 - NDL がすでに 1 人ずつの名前を返しているので、文字列を推測で分解するより確実。和書の解析は実データで検証済み（0007）なので、責任表示がラテン文字だけのときに限って新しい経路に分けた。
@@ -95,5 +126,5 @@ openBD の版元以外の本の `summary.author` は、人を空白で区切り�
 ## 影響・今後
 
 - **既存の本は、「書誌を再取得」で直る**（手動の再取得はキャッシュを使わずに取り直す。0010 §9）。手で直した著者は上書きしない（`overrideManual` を選んだときだけ上書き）。
-- **日本語訳の本では、元のデータで洋名の空白が欠けている。** Clean Code の日本語訳（9784048930598）は、openBD の `summary.author` が `Martin,RobertC. 花井,志生`、NDL の自館のレコード（選ばれる方）の責任表示が `ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ 著 ; 花井志生 訳` で、どちらも `Robert C.` の空白がない。いまの結果は、openBD が `RobertC. Martin`、NDL が `RobertC.Martin`（著、ヨミ マーティン）。openBD の ONIX の `Contributor.PersonName`（`Martin, Robert C.`）や NDL の `foaf:name` には空白があるので、照合キー（英数字だけ）が合えば、そちらの形に置き換えることで直せる。この作業では直していない（分かれる不具合とは別の問題のため）。
+- **日本語訳の本で、元のデータの洋名の空白が欠けている件は、§8 で直した**（同じ日に追加）。
 - 要件書の修正案: FR-META-06 の著者の例に「洋書は NDL の構造化された名前を使い、`名 姓` の形にそろえる（例: `Martin, Robert C.` → Robert C. Martin〔著〕、`foreword by James O. Coplien` → James O. Coplien〔序文〕）」を足す。

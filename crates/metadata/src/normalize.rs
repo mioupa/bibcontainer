@@ -1300,6 +1300,115 @@ pub fn attach_kana(authors: &mut [CandidateAuthor], pairs: &[(String, String)]) 
     }
 }
 
+/// 英字の人名の照合キー（NFKC、小文字、ASCII の英数字だけ）。`Robert C. Martin`・`RobertC.Martin`・`ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ`
+/// はどれも `robertcmartin`。空白・記号の有無・全角半角のゆれを除いて、同じ人の綴りを突き合わせる。
+pub fn latin_name_key(s: &str) -> String {
+    nfkc(s)
+        .to_lowercase()
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .collect()
+}
+
+/// 構造化された人名（NDL の `foaf:name`、openBD の ONIX の `PersonName`）のうち、英字のものを `名 姓` の形にして並べる。
+/// 漢字・かなを含む名前、空の名前は除く。`restore_latin_name_spacing` の「参照」に使う。
+pub fn latin_reference_names<I, S>(raw: I) -> Vec<String>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    raw.into_iter()
+        .filter_map(|r| {
+            let text = clean_text(r.as_ref())?;
+            if has_cjk_or_kana(&text) {
+                return None;
+            }
+            latin_person_name(&text)
+        })
+        .collect()
+}
+
+/// 綴りの比較用（空白・記号を除き、大文字小文字と英数字はそのまま）。
+fn spelling_form(s: &str) -> String {
+    s.chars().filter(|c| c.is_alphanumeric()).collect()
+}
+
+/// `key` と照合キーが合う参照のうち、使うもの。
+///
+/// 合うものがなければ `None`。複数あっても、空白・記号が違うだけ（`RobertC.Martin` と `Robert C. Martin`）なら
+/// 空白が最も多いもの（同数なら先に出たもの）。綴りが違うもの（大文字小文字・英字以外の文字が違う）が混ざるなら、
+/// どれとも決められないので `None`。
+fn pick_reference<'a>(key: &str, references: &'a [String]) -> Option<&'a str> {
+    let mut matching = references.iter().filter(|r| latin_name_key(r) == key);
+    let first = matching.next()?;
+    let form = spelling_form(first);
+    let mut best = first;
+    for r in matching {
+        if spelling_form(r) != form {
+            return None;
+        }
+        let spaces = |s: &str| s.chars().filter(|c| c.is_whitespace()).count();
+        if spaces(r) > spaces(best) {
+            best = r;
+        }
+    }
+    Some(best.as_str())
+}
+
+/// 小文字のすぐあとの `C.`（`RobertC.`）。
+static INITIAL_AFTER_LOWER: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"([a-z])([A-Z]\.)").expect("正規表現"));
+
+/// 語頭（文字列の先頭、空白、ピリオドのあと）の頭文字 `C.` のすぐあとに、大文字で始まる語が続く形（`C.Martin`、`J.R.R.Tolkien`）。
+static INITIAL_BEFORE_WORD: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(^|[\s.])([A-Z]\.)([A-Z][a-z])").expect("正規表現"));
+
+/// 英字の人名で、頭文字のまわりの欠けた空白だけを補う。
+///
+/// 補うのは次の 2 つだけ（`RobertC.Martin` → `Robert C. Martin`、`J.R.R.Tolkien` → `J.R.R. Tolkien`）。
+/// - 小文字のすぐあとに、大文字 1 字とピリオドの頭文字が続く形（`t` + `C.`）。
+/// - 語頭の頭文字（大文字 1 字とピリオド）のすぐあとに、大文字で始まる語が続く形（`C.` + `Martin`）。
+///
+/// `McDonald`・`DeMarco`・`MacArthur`・`St.John`・`O'Brien` や、すでに空白のある名前は変えない。最後に空白を 1 つにそろえる。
+pub fn space_latin_initials(name: &str) -> String {
+    let t = INITIAL_AFTER_LOWER.replace_all(name, "$1 $2");
+    let t = INITIAL_BEFORE_WORD.replace_all(&t, "$1$2 $3");
+    t.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// 英字の著者名に欠けた空白を直す（日本語訳の本では、元のデータが `RobertC.Martin` のように名前の空白を落としている）。
+///
+/// 日本語の名前（漢字・かなを含む）には触らない。`role` と `kana` はそのまま。
+/// 1. 構造化された名前（`references`。`latin_reference_names` の結果）と照合キー（`latin_name_key`）が合えば、その綴りに置き換える。
+///    合う参照が複数あるときの選び方は `pick_reference`。
+/// 2. そのあと（置き換えたかどうかによらず）、`space_latin_initials` で頭文字のまわりだけを直す。参照の綴りにも空白の
+///    欠けたもの（`Robert C.Martin`）があるため。整った名前には何もしない。
+///
+/// 置き換えで同じ著者（名前・ヨミ・役割が同じ）が重なったら、先に出たものだけを残す。
+pub fn restore_latin_name_spacing(authors: &mut Vec<CandidateAuthor>, references: &[String]) {
+    for author in authors.iter_mut() {
+        if has_cjk_or_kana(&author.name) {
+            continue;
+        }
+        let key = latin_name_key(&author.name);
+        let reference = if key.is_empty() {
+            None
+        } else {
+            pick_reference(&key, references)
+        };
+        // 構造化された名前で置き換えたあとも、イニシャルの補いをかける（整った名前には何もしない）
+        let name = reference.unwrap_or(&author.name);
+        author.name = space_latin_initials(name);
+    }
+    let mut unique: Vec<CandidateAuthor> = Vec::with_capacity(authors.len());
+    for author in authors.drain(..) {
+        if !unique.contains(&author) {
+            unique.push(author);
+        }
+    }
+    *authors = unique;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2251,5 +2360,226 @@ mod tests {
             Some("ドストエフスキー フョードル・ミハイロヴィチ")
         );
         assert_eq!(authors[1].kana, None);
+    }
+    #[test]
+    fn latin_name_key_keeps_only_ascii_letters_and_digits() {
+        for raw in [
+            "Robert C. Martin",
+            "RobertC.Martin",
+            "ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ",
+            "ROBERT C MARTIN",
+            "Robert-C. Martin",
+        ] {
+            assert_eq!(latin_name_key(raw), "robertcmartin", "{raw}");
+        }
+        assert_eq!(latin_name_key("O'Brien, Tim 1946-"), "obrientim1946");
+        assert_eq!(latin_name_key("花井志生"), "");
+        assert_eq!(latin_name_key("Müller"), "mller");
+    }
+
+    #[test]
+    fn latin_reference_names_are_latin_only_and_in_natural_order() {
+        assert_eq!(
+            latin_reference_names([
+                "Martin, Robert C.",
+                "花井, 志生",
+                "ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ",
+                "Dostoyevsky, Fyodor, 1821-1881",
+                "  ",
+                "KADOKAWA ",
+            ]),
+            vec![
+                "Robert C. Martin",
+                "RobertC.Martin",
+                "Fyodor Dostoyevsky",
+                "KADOKAWA"
+            ]
+        );
+    }
+
+    fn refs(list: &[&str]) -> Vec<String> {
+        latin_reference_names(list)
+    }
+
+    fn restored(name: &str, role: Option<&str>, references: &[&str]) -> CandidateAuthor {
+        let mut authors = vec![CandidateAuthor {
+            name: name.into(),
+            kana: Some("ヨミ".into()),
+            role: role.map(Into::into),
+        }];
+        restore_latin_name_spacing(&mut authors, &refs(references));
+        assert_eq!(authors.len(), 1);
+        authors.remove(0)
+    }
+
+    #[test]
+    fn restore_substitutes_the_structured_name_when_the_keys_match() {
+        let got = restored("RobertC. Martin", Some("著"), &["Martin, Robert C."]);
+        assert_eq!(got.name, "Robert C. Martin");
+        assert_eq!(got.role.as_deref(), Some("著"), "役割はそのまま");
+        assert_eq!(got.kana.as_deref(), Some("ヨミ"), "ヨミはそのまま");
+        // 参照に生没年があっても、`名 姓` の形で、生没年は除く
+        assert_eq!(
+            restored(
+                "FyodorMikhailovich Dostoevskii",
+                None,
+                &["Dostoevskii, Fyodor Mikhailovich, 1821-1881"]
+            )
+            .name,
+            "Fyodor Mikhailovich Dostoevskii"
+        );
+        // 参照が複数あっても、照合キーの合うものだけが対象
+        assert_eq!(
+            restored(
+                "RobertC.Martin",
+                None,
+                &["Coplien, James O.", "Martin, Robert C."]
+            )
+            .name,
+            "Robert C. Martin"
+        );
+    }
+
+    #[test]
+    fn restore_prefers_the_reference_with_the_most_spaces() {
+        let both = ["ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ", "Martin, Robert C."];
+        assert_eq!(
+            restored("RobertC.Martin", None, &both).name,
+            "Robert C. Martin"
+        );
+        let reversed = ["Martin, Robert C.", "ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ"];
+        assert_eq!(
+            restored("RobertC.Martin", None, &reversed).name,
+            "Robert C. Martin"
+        );
+    }
+
+    #[test]
+    fn restore_leaves_the_name_when_references_disagree_on_spelling() {
+        // 照合キーは同じ（`robertcmartin`）だが、大文字小文字の綴りが違う参照が混ざる: どちらとも決められない
+        let ambiguous = ["Martin, Robert C.", "MARTIN, ROBERT C."];
+        assert_eq!(
+            restored("Robert C Martin", None, &ambiguous).name,
+            "Robert C Martin"
+        );
+        // 英字以外の文字（アクセント）の違いも、綴りの違い
+        let ambiguous = ["Müller, Hans", "Mïller, Hans"];
+        assert_eq!(restored("Hans Mller", None, &ambiguous).name, "Hans Mller");
+        // 置き換えがなかった著者には、頭文字の補いが働く
+        assert_eq!(
+            restored(
+                "RobertC.Martin",
+                None,
+                &["Martin, Robert C.", "MARTIN, ROBERT C."]
+            )
+            .name,
+            "Robert C. Martin"
+        );
+    }
+
+    #[test]
+    fn restore_without_a_match_falls_back_to_the_initials_only() {
+        assert_eq!(
+            restored("RobertC. Martin", None, &[]).name,
+            "Robert C. Martin"
+        );
+        assert_eq!(
+            restored("RobertC.Martin", None, &["Coplien, James O."]).name,
+            "Robert C. Martin"
+        );
+        // 同じ綴りの参照しかなくても（置き換えがなくても）、頭文字の補いは働く
+        assert_eq!(
+            restored("RobertC.Martin", None, &["ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ"]).name,
+            "Robert C. Martin"
+        );
+        // 空白のある名前は、参照がなくても変わらない
+        assert_eq!(
+            restored("Robert C. Martin", None, &[]).name,
+            "Robert C. Martin"
+        );
+        assert_eq!(
+            restored("Robert C. Martin", None, &["Martin, Robert C."]).name,
+            "Robert C. Martin"
+        );
+    }
+
+    #[test]
+    fn restore_never_touches_japanese_names_or_empty_keys() {
+        assert_eq!(
+            restored("花井志生", Some("訳"), &["花井, 志生", "Hanai, Shisei"]).name,
+            "花井志生"
+        );
+        assert_eq!(
+            restored("Ｃ．マーティン", None, &["Martin, C."]).name,
+            "Ｃ．マーティン"
+        );
+        // 英字（ASCII）を含まない名前は照合しない
+        assert_eq!(
+            restored("Достоевский", None, &["Достоевский, Фёдор"]).name,
+            "Достоевский"
+        );
+    }
+
+    #[test]
+    fn restore_merges_authors_that_become_identical() {
+        let mut authors = vec![
+            CandidateAuthor {
+                name: "RobertC.Martin".into(),
+                kana: None,
+                role: Some("著".into()),
+            },
+            CandidateAuthor {
+                name: "RobertC. Martin".into(),
+                kana: None,
+                role: Some("著".into()),
+            },
+            CandidateAuthor {
+                name: "RobertC. Martin".into(),
+                kana: None,
+                role: Some("訳".into()),
+            },
+        ];
+        restore_latin_name_spacing(&mut authors, &refs(&["Martin, Robert C."]));
+        assert_eq!(
+            authors,
+            vec![
+                a("Robert C. Martin", Some("著")),
+                a("Robert C. Martin", Some("訳"))
+            ]
+        );
+    }
+
+    #[test]
+    fn space_latin_initials_fixes_only_the_two_initial_patterns() {
+        for (raw, want) in [
+            ("RobertC.", "Robert C."),
+            ("RobertC. Martin", "Robert C. Martin"),
+            ("RobertC.Martin", "Robert C. Martin"),
+            ("C.Martin", "C. Martin"),
+            ("J.R.R.Tolkien", "J.R.R. Tolkien"),
+            ("J.K.Rowling", "J.K. Rowling"),
+            ("Ph.D.Smith", "Ph.D. Smith"),
+            ("Robert D.Smith", "Robert D. Smith"),
+            ("JohnR.Smith  ", "John R. Smith"),
+            // 変えない
+            ("McDonald", "McDonald"),
+            ("DeMarco", "DeMarco"),
+            ("Tom DeMarco", "Tom DeMarco"),
+            ("MacArthur", "MacArthur"),
+            ("St.John", "St.John"),
+            ("O'Brien", "O'Brien"),
+            ("J.R.R. Tolkien", "J.R.R. Tolkien"),
+            ("Robert C. Martin", "Robert C. Martin"),
+            ("Martin, Robert C.", "Martin, Robert C."),
+            ("KADOKAWA", "KADOKAWA"),
+            ("花井志生", "花井志生"),
+        ] {
+            assert_eq!(space_latin_initials(raw), want, "{raw}");
+        }
+        // 空白は 1 つにそろえる
+        assert_eq!(
+            space_latin_initials("Robert   C.  Martin"),
+            "Robert C. Martin"
+        );
     }
 }

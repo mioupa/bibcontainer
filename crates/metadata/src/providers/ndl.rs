@@ -19,8 +19,9 @@ use crate::error::{FetchError, ParseError};
 use crate::http::HttpRequest;
 use crate::isbn::to_isbn13;
 use crate::normalize::{
-    attach_kana, clean_text, has_kana, normalize_date, normalize_language, parse_authors,
-    parse_extent, parse_latin_statement_authors, parse_price, split_title,
+    attach_kana, clean_text, has_kana, latin_reference_names, normalize_date, normalize_language,
+    parse_authors, parse_extent, parse_latin_statement_authors, parse_price,
+    restore_latin_name_spacing, split_title,
 };
 use crate::provider::{Provider, ProviderAuth, ProviderInfo, RawResponse};
 use crate::transport::{ProviderRateLimit, Transport};
@@ -260,6 +261,10 @@ pub(crate) fn parse_sru(isbn13: &str, body: &str) -> Result<Option<Candidate>, P
         };
     }
 
+    // 洋名の綴りの参照（英字の `foaf:name`）。選ばれなかったレコード（CiNii など）の `Martin, Robert C.` も使うので、
+    // 絞り込みの前に、応答のすべてのレコードから集める。
+    let references = latin_reference_names(creator_names(&records));
+
     // レコードごとに、書誌（BibResource のうち書名のあるもの）を取り出す
     let mut recs: Vec<Rec<'_>> = Vec::new();
     for record in records {
@@ -300,7 +305,21 @@ pub(crate) fn parse_sru(isbn13: &str, body: &str) -> Result<Option<Candidate>, P
         .max_by_key(|(i, r)| (score(r), std::cmp::Reverse(*i)))
         .map(|(_, r)| r);
     let Some(best) = best else { return Ok(None) };
-    Ok(Some(candidate_from(isbn13, best.bib)))
+    Ok(Some(candidate_from(isbn13, best.bib, &references)))
+}
+
+/// 応答のすべてのレコードの、人名（`dcterms:creator` の `foaf:Agent` の `foaf:name`）。
+fn creator_names(records: &[&Node]) -> Vec<String> {
+    records
+        .iter()
+        .filter_map(|record| record.child(SRW, "recordData"))
+        .filter_map(|data| data.children.iter().find(|n| n.is(RDF, "RDF")))
+        .flat_map(|rdf| rdf.children_named(DCNDL, "BibResource"))
+        .flat_map(|bib| bib.children_named(DCTERMS, "creator"))
+        .filter_map(|c| c.child(FOAF, "Agent"))
+        .filter_map(|agent| agent.child(FOAF, "name"))
+        .map(|name| name.text().to_string())
+        .collect()
 }
 
 /// `NDC10 > NDC9 > NDC8` の順で新しい版を優先する。
@@ -334,7 +353,8 @@ fn ndc_of(bib: &Node) -> Option<String> {
     found.into_iter().max_by_key(|(e, _)| *e).map(|(_, c)| c)
 }
 
-fn candidate_from(isbn13: &str, bib: &Node) -> Candidate {
+/// `name_references` は、応答のすべてのレコードから集めた英字の人名（`名 姓` の形。洋名の空白を直すときの参照）。
+fn candidate_from(isbn13: &str, bib: &Node, name_references: &[String]) -> Candidate {
     let mut c = Candidate::empty(ProviderId::Ndl, isbn13);
 
     // 書名・ヨミ・副書名。`dc:title` の値は「書名 : 副書名」の形
@@ -392,6 +412,9 @@ fn candidate_from(isbn13: &str, bib: &Node) -> Candidate {
             authors
         }
     };
+    // 日本語訳の本では、責任表示も NDL 自身の `foaf:name` も洋名の空白を落としている（`ＲｏｂｅｒｔＣ．Ｍａｒｔｉｎ`）。
+    // 同じ応答のほかのレコード（CiNii）の `Martin, Robert C.` があればその綴りに、なければ頭文字のまわりだけ直す。
+    restore_latin_name_spacing(&mut c.authors, name_references);
 
     // 出版社（「発売」は発行元がほかにあるときは避ける）
     let publishers: Vec<(String, bool)> = bib

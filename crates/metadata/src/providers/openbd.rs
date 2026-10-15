@@ -13,8 +13,9 @@ use serde_json::Value;
 use crate::error::{FetchError, ParseError};
 use crate::http::HttpRequest;
 use crate::normalize::{
-    attach_kana, clean_description, clean_person_name, clean_text, normalize_ccode, normalize_date,
-    normalize_language, parse_authors, parse_price, split_title, upgrade_to_https,
+    attach_kana, clean_description, clean_person_name, clean_text, latin_reference_names,
+    normalize_ccode, normalize_date, normalize_language, parse_authors, parse_price,
+    restore_latin_name_spacing, split_title, upgrade_to_https,
 };
 use crate::provider::{Provider, ProviderAuth, ProviderInfo, RawResponse};
 use crate::transport::{ProviderRateLimit, Transport};
@@ -323,6 +324,13 @@ pub(crate) fn parse_openbd(isbn13: &str, body: &str) -> Result<Option<Candidate>
         })
         .collect();
     attach_kana(&mut authors, &kana_pairs);
+    // 日本語訳の本では `summary.author` が洋名の空白を落としている（`Martin,RobertC.`）。ONIX の Contributor の
+    // `PersonName`（`Martin, Robert C.`）に空白があれば、そちらの綴りにそろえる。
+    let references = latin_reference_names(contributors.iter().filter_map(|c| {
+        let name = c.get("PersonName")?;
+        name.as_str().or_else(|| str_at(name, "content"))
+    }));
+    restore_latin_name_spacing(&mut authors, &references);
     c.authors = authors;
 
     // 出版社・発行日
