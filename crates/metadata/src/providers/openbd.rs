@@ -6,6 +6,9 @@
 //! 2023 年 8 月以降、版元ドットコム会員社以外のデータは国立国会図書館の書誌を ONIX 形式に簡易変換したものになっている。
 //! そのため、書名に副書名や巻次が含まれる・著者が `姓,名,生没年` の形・価格が `310 (税込)` の形・Cコードや書影がない、
 //! といった欠けやゆれがある。ここで可能な範囲を吸収する。
+//!
+//! NDL 由来の記録（`is_ndl_derived`）は、叢書の中の番号（`Collection` の `PartNumber`。`summary.volume` もそれになる）を
+//! 本の巻次にしない。版元から届いた記録では、同じ値がシリーズの中のその本の巻次なので、そのまま使う。
 
 use async_trait::async_trait;
 use serde_json::Value;
@@ -207,6 +210,15 @@ fn price_text(v: &Value) -> Option<String> {
     }
 }
 
+/// NDL の書誌を簡易変換した記録か（版元ドットコム会員社などの、版元から届いた記録ではないか）。
+///
+/// ONIX 3.0 は `DescriptiveDetail` の `ProductComposition`・`ProductForm` を必須としていて、版元から届いた記録
+/// （`9784780802047`）にはあるが、NDL の簡易変換（`DescriptiveDetail` は `Collection`・`Contributor`・`TitleDetail` だけ。
+/// `hanmoto` も日付だけ）にはない。この有無で見分ける。
+fn is_ndl_derived(desc: Option<&Value>) -> bool {
+    desc.and_then(|d| d.get("ProductForm")).is_none()
+}
+
 pub(crate) fn parse_openbd(isbn13: &str, body: &str) -> Result<Option<Candidate>, ParseError> {
     let v: Value = serde_json::from_str(body)
         .map_err(|e| ParseError::new(format!("openBD の応答が JSON ではありません: {e}")))?;
@@ -271,19 +283,34 @@ pub(crate) fn parse_openbd(isbn13: &str, body: &str) -> Result<Option<Candidate>
                 .and_then(|e| ptr_str(e, "/TitleText/content"))
                 .and_then(clean_text)
         });
-    c.volume = summary
+    let summary_volume = summary
         .and_then(|s| str_at(s, "volume"))
-        .and_then(clean_text)
-        .or_else(|| {
-            collection_element
-                .and_then(|e| str_at(e, "PartNumber"))
-                .and_then(clean_text)
-        })
-        .or_else(|| {
-            element
-                .and_then(|e| str_at(e, "PartNumber"))
-                .and_then(clean_text)
-        });
+        .and_then(clean_text);
+    let element_part = element
+        .and_then(|e| str_at(e, "PartNumber"))
+        .and_then(clean_text);
+    c.volume = if is_ndl_derived(desc) {
+        // NDL 由来の記録では、シリーズ（叢書）の中の番号 `Manga time KR comics. Kirara menu ; 1866` が、
+        // 叢書の項目（`Collection` の `TitleElementLevel` 02）の `PartNumber` に入り、`summary.volume` もそれになる。
+        // 本の巻次ではないので使わない（巻次は NDL の `dcndl:volume`（`7`）が持っている）。
+        let series_numbers: Vec<String> = collection_elements
+            .iter()
+            .filter(|e| str_at(e, "TitleElementLevel") == Some("02"))
+            .filter_map(|e| str_at(e, "PartNumber").and_then(clean_text))
+            .collect();
+        summary_volume
+            .filter(|v| !series_numbers.contains(v))
+            .or(element_part)
+    } else {
+        // 版元から届いた記録の `Collection` の `PartNumber` は、シリーズの中のその本の巻次
+        summary_volume
+            .or_else(|| {
+                collection_element
+                    .and_then(|e| str_at(e, "PartNumber"))
+                    .and_then(clean_text)
+            })
+            .or(element_part)
+    };
 
     // 著者（名前と役割は summary.author の文字列から。ヨミは ONIX の Contributor から）
     let contributors = one_or_many(desc.and_then(|d| d.get("Contributor")));

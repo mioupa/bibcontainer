@@ -195,6 +195,83 @@ pub fn split_title(title: &str) -> (String, Option<String>) {
     }
 }
 
+/// 装丁・体裁を表す語。図書館の書誌（NDL が取り込んだ CiNii のデータなど、洋書）は、これを巻次や書名の末尾に
+/// `: pbk.` の形で入れる。比較は `is_binding_term` の規則（小文字・前後の空白と括弧と末尾のピリオドを除く）で、
+/// **完全に一致したものだけ**を装丁とみなす（`paperback edition` や `v. 2 pbk` は装丁ではない）。
+const BINDING_TERMS: &[&str] = &[
+    "pbk",
+    "paperback",
+    "paper",
+    "hbk",
+    "hardback",
+    "hardcover",
+    "hard cover",
+    "hc",
+    "cloth",
+    "alk. paper",
+    "acid-free paper",
+    "lib. bdg",
+    "library binding",
+    "softcover",
+    "soft cover",
+    "spiral-bound",
+    "spiral bound",
+    "board book",
+    "ebook",
+    "e-book",
+];
+
+/// ISBD の区切りで分けた 1 つの断片が、装丁の語か。大文字小文字は区別せず、前後の空白・丸括弧 1 組・末尾のピリオドは
+/// あってもよい（`pbk.`、`(pbk.)`、`Alk. paper`）。語の一部だけが一致するものは装丁でない。
+pub fn is_binding_term(segment: &str) -> bool {
+    let s = segment.trim().trim_end_matches('.').trim();
+    let s = s
+        .strip_prefix('(')
+        .and_then(|rest| rest.strip_suffix(')'))
+        .unwrap_or(s);
+    let s = s.trim().trim_end_matches('.').trim();
+    let key = s
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase();
+    BINDING_TERMS.contains(&key.as_str())
+}
+
+/// NDL の巻次（`dcndl:volume`）から、ISBD の区切りの名残と装丁の語を除く。除いたあとに何も残らなければ `None`。
+///
+/// 洋書の NDL のレコード（CiNii 由来）は、巻次の欄に装丁が入る（`: pbk.`、`v. 1 : pbk.`、`: v. 2`）。
+/// - 先頭の ISBD の区切り（`:` `;` `,` `/` `=` `.` と空白）を除く。`: v. 2` → `v. 2`
+/// - ` : ` で分けて、装丁の語（`is_binding_term`）の断片を捨てる。`v. 1 : pbk.` → `v. 1`、`: pbk.` → なし
+///
+/// 正規化済み（NFKC 後）の文字列を渡すこと。和書の巻次（`巻1`、`上`、`第3巻`）には、どちらも当たらない。
+pub fn clean_volume_binding(volume: &str) -> Option<String> {
+    let t = volume.trim_start_matches(|c: char| {
+        c.is_whitespace() || matches!(c, ':' | ';' | ',' | '/' | '=' | '.')
+    });
+    let kept: Vec<&str> = t
+        .split(" : ")
+        .map(str::trim)
+        .filter(|segment| !segment.is_empty() && !is_binding_term(segment))
+        .collect();
+    (!kept.is_empty()).then(|| kept.join(" : "))
+}
+
+/// 書名の末尾の ` : <装丁の語>` を除く（`Clean code : a handbook … : pbk.` → `Clean code : a handbook …`）。
+/// 連続していれば、すべて除く。除くと書名が空になるときは、そのまま返す。
+/// 正規化済み（NFKC 後）の文字列を渡すこと。
+pub fn strip_binding_suffix(title: &str) -> String {
+    let mut t = title.trim();
+    while let Some((head, tail)) = t.rsplit_once(" : ") {
+        if is_binding_term(tail) && !head.trim().is_empty() {
+            t = head.trim();
+        } else {
+            break;
+        }
+    }
+    t.to_string()
+}
+
 /// `http://` を `https://` にする（書影 URL 用）。
 pub fn upgrade_to_https(url: &str) -> String {
     match url.strip_prefix("http://") {
@@ -1452,6 +1529,146 @@ mod tests {
         assert_eq!(upgrade_to_https("https://a/b"), "https://a/b");
         assert_eq!(normalize_ccode("００７７").as_deref(), Some("0077"));
         assert_eq!(normalize_ccode("077"), None);
+    }
+
+    #[test]
+    fn binding_terms_are_recognized_only_as_a_whole_segment() {
+        // 装丁の語（大文字小文字・末尾のピリオド・括弧・前後の空白はあってよい）
+        for term in [
+            "pbk.",
+            "pbk",
+            "PBK.",
+            "Pbk",
+            "paperback",
+            "Paper",
+            "hbk.",
+            "hardback",
+            "hardcover",
+            "Hard cover",
+            "hc",
+            "cloth",
+            "alk. paper",
+            "Alk. paper.",
+            "acid-free paper",
+            "lib. bdg.",
+            "library binding",
+            "softcover",
+            "soft cover",
+            "spiral-bound",
+            "spiral bound",
+            "board book",
+            "ebook",
+            "e-book",
+            "(pbk.)",
+            "(pbk).",
+            " ( hbk ) ",
+            "hard  cover",
+        ] {
+            assert!(is_binding_term(term), "{term:?}");
+        }
+        // 装丁でないもの（語の一部だけの一致、巻次、和書の巻次）
+        for other in [
+            "",
+            ".",
+            "v. 2",
+            "1",
+            "上",
+            "第3巻",
+            "巻1",
+            "Part 2",
+            "paperback edition",
+            "v. 2 pbk",
+            "pbk. 2",
+            "paper tiger",
+            "((pbk.))x",
+            "bk",
+        ] {
+            assert!(!is_binding_term(other), "{other:?}");
+        }
+    }
+
+    #[test]
+    fn volume_loses_isbd_punctuation_and_binding_terms() {
+        // 洋書（CiNii 由来）の巻次の欄
+        assert_eq!(clean_volume_binding(": pbk."), None);
+        assert_eq!(clean_volume_binding("(pbk.)"), None);
+        assert_eq!(clean_volume_binding(": hbk. : alk. paper"), None);
+        assert_eq!(clean_volume_binding("v. 1 : pbk.").as_deref(), Some("v. 1"));
+        assert_eq!(
+            clean_volume_binding("v. 1 : pbk. : alk. paper").as_deref(),
+            Some("v. 1")
+        );
+        assert_eq!(clean_volume_binding(": v. 2").as_deref(), Some("v. 2"));
+        assert_eq!(
+            clean_volume_binding(" ; , / = . v. 2").as_deref(),
+            Some("v. 2")
+        );
+        assert_eq!(
+            clean_volume_binding(": v. 2 : cloth").as_deref(),
+            Some("v. 2")
+        );
+        assert_eq!(
+            clean_volume_binding("v. 1 : Handbook : pbk.").as_deref(),
+            Some("v. 1 : Handbook"),
+            "装丁でない断片は残す"
+        );
+        assert_eq!(clean_volume_binding(":"), None);
+        assert_eq!(clean_volume_binding(""), None);
+        // 巻次はそのまま（装丁の語を含んでも、断片が丸ごと装丁の語でなければ消さない。`paperback edition` は残る）
+        for volume in [
+            "v. 2",
+            "1",
+            "上",
+            "第3巻",
+            "巻1",
+            "Part 2",
+            "paperback edition",
+            "v. 2 pbk",
+            "v. 1.",
+            "2.5",
+        ] {
+            assert_eq!(
+                clean_volume_binding(volume).as_deref(),
+                Some(volume),
+                "{volume:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn title_loses_a_trailing_binding_term_only() {
+        assert_eq!(
+            strip_binding_suffix("Clean code : a handbook of agile software craftsmanship : pbk."),
+            "Clean code : a handbook of agile software craftsmanship"
+        );
+        assert_eq!(strip_binding_suffix("Clean code : pbk."), "Clean code");
+        assert_eq!(
+            strip_binding_suffix("Clean code : hbk. : pbk."),
+            "Clean code"
+        );
+        assert_eq!(
+            split_title(&strip_binding_suffix(
+                "Clean code : a handbook of agile software craftsmanship : pbk."
+            )),
+            (
+                "Clean code".into(),
+                Some("a handbook of agile software craftsmanship".into())
+            )
+        );
+        // 変えないもの
+        for title in [
+            "Clean code",
+            "Clean code : a handbook",
+            "Clean code : paperback edition",
+            "Pbk : the story",
+            "pbk.",
+            ": pbk.",
+            "こころ",
+            "人はなんで生きるか : 他四篇 : トルストイ民話集",
+            "Re:ゼロ",
+        ] {
+            assert_eq!(strip_binding_suffix(title), title, "{title:?}");
+        }
     }
 
     #[test]

@@ -18,6 +18,8 @@ pub const ONIGIRI: &str = "9784780802047";
 pub const KOKORO: &str = "9784003101117";
 pub const YUKIGUNI: &str = "9784101001012";
 pub const ONE_PIECE: &str = "9784088725093";
+/// スローループ 7。openBD（NDL 由来）の `summary.volume` が叢書の番号 `1866`、NDL の巻次が `7`。
+pub const SLOW_LOOP: &str = "9784832274167";
 /// 洋書（978-0）。NDL・Open Library は実際の応答のフィクスチャがある。openBD にはない。
 pub const CLEAN_CODE: &str = "9780132350884";
 

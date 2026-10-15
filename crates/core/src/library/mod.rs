@@ -212,6 +212,16 @@ pub struct UpdateOptions {
     /// `true` なら、`Provider`・`Barcode`・`Import` の変更が手修正済みの項目も上書きし、
     /// その項目の手修正の記録（`manual_fields.<項目>`）を外す。
     pub override_manual: bool,
+    /// `true` なら、`Provider` の変更の値が空（null・空文字・空の配列）のとき、その項目の今の値が**同じ取得元**の
+    /// ものであれば、値と取得元の記録（`field_sources.<項目>`）を消す。再取得で、取得元がもう値を返さなくなった項目に
+    /// 古い値を残さないため（0010 §9）。手修正済みの項目、ほかの取得元・バーコード・取り込みの値は消さない
+    /// （`override_manual` でも消さない。消す値ではなく、置き換える値がないため）。巻次（`volume`）を消したときは、
+    /// 並べ替え用の数値（`volume_sort`）も消す。
+    ///
+    /// Rust の中だけの指定で、IPC には出さない（画面からは指定できない）。
+    #[serde(skip)]
+    #[ts(skip)]
+    pub clear_stale: bool,
 }
 
 /// 1 冊の更新の結果。
@@ -285,7 +295,18 @@ mod tests {
         let opts: UpdateOptions =
             serde_json::from_value(json!({ "overrideManual": true })).unwrap();
         assert!(opts.override_manual);
+        assert!(!opts.clear_stale);
         let opts: UpdateOptions = serde_json::from_value(json!({})).unwrap();
         assert!(!opts.override_manual);
+        // `clear_stale` は IPC に出さない（送られても読まず、書き出しにも出ない）
+        let opts: UpdateOptions =
+            serde_json::from_value(json!({ "clearStale": true, "overrideManual": true })).unwrap();
+        assert!(!opts.clear_stale);
+        let json = serde_json::to_value(UpdateOptions {
+            clear_stale: true,
+            ..UpdateOptions::default()
+        })
+        .unwrap();
+        assert_eq!(json, json!({ "overrideManual": false }));
     }
 }

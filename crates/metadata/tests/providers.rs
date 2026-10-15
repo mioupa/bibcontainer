@@ -246,6 +246,130 @@ fn openbd_splits_isbd_subtitle_when_no_explicit_subtitle() {
     assert_eq!(c.subtitle.as_deref(), Some("他四篇"));
 }
 
+/// 実際の応答（JSON）を読んで、直したものを文字列に戻す。
+fn edited_openbd(isbn: &str, edit: impl FnOnce(&mut serde_json::Value)) -> Candidate {
+    let mut v: serde_json::Value =
+        serde_json::from_str(&fixture(&format!("openbd_{isbn}.json"))).unwrap();
+    edit(&mut v);
+    OpenBd::new()
+        .parse(&raw(ProviderId::Openbd, isbn, v.to_string()))
+        .unwrap()
+        .expect("openBD に収録がある")
+}
+
+#[test]
+fn openbd_ndl_derived_series_number_is_not_the_volume() {
+    // スローループ 7（NDL 由来）。`summary.volume` も `Collection` の `PartNumber` も、叢書 `Manga time KR comics. Kirara menu`
+    // の中の番号 1866 で、本の巻次（7）ではない。巻次は付けない（NDL の `dcndl:volume` が持っている）。
+    let c = openbd("9784832274167");
+    assert_eq!(c.title.as_deref(), Some("スローループ 7"));
+    assert_eq!(
+        c.series.as_deref(),
+        Some("Manga time KR comics. Kirara menu")
+    );
+    assert_eq!(c.volume, None);
+    assert_eq!(c.publisher.as_deref(), Some("芳文社"));
+    assert_eq!(c.published_on.as_deref(), Some("2022-11"));
+    assert_eq!(c.list_price, Some(660));
+
+    // `summary.volume` が空でも、叢書の番号を巻次にしない（NDL 由来の記録では `Collection` の `PartNumber` を使わない）
+    let c = edited_openbd("9784832274167", |v| v["summary"]["volume"] = "".into());
+    assert_eq!(c.volume, None);
+
+    // `summary.volume` が叢書の番号と違えば、本の巻次として使う
+    let c = edited_openbd("9784832274167", |v| v["summary"]["volume"] = "7".into());
+    assert_eq!(c.volume.as_deref(), Some("7"));
+
+    // 本の項目（`TitleElementLevel` 01）の `PartNumber` は、これまでどおり巻次になる
+    let c = edited_openbd("9784832274167", |v| {
+        v["summary"]["volume"] = "".into();
+        v["onix"]["DescriptiveDetail"]["TitleDetail"]["TitleElement"]["PartNumber"] = "7".into();
+    });
+    assert_eq!(c.volume.as_deref(), Some("7"));
+}
+
+#[test]
+fn openbd_publisher_record_keeps_the_collection_part_number_as_the_volume() {
+    // 版元から届いた記録（`ProductForm` がある。AT-10 の本）の `Collection` の `PartNumber` は、シリーズの中のその本の巻次。
+    // `summary.volume` が `PartNumber` と同じでも、巻次として使う。
+    let with_series = |summary_volume: &str| {
+        let summary_volume = summary_volume.to_owned();
+        edited_openbd("9784780802047", move |v| {
+            v["summary"]["volume"] = summary_volume.into();
+            v["summary"]["series"] = "テストシリーズ".into();
+            v["onix"]["DescriptiveDetail"]["Collection"] = serde_json::json!({
+                "CollectionType": "10",
+                "TitleDetail": {
+                    "TitleType": "01",
+                    "TitleElement": [{
+                        "TitleElementLevel": "02",
+                        "PartNumber": "3",
+                        "TitleText": { "collationkey": "", "content": "テストシリーズ" }
+                    }]
+                }
+            });
+        })
+    };
+    let c = with_series("3");
+    assert_eq!(c.series.as_deref(), Some("テストシリーズ"));
+    assert_eq!(c.volume.as_deref(), Some("3"));
+    // `summary.volume` が空なら、`Collection` の `PartNumber` から
+    assert_eq!(with_series("").volume.as_deref(), Some("3"));
+}
+
+#[test]
+fn openbd_tells_publisher_records_from_ndl_derived_ones_by_the_product_form() {
+    // 手元の実際の応答: 版元から届いた記録は AT-10 の 1 冊だけで、`ProductForm` がある。ほかは NDL 由来で、ない。
+    // 同じ `Collection` の `PartNumber` と `summary.volume` を入れて、扱いが分かれるかで見る。
+    let isbns = [
+        ("9784780802047", true),
+        ("9784003101117", false),
+        ("9784003261354", false),
+        ("9784003261460", false),
+        ("9784048930598", false),
+        ("9784088725093", false),
+        ("9784101001012", false),
+        ("9784832274167", false),
+    ];
+    for (isbn, publisher_record) in isbns {
+        let c = edited_openbd(isbn, |v| {
+            v["summary"]["volume"] = "99".into();
+            v["onix"]["DescriptiveDetail"]["Collection"] = serde_json::json!({
+                "CollectionType": "10",
+                "TitleDetail": { "TitleType": "01", "TitleElement": [{
+                    "TitleElementLevel": "02", "PartNumber": "99",
+                    "TitleText": { "collationkey": "", "content": "シリーズ" }
+                }]}
+            });
+        });
+        assert_eq!(
+            c.volume.as_deref(),
+            publisher_record.then_some("99"),
+            "{isbn}"
+        );
+    }
+}
+
+#[test]
+fn openbd_ndl_derived_fixtures_keep_their_volumes() {
+    // 巻次の欄が空の NDL 由来の記録は、これまでどおり巻次なし（ONE PIECE の巻次は NDL の `巻1`、書名の末尾に付いている）
+    for isbn in [
+        "9784003101117",
+        "9784101001012",
+        "9784088725093",
+        "9784003261354",
+        "9784003261460",
+        "9784048930598",
+        "9784780802047",
+    ] {
+        assert_eq!(openbd(isbn).volume, None, "{isbn}");
+    }
+    assert_eq!(
+        openbd("9784088725093").title.as_deref(),
+        Some("One piece 巻1")
+    );
+}
+
 // ---------------------------------------------------------------------------
 // NDL
 // ---------------------------------------------------------------------------
@@ -327,6 +451,146 @@ fn ndl_skips_series_wide_aggregate_record_and_reads_volume() {
         c.authors,
         vec![author("尾田栄一郎", Some("オダ エイイチロウ"), Some("著"))]
     );
+}
+
+#[test]
+fn ndl_western_book_binding_is_not_a_volume() {
+    // CiNii 由来の洋書の記録は、巻次の欄（`dcndl:volume`）に装丁（`: pbk.`）が入っている。巻次にしない。
+    // 書名は `dc:title` の値（装丁なし）から取り、`dcterms:title` の `: pbk.` は使わない。
+    let c = ndl("9780132350884").unwrap();
+    assert_eq!(c.volume, None);
+    assert_eq!(c.title.as_deref(), Some("Clean code"));
+    assert_eq!(
+        c.subtitle.as_deref(),
+        Some("a handbook of agile software craftsmanship")
+    );
+
+    let c = ndl("9781493934362").unwrap();
+    assert_eq!(c.volume, None);
+    assert_eq!(
+        c.title.as_deref(),
+        Some("Fundamentals of radiation materials science")
+    );
+    assert_eq!(c.subtitle.as_deref(), Some("metals and alloys"));
+}
+
+/// 実際の応答の文字列を置き換えて読む（`from` がなければ失敗する）。
+fn edited_ndl(isbn: &str, from: &str, to: &str) -> Candidate {
+    let body = fixture(&format!("ndl_{isbn}.xml"));
+    assert!(body.contains(from), "{from}");
+    Ndl::new()
+        .parse(&raw(ProviderId::Ndl, isbn, body.replace(from, to)))
+        .unwrap()
+        .expect("NDL に収録がある")
+}
+
+#[test]
+fn ndl_volume_keeps_the_part_and_loses_the_binding_and_the_isbd_punctuation() {
+    let volume = |text: &str| {
+        edited_ndl(
+            "9780132350884",
+            "<rdf:value>: pbk.</rdf:value>",
+            &format!("<rdf:value>{text}</rdf:value>"),
+        )
+        .volume
+    };
+    assert_eq!(volume("v. 1 : pbk.").as_deref(), Some("v. 1"));
+    assert_eq!(volume(": v. 2").as_deref(), Some("v. 2"));
+    assert_eq!(volume(": v. 2 : hbk.").as_deref(), Some("v. 2"));
+    assert_eq!(volume("(pbk.)"), None);
+    assert_eq!(volume(": alk. paper"), None);
+    // 装丁の語だけを消す。`paperback edition` や巻次は残る
+    assert_eq!(
+        volume("paperback edition").as_deref(),
+        Some("paperback edition")
+    );
+    assert_eq!(volume("pt. 2").as_deref(), Some("pt. 2"));
+    assert_eq!(volume("2").as_deref(), Some("2"));
+}
+
+#[test]
+fn ndl_title_from_dcterms_title_loses_a_trailing_binding_term() {
+    // `dc:title` がなく `dcterms:title`（`… : pbk.`）から書名を取るときも、装丁は書名・副書名に入らない
+    let body = fixture("ndl_9780132350884.xml");
+    let start = body.find("<dc:title>").unwrap();
+    let end = body.find("</dc:title>").unwrap() + "</dc:title>".len();
+    let body = format!("{}{}", &body[..start], &body[end..]);
+    assert!(body.contains(": pbk.</dcterms:title>"));
+    let c = Ndl::new()
+        .parse(&raw(ProviderId::Ndl, "9780132350884", body))
+        .unwrap()
+        .unwrap();
+    assert_eq!(c.title.as_deref(), Some("Clean code"));
+    assert_eq!(
+        c.subtitle.as_deref(),
+        Some("a handbook of agile software craftsmanship")
+    );
+    assert_eq!(c.volume, None);
+
+    // `dc:title` の値の末尾に装丁があっても同じ
+    let c = edited_ndl(
+        "9780132350884",
+        "<rdf:value>Clean code : a handbook of agile software craftsmanship</rdf:value>",
+        "<rdf:value>Clean code : a handbook of agile software craftsmanship : pbk.</rdf:value>",
+    );
+    assert_eq!(c.title.as_deref(), Some("Clean code"));
+    assert_eq!(
+        c.subtitle.as_deref(),
+        Some("a handbook of agile software craftsmanship")
+    );
+}
+
+#[test]
+fn ndl_japanese_records_are_unaffected_by_the_binding_cleanup() {
+    // 和書の NDL の記録の書名・副書名・シリーズ・巻次（この変更の前と同じ）
+    /// ISBN、書名、副書名、シリーズ、巻次
+    type Expected = (
+        &'static str,
+        &'static str,
+        Option<&'static str>,
+        Option<&'static str>,
+        Option<&'static str>,
+    );
+    let expected: [Expected; 7] = [
+        ("9784003101117", "こころ", None, Some("岩波文庫"), None),
+        ("9784101001012", "雪国", None, Some("新潮文庫"), None),
+        (
+            "9784088725093",
+            "One piece",
+            None,
+            Some("ジャンプ・コミックス"),
+            Some("巻1"),
+        ),
+        (
+            "9784048930598",
+            "Clean Code",
+            Some("アジャイルソフトウェア達人の技"),
+            None,
+            None,
+        ),
+        (
+            "9784780802047",
+            "おにぎりレシピ101",
+            Some("EVERYDAY ONIGIRI"),
+            None,
+            None,
+        ),
+        (
+            "9784832274167",
+            "スローループ",
+            None,
+            Some("Manga time KR comics. Kirara menu ; 1866"),
+            Some("7"),
+        ),
+        ("9780141439518", "Pride and prejudice", None, None, None),
+    ];
+    for (isbn, title, subtitle, series, volume) in expected {
+        let c = ndl(isbn).unwrap_or_else(|| panic!("{isbn}"));
+        assert_eq!(c.title.as_deref(), Some(title), "{isbn}");
+        assert_eq!(c.subtitle.as_deref(), subtitle, "{isbn}");
+        assert_eq!(c.series.as_deref(), series, "{isbn}");
+        assert_eq!(c.volume.as_deref(), volume, "{isbn}");
+    }
 }
 
 /// 実際の応答の SRU から、先頭の `record` 1 件だけを残した応答を作る。

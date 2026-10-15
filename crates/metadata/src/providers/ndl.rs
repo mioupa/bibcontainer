@@ -8,6 +8,8 @@
 //!   （`dcterms:identifier` の型が `ErrorISBN`）でも当たるので、ISBN の型が `ISBN` で、探した ISBN と合うレコードだけを使う。
 //!   シリーズ全体を 1 件にまとめたレコード（ISBN が何十個も並ぶ）は避け、NDL 自身のレコードと、項目が多いレコードを優先する。
 //! - 該当なしは HTTP 200 で、`<diagnostics>` に `Record does not exist` が入る。
+//! - 洋書（CiNii 由来）は、巻次の欄（`dcndl:volume`）に装丁が入る（`: pbk.`）。巻次の先頭の ISBD の区切りと装丁の語を除き
+//!   （`normalize::clean_volume_binding`）、書名の末尾の ` : pbk.` も除く（`normalize::strip_binding_suffix`）。
 //! - 著者: 責任表示（`dc:creator`）が日本語（漢字・かなを含む）なら、名前と役割を責任表示から、ヨミを `foaf:Agent` から取る。
 //!   英字だけの責任表示（`Robert C. Martin ... [et al.] ; foreword by James O. Coplien`）は、空白で人を分けられないので、
 //!   構造化された人名（`dcterms:creator` の `foaf:name`、`Martin, Robert C.`）を使い、役割だけ責任表示から読む
@@ -19,9 +21,9 @@ use crate::error::{FetchError, ParseError};
 use crate::http::HttpRequest;
 use crate::isbn::to_isbn13;
 use crate::normalize::{
-    attach_kana, clean_text, has_kana, latin_reference_names, normalize_date, normalize_language,
-    parse_authors, parse_extent, parse_latin_statement_authors, parse_price,
-    restore_latin_name_spacing, split_title,
+    attach_kana, clean_text, clean_volume_binding, has_kana, latin_reference_names, normalize_date,
+    normalize_language, parse_authors, parse_extent, parse_latin_statement_authors, parse_price,
+    restore_latin_name_spacing, split_title, strip_binding_suffix,
 };
 use crate::provider::{Provider, ProviderAuth, ProviderInfo, RawResponse};
 use crate::transport::{ProviderRateLimit, Transport};
@@ -357,11 +359,12 @@ fn ndc_of(bib: &Node) -> Option<String> {
 fn candidate_from(isbn13: &str, bib: &Node, name_references: &[String]) -> Candidate {
     let mut c = Candidate::empty(ProviderId::Ndl, isbn13);
 
-    // 書名・ヨミ・副書名。`dc:title` の値は「書名 : 副書名」の形
+    // 書名・ヨミ・副書名。`dc:title` の値は「書名 : 副書名」の形。洋書（CiNii 由来）の `dcterms:title` は末尾に装丁が付く
+    // （`Clean code : a handbook of agile software craftsmanship : pbk.`）ので、使う文字列から ` : pbk.` などを除く。
     let (value, transcription) = first_described(bib, DC, "title");
     let title_full = value.or_else(|| text_of(bib.child(DCTERMS, "title")));
     if let Some(full) = title_full {
-        let (main, sub) = split_title(&full);
+        let (main, sub) = split_title(&strip_binding_suffix(&full));
         c.title = Some(main);
         c.subtitle = sub;
     }
@@ -370,8 +373,11 @@ fn candidate_from(isbn13: &str, bib: &Node, name_references: &[String]) -> Candi
         .map(|t| split_title(&t).0)
         .filter(|t| has_kana(t));
 
-    // 巻次・シリーズ
-    c.volume = first_described(bib, DCNDL, "volume").0;
+    // 巻次・シリーズ。洋書（CiNii 由来）の巻次の欄には装丁が入る（`: pbk.`、`v. 1 : pbk.`）ので、取り除く
+    c.volume = bib
+        .children_named(DCNDL, "volume")
+        .filter_map(|v| described(v).0)
+        .find_map(|v| clean_volume_binding(&v));
     c.series = first_described(bib, DCNDL, "seriesTitle").0;
 
     // 著者。英字の責任表示（`Robert C. Martin ... [et al.] ; foreword by James O. Coplien`）は、空白で人を分けられず

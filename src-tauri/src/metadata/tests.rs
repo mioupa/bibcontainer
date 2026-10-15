@@ -536,6 +536,277 @@ fn a_japanese_book_keeps_the_japanese_order_and_a_foreign_only_change_does_not_a
     assert_eq!(book.subtitle.as_deref(), Some("EVERYDAY ONIGIRI"));
 }
 
+/// 書き出していない Op のうち、最後のもの。
+fn last_op(rig: &Rig) -> bibcontainer_core::Op {
+    rig.block(
+        rig.db
+            .run(|conn, _| Ok(bibcontainer_core::pending_ops(conn)?)),
+    )
+    .unwrap()
+    .pop()
+    .expect("Op がある")
+}
+
+/// NDL だけ、`ndl` に渡した応答を返す（ほかは通常の偽の応答）。
+fn ndl_responds_with(rig: &Rig, ndl: fn() -> Result<HttpResponse, TransportError>) {
+    let base = online_handler();
+    rig.http.set_handler(Box::new(move |url: &str| {
+        if url.contains("ndlsearch.ndl.go.jp") {
+            ndl()
+        } else {
+            base(url)
+        }
+    }));
+}
+
+/// 解析を直す前の NDL は、洋書の巻次の欄の `: pbk.` をそのまま巻次にして保存していた。そういう本を手動で再取得すると、
+/// NDL が見つかったのに巻次を返さないので、巻次も並べ替え用の数値も消える（取得元の記録も外れ、Op が 1 つ書かれる）。
+/// 手で直した巻次は消さない（上書きを選んでも）。NDL が失敗した（見つからない・HTTP エラー・無効）ときは、今の巻次を残す。
+#[test]
+fn refetch_clears_a_stale_provider_volume_only_when_that_provider_was_found_and_has_no_value() {
+    let rig = Rig::new();
+    // 登録のときは、解析を直したあとの NDL（巻次なし）。洋書（978-0）。通信の待ちを減らすため、Open Library は使わない
+    set_enabled(&rig, &[(ProviderId::OpenLibrary, false)]);
+    let stale = register(&rig, CLEAN_CODE, None);
+    let with_sort = register(&rig, CLEAN_CODE, None);
+    let manual = register(&rig, CLEAN_CODE, None);
+    for id in [&stale, &with_sort, &manual] {
+        assert_eq!(rig.book(id).volume, None);
+    }
+    // 直す前の保存の状態: NDL の巻次 `: pbk.`（数値は読み取れず、なし）。数値のある本も 1 冊
+    rig.update(
+        &stale,
+        vec![FieldChange::provider("volume", ": pbk.", "ndl")],
+        UpdateOptions::default(),
+    );
+    rig.update(
+        &with_sort,
+        vec![FieldChange::provider("volume", "Vol. 2", "ndl")],
+        UpdateOptions::default(),
+    );
+    rig.update(
+        &manual,
+        vec![FieldChange::manual("volume", ": pbk.")],
+        UpdateOptions::default(),
+    );
+    let book = rig.book(&stale);
+    assert_eq!(book.volume.as_deref(), Some(": pbk."));
+    assert_eq!(book.volume_sort, None);
+    assert_eq!(book.field_sources["volume"], "ndl");
+    let book = rig.book(&with_sort);
+    assert_eq!(book.volume_sort, Some(2.0));
+    assert_eq!(book.field_sources["volume_sort"], "ndl");
+
+    // NDL が失敗したときは、今の巻次を残す（HTTP エラー、該当なし、無効にした）
+    let fail = || response(500, "text/plain", b"error".to_vec());
+    let not_found = || {
+        response(
+            200,
+            "text/xml;charset=UTF-8",
+            fixture("ndl_notfound.xml").into_bytes(),
+        )
+    };
+    for (what, responder) in [
+        ("HTTP エラー", fail as fn() -> _),
+        ("該当なし", not_found as fn() -> _),
+    ] {
+        ndl_responds_with(&rig, responder);
+        let summary = rig
+            .block(
+                rig.state
+                    .refetch_books(vec![stale.clone(), with_sort.clone()], false),
+            )
+            .unwrap();
+        for id in [&stale, &with_sort] {
+            assert!(
+                !item(&summary, id).written.contains(&"volume".to_owned()),
+                "{what}: {:?}",
+                item(&summary, id)
+            );
+        }
+        assert_eq!(rig.book(&stale).volume.as_deref(), Some(": pbk."), "{what}");
+        assert_eq!(
+            rig.book(&with_sort).volume.as_deref(),
+            Some("Vol. 2"),
+            "{what}"
+        );
+        assert_eq!(rig.book(&with_sort).volume_sort, Some(2.0), "{what}");
+        assert_eq!(rig.book(&stale).field_sources["volume"], "ndl", "{what}");
+    }
+    rig.http.set_online();
+    set_enabled(&rig, &[(ProviderId::Ndl, false)]);
+    rig.block(rig.state.refetch_books(vec![stale.clone()], false))
+        .unwrap();
+    assert_eq!(
+        rig.book(&stale).volume.as_deref(),
+        Some(": pbk."),
+        "NDL を無効にした"
+    );
+    set_enabled(&rig, &[(ProviderId::Ndl, true)]);
+
+    // NDL が見つかって、巻次を返さない（ほかの取得元にもない）→ 巻次と数値が消える
+    let ops = rig.outbox_len();
+    let summary = rig
+        .block(rig.state.refetch_books(vec![stale.clone()], false))
+        .unwrap();
+    let it = item(&summary, &stale);
+    assert_eq!(it.outcome, RefetchOutcome::Updated, "{it:?}");
+    assert!(it.written.contains(&"volume".to_owned()), "{it:?}");
+    let book = rig.book(&stale);
+    assert_eq!(book.volume, None);
+    assert_eq!(book.volume_sort, None);
+    assert!(!book.field_sources.contains_key("volume"));
+    assert!(!book.field_sources.contains_key("volume_sort"));
+    // 本ごとに Op は 1 つ。取得元の記録も、同じ Op で外れる
+    assert_eq!(rig.outbox_len(), ops + 1);
+    let op = last_op(&rig);
+    assert_eq!(op.id, stale);
+    assert_eq!(op.set["volume"], serde_json::Value::Null);
+    assert_eq!(op.set["field_sources.volume"], serde_json::Value::Null);
+
+    // 数値のある巻次は、数値も消える
+    let summary = rig
+        .block(rig.state.refetch_books(vec![with_sort.clone()], false))
+        .unwrap();
+    let it = item(&summary, &with_sort);
+    assert!(it.written.contains(&"volume".to_owned()), "{it:?}");
+    assert!(it.written.contains(&"volume_sort".to_owned()), "{it:?}");
+    let book = rig.book(&with_sort);
+    assert_eq!(book.volume, None);
+    assert_eq!(book.volume_sort, None);
+    assert!(!book.field_sources.contains_key("volume_sort"));
+    // 消した項目以外（NDL が今も返す項目）は消えない
+    assert_eq!(
+        book.field_sources.get("size_text").map(String::as_str),
+        Some("ndl"),
+        "{:?}",
+        book.field_sources
+    );
+    assert_eq!(book.size_text.as_deref(), Some("24cm"));
+    assert!(book.field_sources.contains_key("title"));
+
+    // 手で直した巻次は、上書きを選んでも消えない（置き換える値がないので、書かない）
+    for override_manual in [false, true] {
+        rig.block(
+            rig.state
+                .refetch_books(vec![manual.clone()], override_manual),
+        )
+        .unwrap();
+        let book = rig.book(&manual);
+        assert_eq!(book.volume.as_deref(), Some(": pbk."), "{override_manual}");
+        assert_eq!(book.field_sources["volume"], "manual");
+        assert!(book.manual_fields.contains(&"volume".to_owned()));
+    }
+}
+
+/// スローループ 7: openBD は `summary.volume` に叢書の番号 `1866` を入れていたので、以前の解析では巻次が `1866`、
+/// 書名が `スローループ 7` で登録された。解析を直したあとの再取得で、巻次が NDL の `7`、書名が `スローループ` になる。
+#[test]
+fn refetch_replaces_the_openbd_label_number_with_the_ndl_volume_and_drops_it_from_the_title() {
+    let rig = Rig::new();
+    let id = register(&rig, SLOW_LOOP, None);
+    let book = rig.book(&id);
+    assert_eq!(book.title, "スローループ");
+    assert_eq!(book.volume.as_deref(), Some("7"));
+    assert_eq!(book.field_sources["volume"], "ndl");
+    assert!(book.series_id.is_some());
+    // 直す前の保存の状態（openBD の巻次 1866 と、巻次つきの書名）
+    rig.update(
+        &id,
+        vec![
+            FieldChange::provider("volume", "1866", "openbd"),
+            FieldChange::provider("title", "スローループ 7", "openbd"),
+        ],
+        UpdateOptions::default(),
+    );
+    let book = rig.book(&id);
+    assert_eq!(book.volume.as_deref(), Some("1866"));
+    assert_eq!(book.volume_sort, Some(1866.0));
+    assert_eq!(book.title, "スローループ 7");
+    let series_id = book.series_id.clone();
+
+    let summary = rig
+        .block(rig.state.refetch_books(vec![id.clone()], false))
+        .unwrap();
+    let it = item(&summary, &id);
+    assert_eq!(it.outcome, RefetchOutcome::Updated, "{it:?}");
+    let book = rig.book(&id);
+    assert_eq!(book.title, "スローループ");
+    assert_eq!(book.field_sources["title"], "openbd");
+    assert_eq!(book.volume.as_deref(), Some("7"));
+    assert_eq!(book.volume_sort, Some(7.0));
+    assert_eq!(book.field_sources["volume"], "ndl");
+    assert_eq!(book.field_sources["volume_sort"], "ndl");
+    // シリーズは openBD の叢書名（番号なし）のまま
+    assert_eq!(book.series_id, series_id);
+    assert_eq!(
+        rig.series_names(),
+        vec!["Manga time KR comics. Kirara menu"]
+    );
+}
+
+/// 取得元が値を返さなくなったシリーズも消える。NDL が失敗したときは残る。
+#[test]
+fn refetch_clears_a_stale_series_but_not_when_the_provider_failed() {
+    let rig = Rig::new();
+    let id = register(&rig, ONIGIRI, None);
+    assert_eq!(rig.book(&id).series_id, None);
+    let series = rig
+        .block(rig.db.run(|conn, _| {
+            let clock = bibcontainer_core::SystemClock;
+            let env = bibcontainer_core::library::Env::new(&clock);
+            let tx = bibcontainer_core::write_tx(conn)?;
+            let series = bibcontainer_core::library::find_or_create_series_in(
+                &tx,
+                &env,
+                "取得元が返さなくなったシリーズ",
+            )?;
+            tx.commit().map_err(bibcontainer_core::Error::from)?;
+            Ok(series)
+        }))
+        .unwrap();
+    rig.update(
+        &id,
+        vec![FieldChange::provider(
+            "series_id",
+            series.as_str(),
+            "openbd",
+        )],
+        UpdateOptions::default(),
+    );
+    assert_eq!(rig.book(&id).series_id.as_deref(), Some(series.as_str()));
+
+    // openBD が失敗（HTTP エラー）したときは残る
+    rig.http.set_handler(Box::new(|url| {
+        if url.contains("api.openbd.jp") {
+            response(500, "text/plain", b"error".to_vec())
+        } else {
+            online_handler()(url)
+        }
+    }));
+    rig.block(rig.state.refetch_books(vec![id.clone()], false))
+        .unwrap();
+    assert_eq!(rig.book(&id).series_id.as_deref(), Some(series.as_str()));
+
+    // openBD が見つかって、シリーズを返さない → 消える（シリーズの行は残る）
+    rig.http.set_online();
+    let summary = rig
+        .block(rig.state.refetch_books(vec![id.clone()], false))
+        .unwrap();
+    assert!(
+        item(&summary, &id)
+            .written
+            .contains(&"series_id".to_owned())
+    );
+    let book = rig.book(&id);
+    assert_eq!(book.series_id, None);
+    assert!(!book.field_sources.contains_key("series_id"));
+    assert!(
+        rig.series_names()
+            .contains(&"取得元が返さなくなったシリーズ".to_owned())
+    );
+}
+
 #[test]
 fn refetch_keeps_second_tier_values_but_replaces_other_provider_values() {
     let rig = Rig::new();

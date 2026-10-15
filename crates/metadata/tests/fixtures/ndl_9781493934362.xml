@@ -1,0 +1,82 @@
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+  <version>1.2</version>
+  <numberOfRecords>1</numberOfRecords>
+  <extraResponseData>
+    <facets>
+      <lst name="REPOSITORY_NO">
+        <int name="R100000136">1</int>
+      </lst>
+      <lst name="NDC">
+      </lst>
+      <lst name="ISSUED_DATE">
+        <int name="2017">1</int>
+      </lst>
+      <lst name="LIBRARY">
+      </lst>
+    </facets>
+  </extraResponseData>
+  <records>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959962897559">
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000136</dcndl:bibRecordCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959962897559#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959962897559#material">
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NIIBibID">BB21765186</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9781493934362"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9781493980512"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9781493934362</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9781493980512</dcterms:identifier>
+            <dcterms:title>Fundamentals of radiation materials science : metals and alloys : pbk.</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>Fundamentals of radiation materials science : metals and alloys</rdf:value>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>: pbk.</rdf:value>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:edition>2nd ed</dcndl:edition>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>Was, Gary Steven</foaf:name>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>Gary S. Was</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>Springer</foaf:name>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">US</dcndl:publicationPlace>
+            <dcterms:date>c2017</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2017</dcterms:issued>
+            <dcterms:description>Includes bibliographical references and index</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Metals -- Effect of radiation on</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">eng</dcterms:language>
+            <dcterms:extent>25 cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://cir.nii.ac.jp/crid/1970304959962897559"/>
+            <dcterms:relation rdf:resource="https://ci.nii.ac.jp/ncid/BB21765186#entity"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959962897559#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959962897559#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>1</recordPosition>
+    </record>
+  </records>
+</searchRetrieveResponse>

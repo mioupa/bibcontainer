@@ -143,6 +143,7 @@ fn a_provider_does_not_override_a_manually_edited_volume_or_its_sort_value() {
         &[FieldChange::provider("volume_sort", json!(3), "openbd")],
         UpdateOptions {
             override_manual: true,
+            ..UpdateOptions::default()
         },
     )
     .unwrap();
@@ -170,6 +171,7 @@ fn a_provider_does_not_override_a_manually_edited_volume_or_its_sort_value() {
         &provider,
         UpdateOptions {
             override_manual: true,
+            ..UpdateOptions::default()
         },
     )
     .unwrap();

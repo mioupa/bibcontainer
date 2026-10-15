@@ -6,22 +6,26 @@
 //! 3. 書影がまだなければ取得する。
 //! 4. `update_book` を、取得元の由来（`Provider`）で呼ぶ。手で直した項目は、`override_manual` が偽なら上書きされない
 //!    （コアが守る。FR-META-07、AT-16）。取得状態（`meta_status`）も更新する。
+//!    取得元が値を返さなくなった項目の古い値は消す（`stale_clears`）: 今の値の由来がその取得元で、今回その取得元が
+//!    見つかった（`found`）のに、統合の結果にその項目の値がないとき。手修正・バーコード由来の項目と、取得元が失敗した
+//!    （見つからない・通信エラー・無効）項目は、そのまま残す。
 //!
 //! 全取得元が通信エラー（オフライン）のときは何も書かない。取得待ちの本は取得待ちのまま、次回に回す（AT-11）。
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use bibcontainer_core::library::{
-    ChangeReport, Env, FieldChange, UpdateOptions, find_or_create_series_in, pending_book_ids,
-    update_book_in,
+    ChangeReport, Env, FieldChange, Origin, UpdateOptions, find_or_create_series_in,
+    pending_book_ids, update_book_in,
 };
 use bibcontainer_core::rows::find_book_detail;
 use bibcontainer_core::{SystemClock, write_tx};
-use bibcontainer_metadata::MetaSecondTier;
+use bibcontainer_metadata::{MetaFetchResult, MetaSecondTier, ProviderOutcome};
 use rusqlite::Connection;
 use serde::Serialize;
+use serde_json::Value;
 use ts_rs::TS;
 
 use super::draft::{
@@ -142,6 +146,8 @@ struct Target {
     status: MetaStatus,
     has_cover: bool,
     manual: BTreeSet<String>,
+    /// 項目名 → 今の値の由来（`openbd`・`ndl`・`barcode`・`manual` など）
+    field_sources: BTreeMap<String, String>,
     /// 2段目（バーコード）由来の Cコード・本体価格
     second_tier: Option<MetaSecondTier>,
 }
@@ -173,6 +179,7 @@ fn load_targets(conn: &Connection, ids: &[String]) -> Result<Vec<Target>, AppErr
             status: MetaStatus::from_db(&d.meta_status),
             has_cover: d.cover_hash.is_some(),
             manual: d.manual_fields.iter().cloned().collect(),
+            field_sources: d.field_sources.clone(),
             second_tier: (tier.c_code.is_some() || tier.list_price.is_some()).then_some(tier),
         });
     }
@@ -188,6 +195,7 @@ impl Target {
             status: MetaStatus::Ok,
             has_cover: true,
             manual: BTreeSet::new(),
+            field_sources: BTreeMap::new(),
             second_tier: None,
         }
     }
@@ -202,6 +210,69 @@ struct Plan {
     status: MetaStatus,
 }
 
+/// 取得元が値を返さなくなっても消してよい項目（下書きの項目名）。書名（なくしてはいけない）・書影（再取得では、
+/// 書影のない本だけ取る）・ISBN・取得状態は含めない。巻次を消すと、並べ替え用の数値（`volume_sort`）も、コアが一緒に消す。
+const CLEARABLE_FIELDS: &[&str] = &[
+    "title_kana",
+    "subtitle",
+    "authors",
+    "publisher",
+    "published_on",
+    "c_code",
+    "ndc",
+    "list_price",
+    "ref_price_incl",
+    "pages",
+    "size_text",
+    "language",
+    "description",
+    "volume",
+    "series_id",
+];
+
+/// 取得元が値を返さなくなった項目を消す変更を決める（0010 §9）。古い取得元の値（たとえば NDL が返していた
+/// 巻次 `: pbk.`）を、解析を直したあとの再取得で残さないため。消すのは、次のすべてを満たす項目だけ:
+///
+/// - 今の値の由来（`field_sources`）が取得元（`openbd`・`ndl`・`google`・`openlibrary`）。手修正（`manual`）・バーコード・
+///   取り込みの値は消さない。
+/// - その取得元が、今回の取得で見つかった（`found`）。見つからない・通信エラー・解析エラー・無効（問い合わせていない）
+///   のときは、その取得元が今も値を返すかわからないので残す。
+/// - 統合の結果（`draft`）に、その項目の値がない（ほかの取得元が値を返したなら、その値を書く通常の更新になる）。
+///
+/// 変更は、値が null で、由来は消す項目の今の取得元。コアが `UpdateOptions::clear_stale` のときだけ、同じ取得元の
+/// 値として消す。
+fn stale_clears(
+    field_sources: &BTreeMap<String, String>,
+    result: &MetaFetchResult,
+    draft: &BookDraft,
+) -> Vec<FieldChange> {
+    let found: BTreeSet<&str> = result
+        .reports
+        .iter()
+        .filter(|r| r.outcome == ProviderOutcome::Found)
+        .map(|r| r.provider.as_str())
+        .collect();
+    let mut present: BTreeSet<String> = draft
+        .fields
+        .to_changes()
+        .into_iter()
+        .map(|c| c.field)
+        .collect();
+    if draft.series_name.is_some() {
+        present.insert("series_id".to_owned());
+    }
+    CLEARABLE_FIELDS
+        .iter()
+        .filter(|field| !present.contains(**field))
+        .filter_map(|field| {
+            let source = field_sources.get(*field)?;
+            found
+                .contains(source.as_str())
+                .then(|| FieldChange::new(*field, Value::Null, Origin::Provider(source.clone())))
+        })
+        .collect()
+}
+
 /// 下書きから、再取得で書く変更を決める。
 ///
 /// - ISBN は書かない（本の ISBN で取得したもの）。
@@ -209,11 +280,13 @@ struct Plan {
 ///   巻次が手修正済みなら、巻次の数値（`volume_sort`）も書かない。シリーズ（`series_id`）が手修正済みなら、
 ///   シリーズも探さない（作らない）。
 /// - 取得状態は、今の状態と今回の判断から決める（`status_after_refetch`）。
+/// - `stale` は、取得元が値を返さなくなった項目を消す変更（`stale_clears`）。手修正の項目は、念のためここでも外す。
 fn plan(
     draft: &BookDraft,
     current_status: MetaStatus,
     manual: &BTreeSet<String>,
     override_manual: bool,
+    stale: Vec<FieldChange>,
 ) -> Plan {
     let protected = |field: &str| manual.contains(field) && !override_manual;
     let mut changes: Vec<FieldChange> = draft
@@ -225,6 +298,7 @@ fn plan(
     if protected("volume") {
         changes.retain(|c| c.field != "volume_sort");
     }
+    changes.extend(stale.into_iter().filter(|c| !manual.contains(&c.field)));
     let status = status_after_refetch(current_status, draft.fields.meta_status.value);
     if status != current_status {
         changes.push(FieldChange::new(
@@ -474,14 +548,24 @@ impl MetadataState {
             };
             let decided = decide_status(&result, cover.offline);
             let draft = build_draft(&result.merged, None, cover.saved(), decided);
+            let stale = stale_clears(&target.field_sources, &result, &draft);
             prepared.push(Prepared {
                 id: target.id.clone(),
-                plan: plan(&draft, target.status, &target.manual, override_manual),
+                plan: plan(
+                    &draft,
+                    target.status,
+                    &target.manual,
+                    override_manual,
+                    stale,
+                ),
                 cover_saved: cover.hash.is_some(),
             });
         }
 
-        let opts = UpdateOptions { override_manual };
+        let opts = UpdateOptions {
+            override_manual,
+            clear_stale: true,
+        };
         let to_apply: Vec<(String, Plan)> = prepared
             .iter()
             .map(|p| (p.id.clone(), p.plan.clone()))
@@ -609,7 +693,10 @@ impl MetadataState {
 mod tests {
     use bibcontainer_core::library::Origin;
     use bibcontainer_metadata::providers::{Ndl, OpenBd};
-    use bibcontainer_metadata::{MetaPriorities, Provider, ProviderId, RawResponse, merge};
+    use bibcontainer_metadata::{
+        MetaMerged, MetaPriorities, PriorityProfile, Provider, ProviderId, ProviderReport,
+        RawResponse, merge,
+    };
 
     use super::*;
 
@@ -648,7 +735,7 @@ mod tests {
     fn plan_never_writes_the_isbn_and_writes_the_status_only_when_it_changes() {
         let draft = one_piece_draft();
         let none = BTreeSet::new();
-        let p = plan(&draft, MetaStatus::Ok, &none, false);
+        let p = plan(&draft, MetaStatus::Ok, &none, false, Vec::new());
         assert!(p.changes.iter().all(|c| c.field != "isbn13"));
         assert!(
             p.changes.iter().all(|c| c.field != "meta_status"),
@@ -662,7 +749,7 @@ mod tests {
         assert!(p.changes.iter().any(|c| c.field == "title"));
         assert_eq!(p.status, MetaStatus::Ok);
 
-        let p = plan(&draft, MetaStatus::Pending, &none, false);
+        let p = plan(&draft, MetaStatus::Pending, &none, false, Vec::new());
         let status = p.changes.iter().find(|c| c.field == "meta_status").unwrap();
         assert_eq!(status.value, serde_json::json!("ok"));
     }
@@ -680,11 +767,23 @@ mod tests {
                 .collect::<BTreeSet<_>>()
         };
         // 巻次が手修正済み: 巻次の数値も書かない
-        let p = plan(&draft, MetaStatus::Ok, &manual(&["volume"]), false);
+        let p = plan(
+            &draft,
+            MetaStatus::Ok,
+            &manual(&["volume"]),
+            false,
+            Vec::new(),
+        );
         assert!(p.changes.iter().all(|c| c.field != "volume_sort"));
         assert!(p.series.is_some());
         // シリーズが手修正済み: シリーズを探さない
-        let p = plan(&draft, MetaStatus::Ok, &manual(&["series_id"]), false);
+        let p = plan(
+            &draft,
+            MetaStatus::Ok,
+            &manual(&["series_id"]),
+            false,
+            Vec::new(),
+        );
         assert!(p.series.is_none());
         assert!(p.changes.iter().any(|c| c.field == "volume_sort"));
         // 上書きを選んだときは、どちらも書く
@@ -693,19 +792,159 @@ mod tests {
             MetaStatus::Ok,
             &manual(&["volume", "series_id"]),
             true,
+            Vec::new(),
         );
         assert!(p.series.is_some());
         assert!(p.changes.iter().any(|c| c.field == "volume_sort"));
+    }
+
+    fn report(provider: ProviderId, outcome: ProviderOutcome) -> ProviderReport {
+        ProviderReport {
+            provider,
+            outcome,
+            from_cache: false,
+            network: true,
+        }
+    }
+
+    fn result_of(draft_source: &MetaMerged, reports: Vec<ProviderReport>) -> MetaFetchResult {
+        MetaFetchResult {
+            isbn13: ONE_PIECE.into(),
+            merged: draft_source.clone(),
+            profile: PriorityProfile::Japanese,
+            candidates: Vec::new(),
+            reports,
+            offline: false,
+        }
+    }
+
+    fn sources(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .collect()
+    }
+
+    #[test]
+    fn stale_clears_only_values_of_found_providers_that_the_merge_no_longer_has() {
+        // 統合の結果に、どの項目の値もない
+        let merged = merge(ONE_PIECE, &[], None, &MetaPriorities::default());
+        let draft = build_draft(&merged, None, None, MetaStatus::Ok);
+        let result = result_of(
+            &merged,
+            vec![
+                report(ProviderId::Ndl, ProviderOutcome::Found),
+                report(ProviderId::Openbd, ProviderOutcome::NotFound),
+                report(
+                    ProviderId::Google,
+                    ProviderOutcome::HttpError {
+                        status: 500,
+                        message: "x".into(),
+                    },
+                ),
+            ],
+        );
+        let current = sources(&[
+            ("volume", "ndl"),
+            ("ndc", "ndl"),
+            ("series_id", "ndl"),
+            ("authors", "ndl"),
+            // 取得元が見つからない・失敗した、問い合わせていない（openlibrary）
+            ("publisher", "openbd"),
+            ("pages", "google"),
+            ("language", "openlibrary"),
+            // 取得元の値でない
+            ("c_code", "barcode"),
+            ("list_price", "manual"),
+            ("subtitle", "import"),
+            // 消さない項目
+            ("title", "ndl"),
+            ("cover_hash", "ndl"),
+            ("isbn13", "ndl"),
+            ("meta_status", "ndl"),
+            // 書籍の項目ではない（念のため）
+            ("memo", "ndl"),
+        ]);
+        let stale = stale_clears(&current, &result, &draft);
+        let mut cleared: Vec<(&str, &Origin)> = stale
+            .iter()
+            .map(|c| (c.field.as_str(), &c.origin))
+            .collect();
+        cleared.sort_by_key(|(f, _)| *f);
+        let ndl = Origin::Provider("ndl".into());
+        assert_eq!(
+            cleared,
+            vec![
+                ("authors", &ndl),
+                ("ndc", &ndl),
+                ("series_id", &ndl),
+                ("volume", &ndl)
+            ]
+        );
+        assert!(stale.iter().all(|c| c.value == Value::Null));
+
+        // 統合の結果に値があれば（巻次・シリーズ・NDC・著者がある ONE PIECE）、消さずに通常の更新で書く。
+        // 値のない項目（内容紹介）だけが消える
+        let draft = one_piece_draft();
+        for field in ["volume", "ndc", "authors"] {
+            assert!(
+                draft.fields.to_changes().iter().any(|c| c.field == field),
+                "{field}"
+            );
+        }
+        assert!(draft.series_name.is_some());
+        let current = sources(&[
+            ("volume", "ndl"),
+            ("ndc", "ndl"),
+            ("series_id", "ndl"),
+            ("authors", "ndl"),
+            ("description", "ndl"),
+        ]);
+        let stale = stale_clears(&current, &result, &draft);
+        let fields: Vec<&str> = stale.iter().map(|c| c.field.as_str()).collect();
+        assert_eq!(fields, vec!["description"]);
+
+        // 取得元が 1 つも見つからなければ、何も消さない
+        let result = result_of(&merged, Vec::new());
+        assert!(stale_clears(&current, &result, &draft).is_empty());
+    }
+
+    #[test]
+    fn plan_adds_the_stale_clears_except_for_manual_fields() {
+        let draft = one_piece_draft();
+        let clear =
+            |field: &str| FieldChange::new(field, Value::Null, Origin::Provider("ndl".into()));
+        let manual: BTreeSet<String> = ["pages".to_owned()].into();
+        for override_manual in [false, true] {
+            let p = plan(
+                &draft,
+                MetaStatus::Ok,
+                &manual,
+                override_manual,
+                vec![clear("language"), clear("pages")],
+            );
+            assert!(p.changes.contains(&clear("language")));
+            assert!(
+                !p.changes.contains(&clear("pages")),
+                "手修正の項目は、上書きを選んでも消さない"
+            );
+        }
     }
 
     #[test]
     fn a_book_with_data_keeps_its_status_when_nothing_was_found() {
         let mut draft = one_piece_draft();
         draft.fields.meta_status.value = MetaStatus::Failed;
-        let p = plan(&draft, MetaStatus::Ok, &BTreeSet::new(), false);
+        let p = plan(&draft, MetaStatus::Ok, &BTreeSet::new(), false, Vec::new());
         assert_eq!(p.status, MetaStatus::Ok);
         assert!(p.changes.iter().all(|c| c.field != "meta_status"));
-        let p = plan(&draft, MetaStatus::Pending, &BTreeSet::new(), false);
+        let p = plan(
+            &draft,
+            MetaStatus::Pending,
+            &BTreeSet::new(),
+            false,
+            Vec::new(),
+        );
         assert_eq!(p.status, MetaStatus::Failed);
     }
 

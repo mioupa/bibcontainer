@@ -299,6 +299,62 @@ fn volume_is_removed_from_the_title_when_the_title_ends_with_it() {
 }
 
 #[test]
+fn slow_loop_takes_its_volume_from_ndl_not_the_label_number_from_openbd() {
+    // スローループ 7: openBD（NDL 由来）の `summary.volume` は叢書 `Manga time KR comics. Kirara menu` の中の番号 1866。
+    // 本の巻次は NDL の `dcndl:volume`（7）。シリーズ・巻次は openBD > NDL だが、openBD は巻次を持たないので NDL の 7 になり、
+    // openBD の書名「スローループ 7」からは巻次が除かれる。シリーズは openBD の叢書名（番号なし）。
+    let isbn = "9784832274167";
+    let m = merge(
+        isbn,
+        &[openbd(isbn), ndl(isbn)],
+        None,
+        &MetaPriorities::default(),
+    );
+    assert_eq!(m.text(MetaField::Title), Some("スローループ"));
+    assert_eq!(m.source(MetaField::Title), Some(MetaSource::Openbd));
+    assert_eq!(m.text(MetaField::Volume), Some("7"));
+    assert_eq!(m.source(MetaField::Volume), Some(MetaSource::Ndl));
+    assert_eq!(
+        m.text(MetaField::Series),
+        Some("Manga time KR comics. Kirara menu")
+    );
+    assert_eq!(m.source(MetaField::Series), Some(MetaSource::Openbd));
+    // 1866 はどの取得元の候補にも残らない
+    assert!(
+        m.choice(MetaField::Volume)
+            .unwrap()
+            .others
+            .iter()
+            .all(|p| p.value != MetaValue::Text("1866".into()))
+    );
+
+    // openBD だけ（NDL が落ちている）なら、巻次はなく、書名の「7」もそのまま
+    let m = merge(isbn, &[openbd(isbn)], None, &MetaPriorities::default());
+    assert_eq!(m.text(MetaField::Volume), None);
+    assert_eq!(m.text(MetaField::Title), Some("スローループ 7"));
+}
+
+#[test]
+fn a_western_book_from_ndl_has_no_binding_in_its_volume() {
+    // 洋書の NDL（CiNii 由来）の巻次の欄は `: pbk.`。巻次にならない（洋書の順でも和書の順でも）
+    for (isbn, title) in [
+        ("9780132350884", "Clean code"),
+        (
+            "9781493934362",
+            "Fundamentals of radiation materials science",
+        ),
+    ] {
+        let cands = vec![ndl(isbn)];
+        let m = merge_by_isbn(isbn, &cands, None);
+        assert_eq!(m.text(MetaField::Volume), None, "{isbn}");
+        assert_eq!(m.source(MetaField::Volume), None, "{isbn}");
+        assert_eq!(m.text(MetaField::Title), Some(title), "{isbn}");
+        let m = merge(isbn, &cands, None, &MetaPriorities::default());
+        assert_eq!(m.text(MetaField::Volume), None, "{isbn}");
+    }
+}
+
+#[test]
 fn old_ndl_derived_openbd_and_ndl_agree_and_tax_included_price_is_a_reference() {
     let isbn = "9784003101117";
     let m = merge(

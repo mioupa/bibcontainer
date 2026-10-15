@@ -6,7 +6,9 @@
 //! - `Provider`・`Barcode`・`Import`: その項目が手修正済みなら書かない（FR-META-07、AT-16）。
 //!   `UpdateOptions::override_manual` のときだけ書き、`manual_fields.<項目>` を外す。
 //!   書いたら `field_sources.<項目>` に取得元の名前を入れる。値が空（null、空文字、空の配列）のときは
-//!   何もしない（取得できなかった項目で、既にある値を消さないため）。
+//!   何もしない（取得できなかった項目で、既にある値を消さないため）。ただし `Provider` の変更で
+//!   `UpdateOptions::clear_stale` のときは、その項目の今の値が同じ取得元のものなら消す（再取得で、取得元が
+//!   もう値を返さなくなった項目の古い値を残さない）。
 //! - 取得元・手修正の記録は、外部から取得する書誌の項目（`values::TRACKED_FIELDS`）にだけ付ける。
 //!   読書記録・購入情報・所有状態・保管場所・タグ・メモなどは、どの由来でも値だけを書く。
 
@@ -281,11 +283,19 @@ pub fn update_book_in(
     }
     // 巻次を書いたのに `volume_sort` が明示されていなければ、巻次から作って同じ Op に入れる。
     // 巻次が手修正済みで書かれなかったときは、数値も作らない（組になる項目は一緒に扱う）。
+    // 取得元が値を返さなくなった巻次を消したとき（`clear_stale`）は、並べ替え用の数値も消す。
     if !prepared.iter().any(|p| p.field == "volume_sort")
         && let Some(volume) = prepared.iter().find(|p| p.field == "volume")
         && ctx.entries.contains_key("volume")
     {
-        ctx.apply(&derived_volume_sort(volume));
+        if ctx.opts.clear_stale
+            && matches!(volume.origin, Origin::Provider(_))
+            && ctx.entries.get("volume").is_some_and(Value::is_null)
+        {
+            ctx.clear_paired("volume_sort");
+        } else {
+            ctx.apply(&derived_volume_sort(volume));
+        }
     }
 
     apply_date_rules(env, &cur, &mut entries);
@@ -345,6 +355,7 @@ impl ApplyCtx<'_> {
             }
             other => {
                 if is_empty_value(&p.value) {
+                    self.clear_if_stale(field, other);
                     return;
                 }
                 if is_manual && !self.opts.override_manual {
@@ -362,6 +373,37 @@ impl ApplyCtx<'_> {
                 }
             }
         }
+    }
+}
+
+impl ApplyCtx<'_> {
+    /// 取得元が空の値を返したときの規則（`UpdateOptions::clear_stale`）。その項目が手修正でなく、今の値があり、
+    /// その取得元の記録が `origin` の取得元と同じなら、値と取得元の記録を消す。そうでなければ何もしない。
+    fn clear_if_stale(&mut self, field: &str, origin: &Origin) {
+        if !self.opts.clear_stale {
+            return;
+        }
+        let Origin::Provider(name) = origin else {
+            return;
+        };
+        if self.sources.get(field).and_then(Value::as_str) != Some(name.as_str()) {
+            return;
+        }
+        self.clear_paired(field);
+    }
+
+    /// 手修正でなく、今の値がある項目の値と取得元の記録を消す（巻次を消したときの `volume_sort` など、
+    /// 取得元の記録が一致するかを見ずに、組になる項目を消すときにも使う）。
+    fn clear_paired(&mut self, field: &str) {
+        if self.manual.contains(field) || self.cur.get(field).is_none_or(is_empty_value) {
+            return;
+        }
+        // 値は列の既定値（NULL 可の項目は null、`authors` は空の配列）。NOT NULL の項目には null を書けない。
+        let empty = Entity::Book
+            .field(field)
+            .map_or(Value::Null, |def| def.default_value());
+        self.entries.insert(field.to_owned(), empty);
+        self.entries.insert(field_sources_key(field), Value::Null);
     }
 }
 

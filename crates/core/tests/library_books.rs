@@ -34,7 +34,10 @@ fn update(
         &env(fx.clock),
         id,
         changes,
-        UpdateOptions { override_manual },
+        UpdateOptions {
+            override_manual,
+            ..UpdateOptions::default()
+        },
     )
     .unwrap()
 }
@@ -513,6 +516,172 @@ fn provider_writes_record_sources_and_skip_unchanged_values_and_nulls() {
     assert_eq!(manual_fields(&fx.conn, &id), json!(["pages"]));
     let r = update(&mut fx, &id, &[provider("pages", json!(320), "ndl")], false);
     assert_eq!(r.skipped_manual, ["pages"]);
+}
+
+/// `clear_stale` つきの更新。
+fn update_clearing(
+    fx: &mut Fx,
+    id: &str,
+    changes: &[FieldChange],
+    override_manual: bool,
+) -> library::ChangeReport {
+    library::update_book(
+        &mut fx.conn,
+        &env(fx.clock),
+        id,
+        changes,
+        UpdateOptions {
+            override_manual,
+            clear_stale: true,
+        },
+    )
+    .unwrap()
+}
+
+#[test]
+fn clear_stale_removes_only_a_value_that_the_same_provider_no_longer_returns() {
+    let mut fx = Fx::new();
+    let id = add_titled(&mut fx, "T");
+    update(
+        &mut fx,
+        &id,
+        &[
+            provider("volume", json!("v. 2 : pbk."), "ndl"),
+            provider("pages", json!(300), "ndl"),
+            provider("publisher", json!("P"), "openbd"),
+            provider("authors", json!([{"name": "A"}]), "ndl"),
+            FieldChange::barcode("list_price", json!(700)),
+        ],
+        false,
+    );
+    assert_eq!(column(&fx.conn, &id, "volume_sort"), json!(2.0));
+    assert_eq!(sources(&fx.conn, &id)["volume_sort"], json!("ndl"));
+
+    // `clear_stale` がなければ、空の値は何もしない（これまでどおり）
+    let ops = outbox_len(&fx.conn);
+    let r = update(
+        &mut fx,
+        &id,
+        &[
+            provider("volume", json!(null), "ndl"),
+            provider("pages", json!(null), "ndl"),
+        ],
+        false,
+    );
+    assert!(r.written.is_empty());
+    assert_eq!(outbox_len(&fx.conn), ops);
+
+    // 別の取得元の空の値、バーコード由来の項目、手修正の項目は消さない
+    let manual_id = add(&mut fx, &[("volume", json!("3")), ("pages", json!(100))]);
+    let r = update_clearing(
+        &mut fx,
+        &id,
+        &[
+            provider("pages", json!(null), "google"),
+            provider("publisher", json!(""), "ndl"),
+            provider("list_price", json!(null), "openbd"),
+        ],
+        false,
+    );
+    assert!(r.written.is_empty(), "{r:?}");
+    assert_eq!(column(&fx.conn, &id, "pages"), json!(300));
+    assert_eq!(column(&fx.conn, &id, "list_price"), json!(700));
+    for override_manual in [false, true] {
+        let ops = outbox_len(&fx.conn);
+        let r = update_clearing(
+            &mut fx,
+            &manual_id,
+            &[
+                provider("volume", json!(null), "ndl"),
+                provider("pages", json!(null), "ndl"),
+            ],
+            override_manual,
+        );
+        assert!(r.written.is_empty(), "{r:?}");
+        assert!(r.skipped_manual.is_empty(), "{r:?}");
+        assert_eq!(column(&fx.conn, &manual_id, "volume"), json!("3"));
+        assert_eq!(column(&fx.conn, &manual_id, "volume_sort"), json!(3.0));
+        assert_eq!(column(&fx.conn, &manual_id, "pages"), json!(100));
+        assert_eq!(
+            sources(&fx.conn, &manual_id)["volume"],
+            json!("manual"),
+            "override_manual = {override_manual}"
+        );
+        assert_eq!(outbox_len(&fx.conn), ops);
+    }
+
+    // 同じ取得元の空の値は、値と取得元の記録を消す。巻次なら、並べ替え用の数値も消える。Op は 1 つ
+    let ops = outbox_len(&fx.conn);
+    let r = update_clearing(
+        &mut fx,
+        &id,
+        &[
+            provider("volume", json!(null), "ndl"),
+            provider("authors", json!([]), "ndl"),
+            provider("pages", json!(null), "ndl"),
+            // 同じ更新の、空でない値は、これまでどおり書く
+            provider("publisher", json!("P2"), "openbd"),
+        ],
+        false,
+    );
+    assert_eq!(
+        r.written,
+        ["authors", "pages", "publisher", "volume", "volume_sort"]
+    );
+    assert_eq!(outbox_len(&fx.conn), ops + 1);
+    assert_eq!(column(&fx.conn, &id, "volume"), json!(null));
+    assert_eq!(column(&fx.conn, &id, "volume_sort"), json!(null));
+    assert_eq!(column(&fx.conn, &id, "pages"), json!(null));
+    assert!(get_book_detail(&fx.conn, &id).unwrap().authors.is_empty());
+    assert_eq!(column(&fx.conn, &id, "publisher"), json!("P2"));
+    assert_eq!(
+        sources(&fx.conn, &id),
+        json!({"title": "manual", "publisher": "openbd", "list_price": "barcode"})
+    );
+
+    // 値がもうなければ、何も書かない（記録も増えない）
+    let ops = outbox_len(&fx.conn);
+    let r = update_clearing(
+        &mut fx,
+        &id,
+        &[
+            provider("volume", json!(null), "ndl"),
+            provider("pages", json!(null), "ndl"),
+        ],
+        false,
+    );
+    assert!(r.written.is_empty());
+    assert_eq!(outbox_len(&fx.conn), ops);
+}
+
+#[test]
+fn clear_stale_clears_the_sort_value_with_the_volume_even_if_another_source_wrote_it() {
+    let mut fx = Fx::new();
+    let id = add_titled(&mut fx, "T");
+    update(
+        &mut fx,
+        &id,
+        &[provider("volume", json!("巻二"), "ndl")],
+        false,
+    );
+    // 数値だけ別の取得元が書いた状態（取得元の記録が巻次と違う）
+    update(
+        &mut fx,
+        &id,
+        &[provider("volume_sort", json!(2.5), "other")],
+        false,
+    );
+    assert_eq!(column(&fx.conn, &id, "volume_sort"), json!(2.5));
+    assert_eq!(sources(&fx.conn, &id)["volume_sort"], json!("other"));
+    let r = update_clearing(
+        &mut fx,
+        &id,
+        &[provider("volume", json!(null), "ndl")],
+        false,
+    );
+    assert_eq!(r.written, ["volume", "volume_sort"]);
+    assert_eq!(column(&fx.conn, &id, "volume_sort"), json!(null));
+    assert!(sources(&fx.conn, &id).get("volume_sort").is_none());
 }
 
 #[test]
