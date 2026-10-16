@@ -4,6 +4,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LastReadCard } from "@/features/scanScreen/LastReadCard";
 import { ManualInput } from "@/features/scanScreen/ManualInput";
+import { useManualFocusHome } from "@/features/scanScreen/manualFocus";
 import { ModeToggle } from "@/features/scanScreen/ModeToggle";
 import { BatchPanel } from "@/features/scanScreen/BatchPanel";
 import { useScanSessionStore } from "@/features/scanScreen/sessionStore";
@@ -18,6 +19,7 @@ import { useScreenStore } from "@/stores/screenStore";
 export function ScanScreen() {
   const flow = useScanFlow();
   const editing = useEditingFocus();
+  useManualFocusHome();
   const mode = useScanSessionStore((s) => s.mode);
   const setMode = useScanSessionStore((s) => s.setMode);
   const batchCount = useScanSessionStore((s) => s.rows.length);
@@ -53,7 +55,13 @@ export function ScanScreen() {
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
             <LastReadCard onRegisterSecond={flow.registerSecondCopy} />
             <div className="flex flex-col gap-4">
-              <ManualInput onSubmit={flow.submitDigits} />
+              <ManualInput
+                onSubmit={flow.submitDigits}
+                // フォームやダイアログを開いている間は、確定キーと同じく止める
+                onCommit={() => {
+                  if (flow.listening) flow.pairing.commit();
+                }}
+              />
             </div>
           </div>
           {mode === "batch" && <BatchPanel onImport={() => void flow.importIsbnList()} />}

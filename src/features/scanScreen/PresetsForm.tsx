@@ -10,7 +10,9 @@ import {
 } from "@/components/ui/select";
 import { useLocations, usePurchaseStores, useTags } from "@/features/library/hooks";
 import { buildLocationPaths } from "@/features/library/trees";
+import { isImeKeyEvent } from "@/features/scan/dom";
 import { parseTagInput } from "@/features/scanScreen/batch";
+import { focusManualInput } from "@/features/scanScreen/manualFocus";
 import { useScanSessionStore } from "@/features/scanScreen/sessionStore";
 import { ja } from "@/i18n/ja";
 import type { Ownership } from "@/types/contracts";
@@ -21,14 +23,17 @@ const NONE = "__none__";
 const OWNERSHIPS: readonly Ownership[] = ["owned", "wanted", "released"];
 
 /**
- * 選んだあと、フォーカスを選択欄に戻さない。入力欄（コンボボックス）にフォーカスが残ると、リーダーの入力を拾わなくなる
- * （数字が選択欄の文字検索に入ってしまう）ため。
+ * 選んだあと、フォーカスを選択欄に戻さず、手入力欄に移す。選択欄（コンボボックス）にフォーカスが残ると、
+ * リーダーの入力を拾わなくなる（数字が選択欄の文字検索に入ってしまう）ため。
  */
-const keepFocusAway = (event: Event) => event.preventDefault();
+const returnToManualInput = (event: Event) => {
+  event.preventDefault();
+  focusManualInput();
+};
 
-/** Enter（日本語入力の変換中を除く）で入力を終えて、フォーカスを外す（リーダーの入力を拾えるようにする）。 */
-const blurOnEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
-  if (event.key === "Enter" && !event.nativeEvent.isComposing) event.currentTarget.blur();
+/** Enter（日本語入力の変換の確定を除く）で入力を終えて、フォーカスを手入力欄に移す（リーダーの入力を受けられるようにする）。 */
+const manualInputOnEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
+  if (event.key === "Enter" && !isImeKeyEvent(event.nativeEvent)) focusManualInput();
 };
 
 export function PresetsForm() {
@@ -77,7 +82,7 @@ export function PresetsForm() {
             <SelectTrigger id={locationId} className="w-full" aria-label={p.location}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent onCloseAutoFocus={keepFocusAway}>
+            <SelectContent onCloseAutoFocus={returnToManualInput}>
               <SelectItem value={NONE}>{p.locationNone}</SelectItem>
               {locationOptions.map((option) => (
                 <SelectItem key={option.id} value={option.id}>
@@ -98,7 +103,7 @@ export function PresetsForm() {
             <SelectTrigger id={ownershipId} className="w-full" aria-label={p.ownership}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent onCloseAutoFocus={keepFocusAway}>
+            <SelectContent onCloseAutoFocus={returnToManualInput}>
               <SelectItem value={NONE}>{p.ownershipNone}</SelectItem>
               {OWNERSHIPS.map((ownership) => (
                 <SelectItem key={ownership} value={ownership}>
@@ -115,7 +120,7 @@ export function PresetsForm() {
             list={tagListId}
             value={tagText}
             placeholder={p.tagsPlaceholder}
-            onKeyDown={blurOnEnter}
+            onKeyDown={manualInputOnEnter}
             onChange={(event) => {
               setTagText(event.target.value);
               setPresets({ tags: parseTagInput(event.target.value) });
@@ -133,6 +138,7 @@ export function PresetsForm() {
             id={purchasedOnId}
             type="date"
             value={presets.purchasedOn}
+            onKeyDown={manualInputOnEnter}
             onChange={(event) => setPresets({ purchasedOn: event.target.value })}
           />
         </Field>
@@ -142,7 +148,7 @@ export function PresetsForm() {
             id={purchaseStoreId}
             list={storeListId}
             value={presets.purchaseStore}
-            onKeyDown={blurOnEnter}
+            onKeyDown={manualInputOnEnter}
             onChange={(event) => setPresets({ purchaseStore: event.target.value })}
           />
           <datalist id={storeListId}>

@@ -12,3 +12,19 @@ export function toHalfWidthDigits(input: string): string {
     return "X";
   });
 }
+
+/**
+ * 手入力欄の値を、判定（classify_code）に渡す形にする: 全角の数字を半角にし、空白（全角を含む）を取り除く。
+ * ISBN に空白は入らない。日本語入力が挟む全角の空白や、貼り付けた空白を落とす。
+ */
+export function normalizeManualInput(input: string): string {
+  return toHalfWidthDigits(input).replace(/\s/g, "");
+}
+
+/**
+ * 1 つの完全なコードか: 13 桁の数字、または 10 桁（末尾だけ X・x でもよい）。
+ * 日本語入力で入った数字を、Enter を待たずに送ってよいかの判断に使う（部分的な値は送らない）。
+ */
+export function isCompleteCode(code: string): boolean {
+  return /^(?:\d{13}|\d{9}[\dXx])$/.test(code);
+}

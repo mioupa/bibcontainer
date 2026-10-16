@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ScanCode } from "@/bindings/ScanCode";
+import { EditorHost } from "@/features/editor/EditorHost";
 import { DEFAULT_SCAN_SETTINGS } from "@/features/scan/config";
 import { resetLookupsForTest } from "@/features/scanScreen/lookup";
 import { ScanScreen } from "@/features/scanScreen/ScanScreen";
@@ -93,11 +94,13 @@ function installInvoke() {
 
 const calls = (command: string) => invoke.mock.calls.filter(([name]) => name === command);
 
-function renderScreen() {
+function renderScreen(options: { withEditor?: boolean } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <ScanScreen />
+      {/* 本物では、画面の外側（App.tsx）に 1 つだけ置く登録・編集フォーム */}
+      {options.withEditor === true && <EditorHost />}
     </QueryClientProvider>,
   );
 }
@@ -135,6 +138,7 @@ function scan(digits: string, options: { ime?: boolean } = {}): boolean[] {
 }
 
 const state = () => screen.getByRole("status", { name: ja.scan.screen.stateLabel });
+const manualInput = () => screen.getByLabelText<HTMLInputElement>(ja.scan.manualInput.label);
 
 async function flush() {
   await act(async () => {
@@ -881,21 +885,34 @@ describe("連続登録: 画面まわりの細かい挙動", () => {
     expect(screen.queryByText(ja.scan.screen.editing)).not.toBeInTheDocument();
   });
 
-  it("共通値の入力欄で Enter を押すと、フォーカスが外れる（続けてリーダーで読める）", () => {
+  it("共通値の入力欄で Enter を押すと、フォーカスが手入力欄に移る（続けてリーダーでも手入力でも読める）", () => {
     renderScreen();
     const tags = screen.getByLabelText(ja.scan.batch.presets.tags);
     act(() => tags.focus());
     expect(tags).toHaveFocus();
     fireEvent.keyDown(tags, { key: "Enter" });
     expect(tags).not.toHaveFocus();
+    expect(manualInput()).toHaveFocus();
   });
 
-  it("保管場所を選んだあと、フォーカスが選択欄に残らない（リーダーの数字が文字検索に入らない）", async () => {
+  it("共通値の入力欄で、日本語入力の変換を確定する Enter では、フォーカスを移さない", () => {
+    renderScreen();
+    const tags = screen.getByLabelText(ja.scan.batch.presets.tags);
+    act(() => tags.focus());
+    fireEvent.keyDown(tags, { key: "Enter", isComposing: true });
+    expect(tags).toHaveFocus();
+    // WebKit は、確定の Enter を isComposing false・keyCode 229 で送る
+    fireEvent.keyDown(tags, { key: "Enter", keyCode: 229 });
+    expect(tags).toHaveFocus();
+  });
+
+  it("保管場所を選んだあと、フォーカスは選択欄に残らず、手入力欄に移る（リーダーの数字が文字検索に入らない）", async () => {
     renderScreen();
     const trigger = screen.getByRole("combobox", { name: ja.scan.batch.presets.location });
     fireEvent.click(trigger);
     fireEvent.click(await screen.findByRole("option", { name: "自宅" }));
     await waitFor(() => expect(screen.queryByRole("option")).not.toBeInTheDocument());
+    await waitFor(() => expect(manualInput()).toHaveFocus());
     expect(trigger).not.toHaveFocus();
   });
 });
@@ -980,5 +997,342 @@ describe("「1 冊ずつ」と「連続」の切り替え", () => {
 
     fireEvent.click(screen.getByRole("radio", { name: new RegExp(ja.scan.screen.mode.single) }));
     expect(screen.queryByTestId("batch-panel")).not.toBeInTheDocument();
+  });
+});
+
+describe("手入力欄がフォーカスの定位置（キーボードだけで続けて入力する）", () => {
+  const FULL_WIDTH_A = "９７８４００３１０１１１７";
+  const fullWidth = (digits: string) =>
+    [...digits].map((digit) => String.fromCharCode(0xff10 + Number(digit))).join("");
+
+  /** 手入力欄に、IME の変換中の値を入れて、変換を確定する（Chromium の順: 変換中の Enter → compositionend）。 */
+  function composeWithReaderEnter(value: string) {
+    const input = manualInput();
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter", isComposing: true, keyCode: 229 });
+    fireEvent.compositionEnd(input);
+  }
+
+  it("画面を開くと、手入力欄にフォーカスがある", () => {
+    renderScreen();
+    expect(manualInput()).toHaveFocus();
+  });
+
+  it("ISBN を打って Enter で 1 回だけ送り、欄を空にして、フォーカスは欄に残る。続けて次の ISBN を打てる", async () => {
+    renderScreen();
+    const input = manualInput();
+    fireEvent.change(input, { target: { value: ISBN_A } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => expect(calls("classify_code")).toHaveLength(1));
+    expect(calls("classify_code")[0]![1]).toEqual({ raw: ISBN_A });
+    expect(input).toHaveValue("");
+    expect(input).toHaveFocus();
+    await waitFor(() => expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10)));
+
+    // フォーカスはそのまま。次の ISBN（連続して 2 冊目）も、クリックなしで送れる
+    fireEvent.change(input, { target: { value: ISBN_B } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await waitFor(() => expect(calls("classify_code")).toHaveLength(2));
+    expect(calls("classify_code")[1]![1]).toEqual({ raw: ISBN_B });
+    expect(input).toHaveFocus();
+  });
+
+  it("全角の数字で打っても、半角にして 1 回だけ送る", async () => {
+    renderScreen();
+    const input = manualInput();
+    fireEvent.change(input, { target: { value: FULL_WIDTH_A } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await waitFor(() => expect(calls("classify_code")).toHaveLength(1));
+    expect(calls("classify_code")[0]![1]).toEqual({ raw: ISBN_A });
+    expect(input).toHaveFocus();
+  });
+
+  it("欄が空のとき、Enter は確定キーと同じ（保留中の本を確定して、フォームを開く）", async () => {
+    renderScreen();
+    const input = manualInput();
+    fireEvent.change(input, { target: { value: ISBN_A } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await waitFor(() => expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10)));
+
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await waitFor(() => expect(useEditorStore.getState().request).not.toBeNull());
+    expect(state()).toHaveTextContent(ja.scan.state.idle);
+    // 空の Enter は、新しい読み取りにはならない
+    expect(calls("classify_code")).toHaveLength(1);
+  });
+
+  it("欄が空のとき、スペースも確定キーと同じ。スペースは欄に入らず、既定の動作は止める", async () => {
+    renderScreen();
+    const input = manualInput();
+    fireEvent.change(input, { target: { value: ISBN_A } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await waitFor(() => expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10)));
+
+    const prevented = press("Space", { key: " " }, input);
+    expect(prevented).toBe(true);
+    await waitFor(() => expect(useEditorStore.getState().request).not.toBeNull());
+    expect(state()).toHaveTextContent(ja.scan.state.idle);
+    expect(input).toHaveValue("");
+  });
+
+  it("欄に値があるとき、スペースは入れず、確定もしない", async () => {
+    renderScreen();
+    const input = manualInput();
+    fireEvent.change(input, { target: { value: ISBN_A } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await waitFor(() => expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10)));
+
+    fireEvent.change(input, { target: { value: "978" } });
+    expect(press("Space", { key: " " }, input)).toBe(true);
+    await flush();
+    expect(input).toHaveValue("978");
+    expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10));
+    expect(useEditorStore.getState().request).toBeNull();
+
+    // 空白が入ってしまっても（日本語入力が入れることがある）、落とす
+    fireEvent.change(input, { target: { value: "978　4 0" } });
+    expect(input).toHaveValue("97840");
+  });
+
+  it("フォームやダイアログを開いている間は、欄の Enter・スペースで確定しない", async () => {
+    renderScreen();
+    const input = manualInput();
+    fireEvent.change(input, { target: { value: ISBN_A } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await waitFor(() => expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10)));
+
+    act(() => useEditorStore.getState().openNew({}));
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    press("Space", { key: " " }, input);
+    expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10));
+  });
+
+  describe("日本語入力がオンのままのリーダー（AT-09）", () => {
+    it("全角の数字が変換中で、リーダーの Enter（変換中）のあと、変換が確定すると、ちょうど 1 回だけ送る", async () => {
+      renderScreen();
+      composeWithReaderEnter(FULL_WIDTH_A);
+      await waitFor(() => expect(calls("classify_code")).toHaveLength(1));
+      expect(calls("classify_code")[0]![1]).toEqual({ raw: ISBN_A });
+      expect(manualInput()).toHaveValue("");
+      expect(manualInput()).toHaveFocus();
+      await waitFor(() => expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10)));
+      // 変換中の Enter が、空の Enter（確定）にならない
+      expect(useEditorStore.getState().request).toBeNull();
+      await flush();
+      expect(calls("classify_code")).toHaveLength(1);
+    });
+
+    it("WebKit の順（compositionend → keyCode 229 の Enter）でも、1 回だけ送る", async () => {
+      renderScreen();
+      const input = manualInput();
+      fireEvent.compositionStart(input);
+      fireEvent.change(input, { target: { value: FULL_WIDTH_A } });
+      fireEvent.compositionEnd(input);
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter", keyCode: 229, isComposing: false });
+      await waitFor(() => expect(calls("classify_code")).toHaveLength(1));
+      await waitFor(() => expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10)));
+      await flush();
+      expect(calls("classify_code")).toHaveLength(1);
+      expect(useEditorStore.getState().request).toBeNull();
+    });
+
+    // リーダーの Enter が、確定キー（空の Enter）として働くと、ISBN の次に読んだ 2段目が間に合わなくなる
+    async function holdIsbnA() {
+      const input = manualInput();
+      fireEvent.change(input, { target: { value: ISBN_A } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10)));
+    }
+
+    async function expectPairedWithSecondTier() {
+      await waitFor(() => expect(useEditorStore.getState().request).not.toBeNull());
+      const request = useEditorStore.getState().request;
+      if (request?.mode !== "new") throw new Error("new のフォームが開いていない");
+      expect(request.source.isbn13).toBe(ISBN_A);
+      expect(request.source.secondTier).toEqual({ cCode: "0193", listPrice: 700 });
+    }
+
+    it("ISBN のあとの 2段目を、日本語入力で読んでも、リーダーの Enter（変換中）で ISBN が先に確定しない（Chromium の順）", async () => {
+      renderScreen();
+      await holdIsbnA();
+      composeWithReaderEnter(fullWidth(SECOND_RAW));
+      await expectPairedWithSecondTier();
+    });
+
+    it("ISBN のあとの 2段目を、日本語入力で読んでも、確定の Enter（keyCode 229）で ISBN が先に確定しない（WebKit の順）", async () => {
+      renderScreen();
+      await holdIsbnA();
+      const input = manualInput();
+      fireEvent.compositionStart(input);
+      fireEvent.change(input, { target: { value: fullWidth(SECOND_RAW) } });
+      fireEvent.compositionEnd(input);
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter", keyCode: 229, isComposing: false });
+      await expectPairedWithSecondTier();
+    });
+
+    it("途中までの値（完全なコードでない）は、送らない。半角にして欄に残す", async () => {
+      renderScreen();
+      composeWithReaderEnter("９７８４");
+      await flush();
+      expect(calls("classify_code")).toHaveLength(0);
+      expect(manualInput()).toHaveValue("9784");
+      expect(state()).toHaveTextContent(ja.scan.state.idle);
+
+      // 続きを打って Enter（変換中でない）で送れる
+      fireEvent.change(manualInput(), { target: { value: "9784003101117" } });
+      fireEvent.keyDown(manualInput(), { key: "Enter", code: "Enter" });
+      await waitFor(() => expect(calls("classify_code")).toHaveLength(1));
+    });
+
+    it("10 桁（末尾が全角の Ｘ）も、完全なコードとして送る", async () => {
+      renderScreen();
+      composeWithReaderEnter("４００３１０１１１Ｘ");
+      await waitFor(() => expect(calls("classify_code")).toHaveLength(1));
+      expect(calls("classify_code")[0]![1]).toEqual({ raw: "400310111X" });
+    });
+  });
+
+  it("リーダーを読ませる全体の受け口は、手入力欄にフォーカスがあるあいだは拾わない（二重に処理しない）", async () => {
+    renderScreen();
+    const input = manualInput();
+    expect(input).toHaveFocus();
+
+    // リーダーのキーは、フォーカスのある欄に届く。全体の受け口は、止めず、数えない
+    let typed = "";
+    for (const digit of ISBN_A) {
+      expect(press(`Digit${digit}`, { key: digit }, input)).toBe(false);
+      typed += digit;
+      fireEvent.change(input, { target: { value: typed } });
+    }
+    await flush();
+    expect(calls("classify_code")).toHaveLength(0);
+
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await waitFor(() => expect(calls("classify_code")).toHaveLength(1));
+    await flush();
+    expect(calls("classify_code")).toHaveLength(1);
+  });
+
+  it("手入力欄の外（ボディ）にフォーカスがあるときは、これまでどおり全体の受け口が拾う", async () => {
+    renderScreen();
+    act(() => manualInput().blur());
+    scan(ISBN_A);
+    await waitFor(() => expect(calls("classify_code")).toHaveLength(1));
+    await waitFor(() => expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10)));
+  });
+
+  describe("フォーカスを戻す", () => {
+    it("1 冊ずつのフォームを閉じると、手入力欄に戻る。開いている間は奪わない", async () => {
+      route({
+        ...handlers,
+        list_books: [],
+        list_series: [],
+        get_price_settings: { showTaxIncluded: false, taxRatePercent: 10 },
+        search_books: [],
+      });
+      renderScreen({ withEditor: true });
+      const input = manualInput();
+      fireEvent.change(input, { target: { value: ISBN_A } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10)));
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      const dialog = await screen.findByRole("dialog");
+      // フォームを開いている間、フォーカスは手入力欄ではなくフォームの中
+      expect(input).not.toHaveFocus();
+      expect(dialog.contains(document.activeElement)).toBe(true);
+
+      fireEvent.click(within(dialog).getByRole("button", { name: ja.edit.actions.cancel }));
+      await waitFor(() => expect(useEditorStore.getState().request).toBeNull());
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      await waitFor(() => expect(manualInput()).toHaveFocus());
+    });
+
+    it("フォームを閉じるとき、ほかの入力欄に打っている最中なら、奪わない", () => {
+      useScanSessionStore.setState({ mode: "batch" });
+      renderScreen();
+      act(() => useEditorStore.getState().openNew({}));
+      const tags = screen.getByLabelText(ja.scan.batch.presets.tags);
+      act(() => tags.focus());
+      act(() => useEditorStore.getState().close());
+      expect(tags).toHaveFocus();
+    });
+
+    it("1 冊ずつのフォームの出入りを、ストアだけで確かめる（フォームの実体がなくても戻る）", () => {
+      renderScreen();
+      act(() => manualInput().blur());
+      act(() => useEditorStore.getState().openNew({}));
+      expect(manualInput()).not.toHaveFocus();
+      act(() => useEditorStore.getState().close());
+      expect(manualInput()).toHaveFocus();
+    });
+
+    it("欲しい本の確認を閉じると、手入力欄に戻る", async () => {
+      route({
+        find_by_isbn: [
+          {
+            id: "w1",
+            title: "欲しかった本",
+            ownership: "wanted",
+            locationId: null,
+            locationPath: null,
+            deleted: false,
+          },
+        ],
+      });
+      renderScreen();
+      const input = manualInput();
+      fireEvent.change(input, { target: { value: ISBN_A } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10)));
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      const dialog = await screen.findByRole("dialog");
+      expect(input).not.toHaveFocus();
+      fireEvent.click(within(dialog).getByRole("button", { name: ja.scan.wantedDialog.cancel }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      await waitFor(() => expect(manualInput()).toHaveFocus());
+    });
+
+    it("一覧を空にする確認を閉じると、手入力欄に戻る（開いた「一覧を空にする」ボタンではなく）", async () => {
+      useScanSessionStore.setState({ mode: "batch" });
+      renderScreen();
+      const input = manualInput();
+      fireEvent.change(input, { target: { value: ISBN_A } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => expect(state()).toHaveTextContent(ja.scan.state.isbnHeld(10)));
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => expect(screen.getAllByTestId("batch-row")).toHaveLength(1));
+
+      const clear = screen.getByRole("button", { name: ja.scan.batch.clear });
+      act(() => clear.focus());
+      fireEvent.click(clear);
+      const dialog = await screen.findByRole("dialog");
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: ja.scan.batch.clearConfirm.cancel }),
+      );
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      await waitFor(() => expect(manualInput()).toHaveFocus());
+    });
+  });
+
+  it("共通値の入力欄にフォーカスがあるあいだだけ、読み取れない旨を出す。手入力欄では出さない", async () => {
+    useScanSessionStore.setState({ mode: "batch" });
+    renderScreen();
+    // 開いた直後は、手入力欄にフォーカスがあり、警告はない
+    expect(manualInput()).toHaveFocus();
+    await flush();
+    expect(screen.queryByText(ja.scan.screen.editing)).not.toBeInTheDocument();
+
+    const tags = screen.getByLabelText(ja.scan.batch.presets.tags);
+    act(() => tags.focus());
+    expect(await screen.findByText(ja.scan.screen.editing)).toBeInTheDocument();
+
+    // Enter で手入力欄に戻ると、警告は消える
+    fireEvent.keyDown(tags, { key: "Enter" });
+    expect(manualInput()).toHaveFocus();
+    await waitFor(() => expect(screen.queryByText(ja.scan.screen.editing)).not.toBeInTheDocument());
   });
 });

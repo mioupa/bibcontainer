@@ -35,3 +35,13 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 export function isScanTarget(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest("[data-scan-target]") !== null;
 }
+
+/**
+ * 日本語入力（IME）の変換中、またはその確定のキーイベントか。
+ * Chromium（WebView2）は変換中の Enter を isComposing が true で送り、そのあとに compositionend が来る。
+ * WebKit（WKWebView）は compositionend が先で、確定の Enter は isComposing が false・keyCode が 229 で来る。
+ * どちらも「変換の確定であって、入力の確定ではない」ので、Enter として扱ってはいけない。
+ */
+export function isImeKeyEvent(event: KeyboardEvent): boolean {
+  return event.isComposing || event.keyCode === 229;
+}
