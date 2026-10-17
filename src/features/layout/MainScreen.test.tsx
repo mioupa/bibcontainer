@@ -8,6 +8,7 @@ import { DEFAULT_SCAN_SETTINGS } from "@/features/scan/config";
 import { ja } from "@/i18n/ja";
 import { chooseSavePath } from "@/lib/dialog";
 import { useEditorStore } from "@/stores/editorStore";
+import { useGroupStore } from "@/stores/groupStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { useScreenStore } from "@/stores/screenStore";
 import { useSelectionStore } from "@/stores/selectionStore";
@@ -118,6 +119,7 @@ describe("メイン画面", () => {
     useSettingsStore.setState({ theme: "system", scan: { ...DEFAULT_SCAN_SETTINGS } });
     useScreenStore.setState({ screen: "main", handoff: null });
     useEditorStore.getState().close();
+    useGroupStore.getState().reset();
     routeLibrary();
   });
 
@@ -480,6 +482,163 @@ describe("メイン画面", () => {
       fireEvent.keyDown(screen.getByRole("grid"), { code: "Enter" });
       expect(useEditorStore.getState().request).toMatchObject({ mode: "edit" });
       await closeEditor();
+    });
+  });
+
+  // 巻をまとめた表示（FR-LIST-08）。スローループ 1〜7 巻（巻次あり）と 8 巻（書名の末尾だけ）が 1 つのグループになる
+  describe("巻をまとめた表示（FR-LIST-08）", () => {
+    const isbn13 = (body: string) =>
+      body +
+      ((10 - ([...body].reduce((sum, d, i) => sum + Number(d) * (i % 2 === 0 ? 1 : 3), 0) % 10)) %
+        10);
+    const author = [{ name: "うちの 太郎", kana: null, role: null }];
+    const volumeRows = [1, 2, 3, 4, 5, 6, 7, 8].map((n) =>
+      makeRow({
+        id: `v${n}`,
+        title: n === 8 ? "スローループ 8" : "スローループ",
+        sortTitle: "すろーるーぷ",
+        volume: n === 8 ? null : String(n),
+        volumeSort: n === 8 ? null : n,
+        authors: author,
+        isbn13: isbn13(`97848320${String(n).padStart(4, "0")}`),
+      }),
+    );
+    const workRows = [
+      makeRow({ id: "pre", title: "あの本", sortTitle: "あ" }),
+      ...volumeRows,
+      makeRow({ id: "post", title: "んの本", sortTitle: "ん" }),
+    ];
+    const MEMBER_IDS = volumeRows.map((r) => r.id);
+    const byKey = (key: string) =>
+      [...document.querySelectorAll<HTMLElement>("[data-row-id]")].find(
+        (el) => el.dataset.rowId === key,
+      ) ?? null;
+    const groupRowEl = () =>
+      [...document.querySelectorAll<HTMLElement>("[data-row-id]")].find((el) =>
+        el.dataset.rowId?.startsWith("work:"),
+      ) ?? null;
+    const groupKey = () => groupRowEl()?.dataset.rowId ?? "";
+    const toggleButton = () => screen.getByRole("button", { name: ja.list.group.toggle });
+    const status = () => screen.getByRole("status");
+    const renderGrouped = async () => {
+      routeLibrary({ list_books: workRows });
+      useLayoutStore.setState({ groupVolumes: true });
+      renderMain();
+      await screen.findByRole("treegrid");
+      await waitFor(() => expect(groupRowEl()).not.toBeNull());
+    };
+
+    it("上部バーの「巻をまとめる」で、まとめる設定を切り替える（layoutStore に入る。aria-pressed）。表でもグリッドでも出る", async () => {
+      renderMain();
+      await screen.findByRole("grid");
+      await rowsReady();
+      expect(toggleButton()).toHaveAttribute("aria-pressed", "false");
+      expect(toggleButton()).toHaveAttribute("title", ja.list.group.toggleHint);
+      expect(useLayoutStore.getState().groupVolumes).toBe(false);
+
+      fireEvent.click(toggleButton());
+      expect(useLayoutStore.getState().groupVolumes).toBe(true);
+      expect(toggleButton()).toHaveAttribute("aria-pressed", "true");
+      expect(await screen.findByRole("treegrid")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: ja.list.viewSwitch.grid }));
+      expect(await screen.findByRole("grid", { name: ja.list.grid.ariaLabel })).toBeInTheDocument();
+      expect(toggleButton()).toHaveAttribute("aria-pressed", "true");
+
+      fireEvent.click(toggleButton());
+      expect(useLayoutStore.getState().groupVolumes).toBe(false);
+      expect(toggleButton()).toHaveAttribute("aria-pressed", "false");
+    });
+
+    it("まとめる設定がオンなら、同じ作品の巻が 1 行になる。件数（N 冊中 M 冊）は本の数のまま", async () => {
+      await renderGrouped();
+      expect(
+        [...document.querySelectorAll("[data-row-id]")].map((el) => el.getAttribute("data-row-id")),
+      ).toEqual(["pre", groupKey(), "post"]);
+      expect(within(groupRowEl()!).getByText("8 冊")).toBeInTheDocument();
+      expect(within(groupRowEl()!).getByText("1〜8")).toBeInTheDocument();
+      expect(within(status()).getByText(ja.statusBar.shown(10, 10))).toBeInTheDocument();
+    });
+
+    it("検索欄の ISBN が、畳まれたグループの巻なら、グループを開いて、その本を選ぶ", async () => {
+      await renderGrouped();
+      expect(byKey("v3")).toBeNull();
+      fireEvent.change(search(), { target: { value: volumeRows[2]?.isbn13 ?? "" } });
+      fireEvent.keyDown(search(), { key: "Enter" });
+
+      await waitFor(() => expect(byKey("v3")).not.toBeNull());
+      expect([...useSelectionStore.getState().selected]).toEqual(["v3"]);
+      expect(useSelectionStore.getState().focus).toBe("v3");
+      expect(byKey("v3")).toHaveAttribute("aria-selected", "true");
+      expect(groupRowEl()).toHaveAttribute("aria-expanded", "true");
+      expect(useGroupStore.getState().expanded.has(groupKey())).toBe(true);
+      // 詳細ペインには、その本の詳細
+      expect(await screen.findAllByText("詳細のメモ")).not.toHaveLength(0);
+      expect(calls("get_book_detail")).toContainEqual({ id: "v3" });
+    });
+
+    it("グループを選ぶと、ステータスバーと詳細ペインは、全巻の冊数（本の数）を出す", async () => {
+      await renderGrouped();
+      fireEvent.click(groupRowEl()!);
+      expect(within(status()).getByText(ja.statusBar.selected(8))).toBeInTheDocument();
+      expect(screen.getByText(ja.detail.multiple(8))).toBeInTheDocument();
+      // 詳細は 1 冊の本のものではないので、取りにいかない
+      expect(calls("get_book_detail")).toHaveLength(0);
+
+      // ふつうの本を足すと 9 冊。グループの中の巻を足しても、重ならない
+      fireEvent.click(byKey("post")!, { metaKey: true });
+      expect(within(status()).getByText(ja.statusBar.selected(9))).toBeInTheDocument();
+      fireEvent.click(within(groupRowEl()!).getByRole("button", { name: ja.list.group.expand }));
+      fireEvent.click(byKey("v2")!, { metaKey: true });
+      expect(within(status()).getByText(ja.statusBar.selected(9))).toBeInTheDocument();
+    });
+
+    it("開いたグループの巻を選ぶと、詳細ペインはその本の詳細。畳むと、focus がグループの行に移り、全巻の選択に変わる", async () => {
+      await renderGrouped();
+      fireEvent.click(within(groupRowEl()!).getByRole("button", { name: ja.list.group.expand }));
+      fireEvent.click(byKey("v4")!);
+      expect(await screen.findAllByText("詳細のメモ")).not.toHaveLength(0);
+      expect(within(status()).getByText(ja.statusBar.selected(1))).toBeInTheDocument();
+
+      fireEvent.click(within(groupRowEl()!).getByRole("button", { name: ja.list.group.collapse }));
+      expect(byKey("v4")).toBeNull();
+      expect(useSelectionStore.getState().focus).toBe(groupKey());
+      expect([...useSelectionStore.getState().selected]).toEqual([groupKey()]);
+      expect(groupRowEl()).toHaveAttribute("aria-selected", "true");
+      expect(groupRowEl()).toHaveAttribute("aria-expanded", "false");
+      expect(within(status()).getByText(ja.statusBar.selected(8))).toBeInTheDocument();
+      expect(screen.getByText(ja.detail.multiple(8))).toBeInTheDocument();
+    });
+
+    it("「表示中の N 冊を CSV に書き出す」は、畳まれたグループの巻も含めて、表示の順に、全巻の ID を渡す", async () => {
+      vi.mocked(chooseSavePath).mockResolvedValue("/tmp/shown.csv");
+      routeLibrary({ list_books: workRows, export_csv: 10 });
+      useLayoutStore.setState({ groupVolumes: true });
+      renderMain();
+      await screen.findByRole("treegrid");
+      await waitFor(() => expect(groupRowEl()).not.toBeNull());
+
+      fireEvent.click(screen.getByRole("button", { name: ja.list.exportShown.label(10) }));
+      await waitFor(() => expect(calls("export_csv")).toHaveLength(1));
+      expect(calls("export_csv")[0]).toEqual({
+        path: "/tmp/shown.csv",
+        ids: ["pre", ...MEMBER_IDS, "post"],
+      });
+    });
+
+    it("グループを選んでゴミ箱へ移動すると、全巻の ID で呼ぶ", async () => {
+      routeLibrary({
+        list_books: workRows,
+        trash_books: { requested: 8, trashed: 8 },
+      });
+      useLayoutStore.setState({ groupVolumes: true });
+      renderMain();
+      const grid = await screen.findByRole("treegrid");
+      await waitFor(() => expect(groupRowEl()).not.toBeNull());
+      fireEvent.click(groupRowEl()!);
+      fireEvent.keyDown(grid, { code: "Backspace", metaKey: true });
+      await waitFor(() => expect(calls("trash_books")).toHaveLength(1));
+      expect(calls("trash_books")[0]).toEqual({ ids: MEMBER_IDS });
     });
   });
 

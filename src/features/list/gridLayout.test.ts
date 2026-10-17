@@ -57,6 +57,98 @@ describe("layoutGrid", () => {
   });
 });
 
+describe("layoutGrid（巻のグループの band。FR-LIST-08）", () => {
+  // 3 列。g は展開したグループのカード、m1〜m5 はそのグループの本（band）
+  //   a  b  g
+  //   m1 m2 m3     ← band
+  //   m4 m5        ← band
+  //   c  d  e
+  //   f
+  const items = [
+    "a",
+    "b",
+    "g",
+    ...["m1", "m2", "m3", "m4", "m5"].map((key) => ({ key, band: "g" })),
+    "c",
+    "d",
+    "e",
+    "f",
+  ];
+  const banded = layoutGrid(items, 3);
+
+  it("band の本は新しい行から始め、band の行（band: true・bandId）に並べる。終わったら、次のキーは新しい行から", () => {
+    expect(banded.map((row) => row.keys)).toEqual([
+      ["a", "b", "g"],
+      ["m1", "m2", "m3"],
+      ["m4", "m5"],
+      ["c", "d", "e"],
+      ["f"],
+    ]);
+    expect(banded.map((row) => row.band)).toEqual([undefined, true, true, undefined, undefined]);
+    expect(banded.map((row) => row.bandId)).toEqual([undefined, "g", "g", undefined, undefined]);
+  });
+
+  it("グループのカードが行の途中でも、band は新しい行から。前の行は短いままでよい", () => {
+    const rows = layoutGrid(["a", "g", { key: "m1", band: "g" }, { key: "m2", band: "g" }, "b"], 4);
+    expect(rows.map((row) => row.keys)).toEqual([["a", "g"], ["m1", "m2"], ["b"]]);
+    expect(rows[1]).toMatchObject({ band: true, bandId: "g" });
+  });
+
+  it("続けて別のグループを展開しても、band の印が変わるところで行を分ける", () => {
+    const rows = layoutGrid(
+      ["g1", { key: "x1", band: "g1" }, "g2", { key: "y1", band: "g2" }, { key: "y2", band: "g2" }],
+      3,
+    );
+    expect(rows.map((row) => row.keys)).toEqual([["g1"], ["x1"], ["g2"], ["y1", "y2"]]);
+    expect(rows.map((row) => row.bandId)).toEqual([undefined, "g1", undefined, "g2"]);
+    // 同じ印が続けば、列数で折り返しても同じ band
+    const long = layoutGrid(["g", ...["m1", "m2", "m3"].map((key) => ({ key, band: "g" }))], 2);
+    expect(long.map((row) => row.keys)).toEqual([["g"], ["m1", "m2"], ["m3"]]);
+    expect(long.map((row) => row.bandId)).toEqual([undefined, "g", "g"]);
+  });
+
+  it("band のないキーだけなら、文字列でも { key } でも、いままでと同じ並べ方", () => {
+    expect(
+      layoutGrid(
+        keys.map((key) => ({ key })),
+        3,
+      ),
+    ).toEqual(rows);
+    expect(
+      layoutGrid(
+        keys.map((key) => ({ key, band: null })),
+        3,
+      ),
+    ).toEqual(rows);
+  });
+
+  it("gridIndex・gridMove は band の行も同じ規則で動く（上下は同じ列。短い行では最後のキーで止まる）", () => {
+    const index = gridIndex(banded);
+    expect(index.get("m4")).toEqual({ row: 2, col: 0 });
+    expect(index.get("c")).toEqual({ row: 3, col: 0 });
+    const move = (from: string, direction: GridDirection) => gridMove(banded, from, direction, 2);
+    // グループのカード g（列 2）から下は、band の同じ列、さらに下は band の最後の行（短い）
+    expect(move("g", "down")).toBe("m3");
+    expect(move("m3", "down")).toBe("m5");
+    expect(move("m5", "down")).toBe("d");
+    // band の外から上へ
+    expect(move("c", "up")).toBe("m4");
+    expect(move("e", "up")).toBe("m5");
+    // 左右は並びのとおり（行をまたぐ）
+    expect(move("g", "right")).toBe("m1");
+    expect(move("m3", "right")).toBe("m4");
+    expect(move("m5", "right")).toBe("c");
+    expect(move("c", "left")).toBe("m5");
+    // 先頭・末尾の行で止まる
+    expect(move("a", "up")).toBe("a");
+    expect(move("f", "down")).toBe("f");
+    // ページ送りは band の行も 1 行と数える
+    expect(gridMove(banded, "a", "pageDown", 1)).toBe("m1");
+    expect(gridMove(banded, "a", "pageDown", 2)).toBe("m4");
+    expect(gridMove(banded, "a", "pageDown", 3)).toBe("c");
+  });
+});
+
 describe("gridIndex", () => {
   it("キーから、何行目の何列目かを引ける", () => {
     const index = gridIndex(rows);

@@ -2,7 +2,8 @@
 // 各一覧が持つ。ここは、開いたメニューの項目と、押したときに呼ぶ処理だけ。
 //
 // 操作の対象は、選択している本（`selectionStore`）。右クリックした本が選択の外なら、一覧が先にその本だけを選ぶ
-// （`useListInteraction` の `handleContextMenu`）。
+// （`useListInteraction` の `handleContextMenu`）。巻のグループの行を選んでいるときは、その全巻が対象
+// （`expandToBookIds` で本の ID にする）。「編集」は 1 冊の本にしかできないので、focus がグループの行なら選べない。
 import {
   ContextMenuContent,
   ContextMenuItem,
@@ -12,6 +13,7 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
+import { expandToBookIds, type GroupedList } from "@/features/library/grouping";
 import type { BulkChange, ListAction, ListViewProps } from "@/features/list/listActions";
 import { ja } from "@/i18n/ja";
 import { useSelectionStore } from "@/stores/selectionStore";
@@ -23,20 +25,29 @@ const RATING_CHOICES = [5, 4, 3, 2, 1] as const;
 
 export interface ListContextMenuContentProps extends Pick<
   ListViewProps,
-  "rows" | "onOpenEdit" | "onAction" | "onBulkChange"
+  "onOpenEdit" | "onAction" | "onBulkChange"
 > {
-  /** 表示している順の ID（`rows` と同じ並び）。 */
-  ids: readonly string[];
-  /** ID → `rows` の何番目か。 */
-  indexById: ReadonlyMap<string, number>;
+  /** 表示している並び（選択のグループを、本の ID にするのに使う）。 */
+  grouped: GroupedList;
   inTrash: boolean;
+}
+
+/** 選択（本の ID・グループの key）に、欲しい本が 1 冊でもあるか。選択が変わるたびに調べるので、並べ直さず、見つけたらやめる。 */
+function hasWanted(selected: ReadonlySet<string>, grouped: GroupedList): boolean {
+  for (const key of selected) {
+    const group = grouped.groups.get(key);
+    const wanted =
+      group === undefined
+        ? grouped.rowById.get(key)?.ownership === "wanted"
+        : group.members.some((member) => member.ownership === "wanted");
+    if (wanted) return true;
+  }
+  return false;
 }
 
 /** 右クリックメニューの中身。`ContextMenu` の子として置く。開いたときにだけ描かれる。 */
 export function ListContextMenuContent({
-  rows,
-  ids,
-  indexById,
+  grouped,
   inTrash,
   onOpenEdit,
   onAction,
@@ -45,15 +56,15 @@ export function ListContextMenuContent({
   const selected = useSelectionStore((s) => s.selected);
   const focus = useSelectionStore((s) => s.focus);
 
-  const selectedIds = (): string[] => ids.filter((id) => selected.has(id));
+  /** 選んでいる本の ID（表示の順。グループは全巻）。 */
+  const selectedIds = (): string[] => expandToBookIds(selected, grouped);
 
-  // 欲しい本（購入済みにできる本）。選択の数だけ調べる
+  // 欲しい本（購入済みにできる本）
   const wantedSelectedIds = (): string[] =>
-    [...selected].filter((id) => {
-      const index = indexById.get(id);
-      return index !== undefined && rows[index]?.ownership === "wanted";
-    });
-  const anyWantedSelected = selected.size > 0 && wantedSelectedIds().length > 0;
+    selectedIds().filter((id) => grouped.rowById.get(id)?.ownership === "wanted");
+  const anyWantedSelected = hasWanted(selected, grouped);
+  // focus がグループの行なら、編集できない
+  const focusIsGroup = focus !== null && grouped.groups.has(focus);
 
   const runBulkChange = (change: BulkChange) => {
     const targets = selectedIds();
@@ -77,7 +88,7 @@ export function ListContextMenuContent({
 
   return (
     <ContextMenuContent className="w-52">
-      <ContextMenuItem onSelect={() => runAction("edit")}>
+      <ContextMenuItem disabled={focusIsGroup} onSelect={() => runAction("edit")}>
         {ja.list.contextMenu.edit}
       </ContextMenuItem>
       <ContextMenuSub>

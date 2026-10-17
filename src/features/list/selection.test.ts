@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   EMPTY_SELECTION,
   clickRow,
+  collapseSelection,
   moveFocus,
   moveFocusTo,
   pruneSelection,
   selectAll,
+  ungroupSelection,
   type SelectionState,
 } from "@/features/list/selection";
 
@@ -180,5 +182,61 @@ describe("selectAll / pruneSelection", () => {
     expect(pruned.focus).toBeNull();
     expect(pruned.anchor).toBe(null);
     expect(pruneSelection(s, new Set(ids))).toBe(s);
+  });
+});
+
+describe("collapseSelection（巻のグループを畳んだとき）", () => {
+  const members = ["m1", "m2", "m3"];
+  const state = (selected: string[], anchor: string | null, focus: string | null) => ({
+    selected: new Set(selected),
+    anchor,
+    focus,
+  });
+
+  it("選んでいたメンバーは、グループの key の選択に置き換える。ほかの選択は残す", () => {
+    const next = collapseSelection(state(["x", "m1", "m3"], "m1", "m3"), "G", members);
+    expect(sel(next)).toEqual(["G", "x"]);
+    expect(next.anchor).toBe("G");
+    expect(next.focus).toBe("G");
+  });
+
+  it("選んだメンバーがなくても、起点・focus がメンバーなら、グループの key に移す（選択には足さない）", () => {
+    const next = collapseSelection(state(["x"], "m2", "m2"), "G", members);
+    expect(sel(next)).toEqual(["x"]);
+    expect(next).toMatchObject({ anchor: "G", focus: "G" });
+  });
+
+  it("メンバーが関わらなければ、同じ参照を返す", () => {
+    const before = state(["x", "G"], "x", "G");
+    expect(collapseSelection(before, "G", members)).toBe(before);
+    expect(collapseSelection(EMPTY_SELECTION, "G", members)).toBe(EMPTY_SELECTION);
+  });
+});
+
+describe("ungroupSelection（巻をまとめる設定をオフにしたとき）", () => {
+  const membersOf = (key: string) => (key === "G" ? ["m1", "m2"] : undefined);
+  const state = (selected: string[], anchor: string | null, focus: string | null) => ({
+    selected: new Set(selected),
+    anchor,
+    focus,
+  });
+
+  it("選んでいたグループは、メンバーの ID に置き換える。起点・focus がグループなら、最初のメンバーへ", () => {
+    const next = ungroupSelection(state(["x", "G"], "G", "G"), membersOf);
+    expect(sel(next)).toEqual(["m1", "m2", "x"]);
+    expect(next).toMatchObject({ anchor: "m1", focus: "m1" });
+  });
+
+  it("グループが選択になくても、focus がグループなら移す。本の ID はそのまま", () => {
+    const next = ungroupSelection(state(["x"], "x", "G"), membersOf);
+    expect(sel(next)).toEqual(["x"]);
+    expect(next).toMatchObject({ anchor: "x", focus: "m1" });
+  });
+
+  it("メンバーのいないグループの focus は null に。グループがなければ同じ参照を返す", () => {
+    const empty = ungroupSelection(state([], null, "E"), (key) => (key === "E" ? [] : undefined));
+    expect(empty.focus).toBeNull();
+    const before = state(["x", "y"], "x", "y");
+    expect(ungroupSelection(before, membersOf)).toBe(before);
   });
 });

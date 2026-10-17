@@ -1,4 +1,4 @@
-// 性能の計測（10.1、AT-14）: 2 万行の絞り込み・並べ替え・件数の集計が、50ms 以内に収まること。
+// 性能の計測（10.1、AT-14）: 2 万行の絞り込み・並べ替え・件数の集計・巻のグループ化が、50ms 以内に収まること。
 // 計測値は console に出す（`pnpm vitest run src/features/library/perf.test.ts` で確認できる）。
 import { beforeAll, describe, expect, it } from "vitest";
 import { generateMockRows, MOCK_LOCATIONS } from "@/dev/mockRows";
@@ -9,6 +9,7 @@ import {
   type BookFilter,
   type FilterContext,
 } from "@/features/library/filter";
+import { buildWorkLayout, groupRows, layoutEntries } from "@/features/library/grouping";
 import { sortRows, type SortContext } from "@/features/library/sort";
 import { buildLocationIndex, buildLocationPaths } from "@/features/library/trees";
 import type { ListRow } from "@/types/contracts";
@@ -32,6 +33,25 @@ function measure(fn: () => unknown, runs = 7): { min: number; median: number } {
     fn();
     times.push(performance.now() - start);
   }
+  times.sort((a, b) => a - b);
+  return { min: times[0] ?? 0, median: times[Math.floor(times.length / 2)] ?? 0 };
+}
+
+/**
+ * 毎回、行を作り直してから測る（行ごとの計算結果の覚え（WeakMap）が効かない状態）。作り直す時間は含めない。
+ * 作品の計算は、行が変わるたびに、その行の分だけやり直す。全行が新しいのは、最初の読み込みのとき。
+ */
+function measureCold(fn: (fresh: ListRow[]) => unknown, runs = 7): { min: number; median: number } {
+  const once = () => {
+    const fresh = rows.map((row) => ({ ...row }));
+    const start = performance.now();
+    fn(fresh);
+    return performance.now() - start;
+  };
+  once();
+  once();
+  const times: number[] = [];
+  for (let i = 0; i < runs; i++) times.push(once());
   times.sort((a, b) => a - b);
   return { min: times[0] ?? 0, median: times[Math.floor(times.length / 2)] ?? 0 };
 }
@@ -133,6 +153,35 @@ describe(`${ROW_COUNT.toLocaleString("ja-JP")} 行の性能`, () => {
       sortRows(filtered, [{ id: "title", desc: false }], sortCtx);
       computeFacets(rows, filter, ctx);
     });
+    expect(r.min).toBeLessThan(BUDGET_MS);
+  });
+
+  it("巻のグループ化（FR-LIST-08）: 行ごとの計算が済んでいる状態（絞り込みや並べ替えのやり直し）", () => {
+    const sorted = sortRows(rows, [{ id: "title", desc: false }], sortCtx);
+    const none: ReadonlySet<string> = new Set();
+    const r = record("巻のグループ化（計算済みの行）", () => groupRows(sorted, true, none));
+    expect(r.min).toBeLessThan(BUDGET_MS);
+    // グループの数は、行の約 25% が作品の巻になるように作ったダミーデータなので、数百〜
+    const grouped = groupRows(sorted, true, none);
+    const inGroups =
+      grouped.bookIds.length - grouped.entries.filter((e) => e.kind === "book").length;
+    expect(grouped.groups.size).toBeGreaterThan(100);
+    expect(inGroups).toBeGreaterThan(ROW_COUNT * 0.15);
+  });
+
+  it("巻のグループ化: 全行が新しい状態（最初の読み込み。書名・著者の正規化から）", () => {
+    const none: ReadonlySet<string> = new Set();
+    const cold = measureCold((fresh) => groupRows(fresh, true, none));
+    results.push(["巻のグループ化（全行が新しい）", cold]);
+    expect(cold.min).toBeLessThan(BUDGET_MS);
+  });
+
+  it("巻のグループ化: 展開の状態だけを変える（グループの計算は使い回す）", () => {
+    const layout = buildWorkLayout(rows, true);
+    const allOpen: ReadonlySet<string> = new Set(layout.groups.keys());
+    const r = record("展開の状態を変える（全グループを展開）", () =>
+      layoutEntries(layout, allOpen),
+    );
     expect(r.min).toBeLessThan(BUDGET_MS);
   });
 

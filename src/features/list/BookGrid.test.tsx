@@ -1,8 +1,12 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PROVISIONAL_C_CODE_TABLE } from "@/data/cCodeTable";
+import { groupRows } from "@/features/library/grouping";
+import { useGroupedList } from "@/features/library/useGroupedList";
 import { BookGrid, type BookGridProps } from "@/features/list/BookGrid";
 import { ja } from "@/i18n/ja";
+import { useGroupStore } from "@/stores/groupStore";
+import { useLayoutStore } from "@/stores/layoutStore";
 import { useSelectionStore } from "@/stores/selectionStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { makeRow } from "@/test/factories";
@@ -619,6 +623,310 @@ describe("BookGrid", () => {
       const [action, ids] = lastCall(props.onAction) as [string, string[]];
       expect(action).toBe("markPurchased");
       expect([...ids].sort()).toEqual(["want-1", "want-2"]);
+    });
+  });
+});
+
+// 巻をまとめた表示（FR-LIST-08）。MainScreen と同じく、useGroupedList の結果を grouped として渡す
+describe("BookGrid: 巻をまとめた表示（FR-LIST-08）", () => {
+  const author = [{ name: "うちの 太郎", kana: null, role: null }];
+  const MEMBER_IDS = ["v1", "v2", "v3", "v4", "v5"];
+
+  /** 前の本 2 冊、あるシリーズの 5 巻（4 巻まで巻次あり、5 巻は書名の末尾だけ）、あとの本 6 冊。 */
+  function makeWorkRows(): ListRow[] {
+    const volumes = [1, 2, 3, 4, 5].map((n) =>
+      makeRow({
+        id: `v${n}`,
+        title: n === 5 ? "スローループ 5" : "スローループ",
+        sortTitle: `すろーるーぷ ${n}`,
+        volume: n === 5 ? null : String(n),
+        volumeSort: n === 5 ? null : n,
+        authors: author,
+        coverHash: n === 1 ? HASH : null,
+      }),
+    );
+    return [
+      makeRow({ id: "b0", title: "あ0", sortTitle: "a0" }),
+      makeRow({ id: "b1", title: "あ1", sortTitle: "a1" }),
+      ...volumes,
+      ...Array.from({ length: 6 }, (_, i) =>
+        makeRow({ id: `a${i}`, title: `ん${i}`, sortTitle: `n${i}` }),
+      ),
+    ];
+  }
+  const GROUP_KEY = groupRows(makeWorkRows(), true, new Set()).entries[2]?.key ?? "";
+
+  /** MainScreen と同じ組み立て（useGroupedList → grouped）。 */
+  function GroupedGrid(props: BookGridProps) {
+    const grouped = useGroupedList(props.rows);
+    return <BookGrid {...props} grouped={grouped} />;
+  }
+  function renderGrouped(overrides: Partial<BookGridProps> = {}) {
+    const props: BookGridProps = {
+      rows: makeWorkRows(),
+      cCodes: PROVISIONAL_C_CODE_TABLE,
+      locationPaths: new Map(),
+      isLoading: false,
+      onOpenEdit: vi.fn(),
+      onAction: vi.fn(),
+      onBulkChange: vi.fn(),
+      ...overrides,
+    };
+    const view = render(<GroupedGrid {...props} />);
+    return { ...view, props, grid: screen.getByRole("grid") };
+  }
+  // 行の key に制御文字（\u001f）があるので、属性セレクターでなく、属性の値で探す
+  const byKey = (key: string) =>
+    [...document.querySelectorAll<HTMLElement>("[data-row-id]")].find(
+      (el) => el.dataset.rowId === key,
+    ) ?? null;
+  const rowKeys = () => cards().map((el) => el.dataset.rowId);
+  /** カードが入っている行（role=row）。 */
+  const gridRowOf = (key: string) => byKey(key)!.closest<HTMLElement>('[role="row"]')!;
+  const keysInRow = (row: HTMLElement) =>
+    [...row.querySelectorAll<HTMLElement>("[data-row-id]")].map((el) => el.dataset.rowId);
+  const badge = (key: string) => within(byKey(key)!).getByRole("button", { name: /^(開く|畳む)$/ });
+  const isOpen = () => useGroupStore.getState().expanded.has(GROUP_KEY);
+
+  beforeEach(() => {
+    useSelectionStore.getState().clear();
+    useLayoutStore.setState({ groupVolumes: true });
+    useGroupStore.getState().reset();
+  });
+  afterEach(() => {
+    useLayoutStore.setState({ groupVolumes: false });
+    useGroupStore.getState().reset();
+  });
+
+  describe("グループのカード", () => {
+    it("最初の巻の位置に、先頭の巻の書影・作品名・「5 冊 · 1〜5」・冊数のバッジ（閉じている）を出す。巻のカードは出さない", () => {
+      renderGrouped();
+      expect(rowKeys()).toEqual([
+        "b0",
+        "b1",
+        GROUP_KEY,
+        ...Array.from({ length: 6 }, (_, i) => `a${i}`),
+      ]);
+      const card = byKey(GROUP_KEY)!;
+      expect(card).toHaveAttribute("role", "gridcell");
+      expect(card).toHaveAttribute("aria-expanded", "false");
+      expect(card).toHaveAttribute("aria-selected", "false");
+      expect(within(card).getByText("スローループ")).toHaveAttribute("title", "スローループ");
+      expect(within(card).getByText(`5 冊 · 1〜5`)).toBeInTheDocument();
+      expect(card.querySelector("img")).toHaveAttribute("src", expect.stringContaining(HASH));
+      // バッジ: 冊数つきのボタン
+      expect(badge(GROUP_KEY)).toHaveAccessibleName(ja.list.group.expand);
+      expect(badge(GROUP_KEY)).toHaveTextContent("5");
+      expect(badge(GROUP_KEY).querySelector("svg")).not.toHaveClass("rotate-90");
+      // 後ろに、ずらした枠が 2 枚（重なった見た目）
+      expect(card.querySelectorAll('span[aria-hidden="true"].absolute')).toHaveLength(2);
+      // ふつうのカードにはバッジも aria-expanded もない
+      expect(within(byKey("b0")!).queryByRole("button")).not.toBeInTheDocument();
+      expect(byKey("b0")).not.toHaveAttribute("aria-expanded");
+    });
+
+    it("まとめない設定（オフ）のときは、すべてふつうのカード", () => {
+      useLayoutStore.setState({ groupVolumes: false });
+      renderGrouped();
+      expect(rowKeys()).toEqual([
+        "b0",
+        "b1",
+        ...MEMBER_IDS,
+        ...Array.from({ length: 6 }, (_, i) => `a${i}`),
+      ]);
+      expect(screen.queryByRole("button", { name: ja.list.group.expand })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("開閉と band の行", () => {
+    it("バッジで開くと、巻のカードは新しい行から、band（淡い背景）の行に巻の順に並ぶ。次の本もまた新しい行から。選択は変わらない", () => {
+      const { grid } = renderGrouped();
+      click("b1");
+      fireEvent.click(badge(GROUP_KEY));
+      expect(isOpen()).toBe(true);
+      expect(byKey(GROUP_KEY)).toHaveAttribute("aria-expanded", "true");
+      expect(badge(GROUP_KEY)).toHaveAccessibleName(ja.list.group.collapse);
+      expect(badge(GROUP_KEY).querySelector("svg")).toHaveClass("rotate-90");
+      expect(selectedIds()).toEqual(["b1"]);
+      expect(focusId()).toBe("b1");
+
+      // グループのカードまでが 1 行目、巻は band の 2 行目、あとの本は 3 行目から
+      const rows = screen.getAllByRole("row");
+      expect(rows.map(keysInRow)).toEqual([
+        ["b0", "b1", GROUP_KEY],
+        MEMBER_IDS,
+        ["a0", "a1", "a2", "a3", "a4", "a5"],
+      ]);
+      expect(grid).toHaveAttribute("aria-rowcount", "3");
+      // band の行は全幅の淡い背景（角丸）。ほかの行にはない
+      expect(rows[1]).toHaveAttribute("data-band", "true");
+      expect(rows[1]).toHaveClass("bg-muted/60", "rounded-t-xl", "rounded-b-xl");
+      expect(rows[0]).not.toHaveAttribute("data-band");
+      expect(rows[0]).not.toHaveClass("bg-muted/60");
+      expect(rows[2]).not.toHaveClass("bg-muted/60");
+
+      fireEvent.click(badge(GROUP_KEY));
+      expect(isOpen()).toBe(false);
+      expect(screen.getAllByRole("row")).toHaveLength(1);
+      expect(selectedIds()).toEqual(["b1"]);
+    });
+
+    it("band が列数より長いときは、band の行が続く（角丸は最初と最後の行だけ）", () => {
+      const volumes = Array.from({ length: 12 }, (_, i) =>
+        makeRow({
+          id: `w${i + 1}`,
+          title: "長編",
+          sortTitle: "ちょうへん",
+          volume: String(i + 1),
+          volumeSort: i + 1,
+          authors: author,
+        }),
+      );
+      renderGrouped({ rows: [...volumes, makeRow({ id: "tail", title: "尾", sortTitle: "z" })] });
+      const key = rowKeys()[0] as string;
+      fireEvent.click(badge(key));
+      const rows = screen.getAllByRole("row");
+      expect(rows.map(keysInRow)).toEqual([
+        [key],
+        volumes.slice(0, 9).map((v) => v.id),
+        volumes.slice(9).map((v) => v.id),
+        ["tail"],
+      ]);
+      expect(rows[1]).toHaveClass("rounded-t-xl");
+      expect(rows[1]).not.toHaveClass("rounded-b-xl");
+      expect(rows[2]).toHaveClass("rounded-b-xl");
+      expect(rows[2]).not.toHaveClass("rounded-t-xl");
+      expect(rows[3]).not.toHaveAttribute("data-band");
+    });
+
+    it("カードのクリックはグループを選ぶ（開閉しない）。ダブルクリックで開閉する", () => {
+      renderGrouped();
+      click(GROUP_KEY);
+      expect(selectedIds()).toEqual([GROUP_KEY]);
+      expect(isOpen()).toBe(false);
+      fireEvent.doubleClick(byKey(GROUP_KEY)!);
+      expect(isOpen()).toBe(true);
+      fireEvent.doubleClick(byKey(GROUP_KEY)!);
+      expect(isOpen()).toBe(false);
+    });
+
+    it("Enter は、グループのカードでは開閉（編集は開かない）。本のカードでは、いままでどおり編集を開く", () => {
+      const { grid, props } = renderGrouped();
+      click(GROUP_KEY);
+      press(grid, { code: "Enter" });
+      expect(isOpen()).toBe(true);
+      expect(props.onOpenEdit).not.toHaveBeenCalled();
+      press(grid, { code: "Enter" });
+      expect(isOpen()).toBe(false);
+
+      click("a2");
+      press(grid, { code: "Enter" });
+      expect(props.onOpenEdit).toHaveBeenCalledWith("a2");
+    });
+
+    it("矢印は 2 次元の移動のまま。開閉はしない（→ で、グループのカードの次の本へ動く）", () => {
+      const { grid } = renderGrouped();
+      click(GROUP_KEY);
+      press(grid, { code: "ArrowRight" });
+      expect(focusId()).toBe("a0");
+      expect(isOpen()).toBe(false);
+      press(grid, { code: "ArrowLeft" });
+      expect(focusId()).toBe(GROUP_KEY);
+      press(grid, { code: "ArrowLeft" });
+      expect(focusId()).toBe("b1");
+      expect(isOpen()).toBe(false);
+    });
+
+    it("開いたあとの↓↑は、band の行も 1 行として、同じ列へ動く", () => {
+      const { grid } = renderGrouped();
+      fireEvent.click(badge(GROUP_KEY));
+      click(GROUP_KEY); // 行 0 の 3 列目
+      press(grid, { code: "ArrowDown" });
+      expect(focusId()).toBe("v3");
+      press(grid, { code: "ArrowDown" });
+      expect(focusId()).toBe("a2");
+      press(grid, { code: "ArrowUp" });
+      expect(focusId()).toBe("v3");
+      press(grid, { code: "ArrowUp" });
+      expect(focusId()).toBe(GROUP_KEY);
+      // 巻の行の右端 → 次の行（あとの本）の最初
+      click("v5");
+      press(grid, { code: "ArrowRight" });
+      expect(focusId()).toBe("a0");
+    });
+
+    it("畳むとき、選んでいた巻は、グループの選択に置き換わる。focus も、グループのカードに移る", () => {
+      renderGrouped();
+      fireEvent.click(badge(GROUP_KEY));
+      click("v2");
+      click("v4", { metaKey: true });
+      expect(selectedIds()).toEqual(["v2", "v4"]);
+      expect(focusId()).toBe("v4");
+      fireEvent.click(badge(GROUP_KEY));
+      expect(rowKeys()).not.toContain("v2");
+      expect(selectedIds()).toEqual([GROUP_KEY]);
+      expect(focusId()).toBe(GROUP_KEY);
+      expect(useSelectionStore.getState().anchor).toBe(GROUP_KEY);
+    });
+
+    it("Enter は、巻のカードでは編集を開き、グループのカードでは畳む", () => {
+      const { grid, props } = renderGrouped();
+      fireEvent.click(badge(GROUP_KEY));
+      click("v3");
+      press(grid, { code: "Enter" });
+      expect(props.onOpenEdit).toHaveBeenCalledWith("v3");
+      click(GROUP_KEY);
+      press(grid, { code: "Enter" }); // 畳む
+      expect(rowKeys()).not.toContain("v3");
+    });
+
+    it("focus している本が、畳まれたグループの巻なら（検索欄の ISBN など）、同じ描画でグループが開き、選択も消えない", () => {
+      renderGrouped();
+      expect(rowKeys()).not.toContain("v3");
+      act(() => useSelectionStore.getState().reveal("v3"));
+      expect(rowKeys()).toContain("v3");
+      expect(selectedIds()).toEqual(["v3"]);
+      expect(byKey("v3")).toHaveAttribute("aria-selected", "true");
+      expect(isOpen()).toBe(true);
+      expect(gridRowOf("v3")).toHaveAttribute("data-band", "true");
+    });
+  });
+
+  describe("操作の対象（グループの key は全巻を表す）", () => {
+    it("グループを選んでゴミ箱へ移動（macOS は ⌘⌫）すると、全巻の ID を渡す", () => {
+      const { grid, props } = renderGrouped();
+      click(GROUP_KEY);
+      press(grid, { code: "Backspace", metaKey: true });
+      expect(props.onAction).toHaveBeenCalledWith("trash", MEMBER_IDS);
+    });
+
+    it("⌘A のあと、ゴミ箱へ移動すると、すべての本（グループは全巻）の ID を、表示の順で渡す", () => {
+      const { grid, props } = renderGrouped();
+      press(grid, { code: "KeyA", metaKey: true });
+      expect(useSelectionStore.getState().selected.size).toBe(2 + 1 + 6);
+      press(grid, { code: "Backspace", metaKey: true });
+      expect(props.onAction).toHaveBeenCalledWith("trash", [
+        "b0",
+        "b1",
+        ...MEMBER_IDS,
+        ...Array.from({ length: 6 }, (_, i) => `a${i}`),
+      ]);
+    });
+
+    it("右クリックメニュー: グループのカードでは「編集」を選べない。ほかは全巻が対象", async () => {
+      const { props } = renderGrouped();
+      fireEvent.contextMenu(byKey(GROUP_KEY)!);
+      const menu = await screen.findByRole("menu");
+      expect(selectedIds()).toEqual([GROUP_KEY]);
+      expect(
+        within(menu).getByRole("menuitem", { name: ja.list.contextMenu.edit }),
+      ).toHaveAttribute("data-disabled");
+      fireEvent.click(within(menu).getByRole("menuitem", { name: ja.list.contextMenu.export }));
+      expect((props.onAction as ReturnType<typeof vi.fn>).mock.calls.at(-1)).toEqual([
+        "export",
+        MEMBER_IDS,
+      ]);
+      fireEvent.keyDown(document.body, { key: "Escape" });
     });
   });
 });

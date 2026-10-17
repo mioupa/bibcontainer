@@ -1,5 +1,6 @@
 // 一覧（表・グリッド）が共通で使う、操作の型と props。
 import type { PriceSettings } from "@/bindings/PriceSettings";
+import type { GroupedList } from "@/features/library/grouping";
 import type { BulkChange } from "@/features/list/bulk";
 import type { CCodeTable, ListRow } from "@/types/contracts";
 
@@ -26,6 +27,11 @@ export type { BulkChange };
 export interface ListViewProps {
   /** 表示する行（絞り込み・並べ替え済み）。 */
   rows: ListRow[];
+  /**
+   * 巻をまとめた並び（FR-LIST-08。`useGroupedList(rows)`）。ないときは、`rows` をそのまま 1 冊ずつ並べる。
+   * あるときは、表示・選択はこちらの `entries` が基準（グループの行を含む）で、`rows` は使わない。
+   */
+  grouped?: GroupedList;
   cCodes: CCodeTable;
   locationPaths: ReadonlyMap<string, string>;
   /** 価格の表示設定（税込を併記するか）。 */
@@ -33,7 +39,7 @@ export interface ListViewProps {
   isLoading: boolean;
   /** Enter・ダブルクリック・メニューの「編集」で、編集を開く。 */
   onOpenEdit: (id: string) => void;
-  /** メニューやキーボードからの操作。ids は対象の本の ID。 */
+  /** メニューやキーボードからの操作。ids は対象の本の ID（グループを選んでいれば、その全巻）。 */
   onAction: (action: Exclude<ListAction, "edit">, ids: string[]) => void;
   /** メニューの「一括変更」から選んだ変更（読書状況・所有状態・評価）。ids は対象の本の ID。 */
   onBulkChange: (change: BulkChange, ids: string[]) => void;

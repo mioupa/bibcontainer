@@ -3,15 +3,23 @@
 // グリッドは、本の ID（キー）の並びを、1 行に `columns` 個ずつの行に区切って仮想スクロールに渡す。
 // 矢印キーの移動は「いまの行の何列目か」で決める。行をまたぐ左右はキーの並びどおり、上下は同じ列へ動く
 // （行き先の行が短ければ、その行の最後のキー）。
+// 巻をまとめた表示（FR-LIST-08）では、展開したグループの本に「band」の印（グループの key）を付ける。band の本は、
+// 新しい行から始まって band の行に並び、band が終わったら、次のキーは新しい行から始まる。移動は band の行も同じ規則。
 
 /** グリッドの 1 行。 */
 export interface GridRow {
   /** この行に並ぶ本のキー（左から順）。 */
   keys: string[];
-  /**
-   * シリーズの巻をまとめて見せる行か（FR-LIST-08。あとの作業で使う）。いまは付けない。
-   */
+  /** 展開した巻のグループの本を並べる行か（FR-LIST-08）。そうでない行には付けない。 */
   band?: boolean;
+  /** `band` の行の、グループの key。続く band の行が、同じグループのものかを見分ける。 */
+  bandId?: string;
+}
+
+/** 並べるキーと、band の印（展開したグループの本なら、そのグループの key。そうでなければ付けない）。 */
+export interface GridItem {
+  key: string;
+  band?: string | null;
 }
 
 /** キーの位置（何行目の何列目か。どちらも 0 始まり）。 */
@@ -39,12 +47,25 @@ export function gridColumnCount(
   return Math.max(1, Math.floor((usable + gap) / (cardWidth + gap)));
 }
 
-/** キーの並びを、1 行に `columns` 個ずつの行に区切る（順序は変えない）。`columns` は 1 以上に直す。 */
-export function layoutGrid(keys: readonly string[], columns: number): GridRow[] {
+/**
+ * キーの並びを、1 行に `columns` 個ずつの行に区切る（順序は変えない）。`columns` は 1 以上に直す。
+ * 要素は、キーの文字列か、band の印つきの `GridItem`。band の印が前のキーと変わるところ（始まりと終わり）では、行がまだ空いていても
+ * 新しい行にする。band の印のあるキーだけの行は、`band: true`・`bandId` を付ける。
+ */
+export function layoutGrid(items: readonly (string | GridItem)[], columns: number): GridRow[] {
   const width = Number.isFinite(columns) ? Math.max(1, Math.floor(columns)) : 1;
   const rows: GridRow[] = [];
-  for (let start = 0; start < keys.length; start += width) {
-    rows.push({ keys: keys.slice(start, start + width) });
+  let current: GridRow | null = null;
+  let currentBand: string | null = null;
+  for (const item of items) {
+    const key = typeof item === "string" ? item : item.key;
+    const band = typeof item === "string" ? null : (item.band ?? null);
+    if (current === null || current.keys.length >= width || band !== currentBand) {
+      current = band === null ? { keys: [] } : { keys: [], band: true, bandId: band };
+      currentBand = band;
+      rows.push(current);
+    }
+    current.keys.push(key);
   }
   return rows;
 }

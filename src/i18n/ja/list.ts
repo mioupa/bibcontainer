@@ -108,6 +108,13 @@ export const sidebar = {
   },
 } as const;
 
+/** 巻の範囲の文字列（`1〜7`）。片方しかなければそれだけ、同じ値ならその 1 つ、どちらもなければ空。 */
+function groupVolumeRange(first: string | null, last: string | null): string {
+  if (first === null || first === "") return last ?? "";
+  if (last === null || last === "" || last === first) return first;
+  return `${first}〜${last}`;
+}
+
 const listBase = {
   ariaLabel: "蔵書の一覧",
   loading: "蔵書を読み込み中…",
@@ -166,6 +173,24 @@ const listBase = {
   // グリッドには列の見出しがないので、並べ替えはメニューで選ぶ
   grid: {
     ariaLabel: "蔵書のグリッド",
+  },
+  // 巻をまとめた表示（FR-LIST-08）。同じ作品の巻を 1 つの行（グリッドは 1 枚のカード）にまとめる
+  group: {
+    /** 上部バーの切替ボタンの文字と、その説明。 */
+    toggle: "巻をまとめる",
+    toggleHint: "同じ作品の巻を 1 つにまとめて表示する",
+    /** まとめた行・カードの、開閉のボタンの名前（aria-label）。 */
+    expand: "開く",
+    collapse: "畳む",
+    /** 巻の数（例: 7 冊）。 */
+    count: (count: number) => `${n(count)} 冊`,
+    /** 巻の範囲（例: 1〜7）。片方しかなければそれだけ、同じ値ならその 1 つ、どちらもなければ空。 */
+    volumeRange: groupVolumeRange,
+    /** グリッドのカードの 2 行目（例: 7 冊 · 1〜7）。 */
+    gridMeta: (count: number, first: string | null, last: string | null) => {
+      const range = groupVolumeRange(first, last);
+      return range === "" ? `${n(count)} 冊` : `${n(count)} 冊 · ${range}`;
+    },
   },
   sortMenu: {
     /** 引き金のボタンの文字。いまの並べ替えの先頭の項目と向きを出す（例: 並べ替え: 書名 ↑）。 */

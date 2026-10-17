@@ -2,8 +2,11 @@
 //
 // - usePruneSelection … 絞り込みや削除で消えた本を、選択から外す。
 // - useScrollToFocus … focus した本までスクロールする規則（0011 §16）。
-// - useListInteraction … 共通のキー（編集・ゴミ箱・⌘A・Esc）、クリックの修飾キー、右クリックの対象の決め方。
-//   矢印・Home/End・PageUp/Down の動かし方は、表とグリッドで違うので、それぞれが持つ。
+// - useListInteraction … 共通のキー（編集・ゴミ箱・⌘A・Esc）、クリックの修飾キー、右クリックの対象の決め方、
+//   巻のグループの開閉（FR-LIST-08）。矢印・Home/End・PageUp/Down の動かし方は、表とグリッドで違うので、それぞれが持つ。
+//
+// 選択は「一覧の行（entry）の key」の上で行う。key は、本の ID か、巻のグループの key（グループの key を選ぶと、その全巻を選んだことになる。
+// 操作の対象にするときは expandToBookIds で本の ID にする）。
 import {
   useCallback,
   useEffect,
@@ -12,6 +15,8 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
+import { expandToBookIds, type GroupedList } from "@/features/library/grouping";
+import { collapseGroup, expandGroup, toggleGroup } from "@/features/list/groupActions";
 import type { ListAction } from "@/features/list/listActions";
 import { matchShortcut } from "@/features/shortcuts/shortcuts";
 import { detectPlatform } from "@/lib/platform";
@@ -20,7 +25,7 @@ import { useSelectionStore } from "@/stores/selectionStore";
 // OS は起動中に変わらないので、1 度だけ判定する
 const PLATFORM = detectPlatform();
 
-/** 絞り込みや削除で消えた行を、選択から外す。`ids` は、いま表示している本の ID。 */
+/** 絞り込みや削除で消えた行を、選択から外す。`ids` は、いま表示している行の key（本の ID と、グループの key）。 */
 export function usePruneSelection(ids: readonly string[]): void {
   const prune = useSelectionStore((s) => s.prune);
   useEffect(() => {
@@ -60,8 +65,10 @@ export function useScrollToFocus(
 }
 
 export interface ListInteractionOptions {
-  /** いま表示している本の ID（表示の順）。 */
+  /** いま表示している行の key（表示の順。本の ID と、グループの key）。 */
   ids: readonly string[];
+  /** 表示している並び（グループの key から全巻を引く）。 */
+  grouped: GroupedList;
   /** ゴミ箱を開いているか。 */
   inTrash: boolean;
   onOpenEdit: (id: string) => void;
@@ -72,7 +79,7 @@ export interface ListInteraction {
   /**
    * 表・グリッドで共通のキーを処理する。処理した（または無視すべき）ときは true を返すので、呼び出し側はそこで終わる。
    * false のときだけ、呼び出し側が自分の移動のキー（矢印など）を調べる。
-   * 共通のキー: 日本語入力の変換中（無視）、Enter（編集）、ゴミ箱へ移動、⌘/Ctrl+A（すべて選ぶ）、
+   * 共通のキー: 日本語入力の変換中（無視）、Enter（編集。グループの行では開閉）、ゴミ箱へ移動、⌘/Ctrl+A（すべて選ぶ）、
    * ほかの修飾キーつき（無視）、Esc（選択を外す）。
    */
   handleCommonKey: (event: KeyboardEvent) => boolean;
@@ -83,10 +90,17 @@ export interface ListInteraction {
    * 本（`data-row-id` のある要素）の外ならメニューを出さない。
    */
   handleContextMenu: (event: MouseEvent<HTMLElement>) => void;
+  /** グループを開く。 */
+  expandGroup: (key: string) => void;
+  /** グループを畳む（見えなくなるメンバーの選択は、グループの選択に置き換える）。 */
+  collapseGroup: (key: string) => void;
+  /** 開いていれば畳み、閉じていれば開く（開閉のボタン・Enter・ダブルクリック）。 */
+  toggleGroup: (key: string) => void;
 }
 
 export function useListInteraction({
   ids,
+  grouped,
   inTrash,
   onOpenEdit,
   onAction,
@@ -102,13 +116,15 @@ export function useListInteraction({
     if (shortcut === "edit") {
       if (focus !== null) {
         event.preventDefault();
-        onOpenEdit(focus);
+        // グループの行は、編集の代わりに開閉する（編集の対象にできるのは、1 冊の本）
+        if (grouped.groups.has(focus)) toggleGroup(focus, grouped);
+        else onOpenEdit(focus);
       }
       return true;
     }
     if (shortcut === "trash") {
       // ゴミ箱の中では、さらにゴミ箱へ移すことはない（完全に削除は、確認のあるメニューから）
-      const targets = inTrash ? [] : ids.filter((id) => selected.has(id));
+      const targets = inTrash ? [] : expandToBookIds(selected, grouped);
       if (targets.length > 0) {
         event.preventDefault();
         onAction("trash", targets);
@@ -152,5 +168,15 @@ export function useListInteraction({
     }
   };
 
-  return { handleCommonKey, handleItemClick, handleContextMenu };
+  const toggle = useCallback((key: string) => toggleGroup(key, grouped), [grouped]);
+  const collapse = useCallback((key: string) => collapseGroup(key, grouped), [grouped]);
+
+  return {
+    handleCommonKey,
+    handleItemClick,
+    handleContextMenu,
+    expandGroup,
+    collapseGroup: collapse,
+    toggleGroup: toggle,
+  };
 }

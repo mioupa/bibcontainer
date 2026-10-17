@@ -156,3 +156,58 @@ export function pruneSelection(
   if (anchor !== state.anchor || focus !== state.focus) changed = true;
   return changed ? { selected, anchor, focus } : state;
 }
+
+/**
+ * 巻のグループを畳んだときの選択（FR-LIST-08）。畳むと、メンバーの行は一覧から消えるので、選んでいたメンバーは
+ * グループの key の選択に置き換える（グループの行を選んだことになる）。起点・focus がメンバーなら、グループの key に移す。
+ * 変わらなければ同じ参照を返す。
+ */
+export function collapseSelection(
+  state: SelectionState,
+  groupKey: string,
+  memberIds: readonly string[],
+): SelectionState {
+  const members = new Set(memberIds);
+  let hit = false;
+  const selected = new Set<string>();
+  for (const id of state.selected) {
+    if (members.has(id)) hit = true;
+    else selected.add(id);
+  }
+  if (hit) selected.add(groupKey);
+  const anchor = state.anchor !== null && members.has(state.anchor) ? groupKey : state.anchor;
+  const focus = state.focus !== null && members.has(state.focus) ? groupKey : state.focus;
+  if (!hit && anchor === state.anchor && focus === state.focus) return state;
+  return { selected, anchor, focus };
+}
+
+/**
+ * 巻をまとめる設定をオフにしたときの選択。選んでいたグループの key は、メンバーの ID に置き換える（メンバーの行が一覧に現れる）。
+ * 起点・focus がグループの key なら、そのグループの最初のメンバーに移す。`membersOf` は、グループの key なら
+ * メンバーの ID（巻の順）を、そうでなければ undefined を返す。変わらなければ同じ参照を返す。
+ */
+export function ungroupSelection(
+  state: SelectionState,
+  membersOf: (key: string) => readonly string[] | undefined,
+): SelectionState {
+  let changed = false;
+  const selected = new Set<string>();
+  for (const id of state.selected) {
+    const members = membersOf(id);
+    if (members === undefined) selected.add(id);
+    else {
+      changed = true;
+      for (const member of members) selected.add(member);
+    }
+  }
+  const move = (key: string | null): string | null => {
+    if (key === null) return null;
+    const members = membersOf(key);
+    if (members === undefined) return key;
+    changed = true;
+    return members[0] ?? null;
+  };
+  const anchor = move(state.anchor);
+  const focus = move(state.focus);
+  return changed ? { selected, anchor, focus } : state;
+}

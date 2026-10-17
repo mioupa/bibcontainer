@@ -3,6 +3,7 @@ import { DEFAULT_FILTER } from "@/features/library/filter";
 import { COLUMN_IDS } from "@/features/list/columnMeta";
 import { STORAGE_KEYS } from "@/lib/persist";
 import { DEFAULT_SCAN_SETTINGS, DEFAULT_SOUND_SETTINGS } from "@/features/scan/config";
+import { useGroupStore } from "@/stores/groupStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { useSelectionStore } from "@/stores/selectionStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -355,5 +356,39 @@ describe("selectionStore", () => {
     expect(useSelectionStore.getState().selected).toBe(before.selected);
     useSelectionStore.getState().prune(new Set(["a"]));
     expect([...useSelectionStore.getState().selected]).toEqual(["a"]);
+  });
+});
+
+describe("groupStore（開いている巻のグループ。保存しない）", () => {
+  beforeEach(() => {
+    useGroupStore.getState().reset();
+  });
+
+  it("expand・collapse・toggle で、グループの key を出し入れする。reset で空に", () => {
+    const store = useGroupStore.getState();
+    expect(store.expanded.size).toBe(0);
+    store.expand("g1");
+    store.expand("g2");
+    expect([...useGroupStore.getState().expanded].sort()).toEqual(["g1", "g2"]);
+    useGroupStore.getState().collapse("g1");
+    expect([...useGroupStore.getState().expanded]).toEqual(["g2"]);
+    useGroupStore.getState().toggle("g2");
+    useGroupStore.getState().toggle("g3");
+    expect([...useGroupStore.getState().expanded]).toEqual(["g3"]);
+    useGroupStore.getState().reset();
+    expect(useGroupStore.getState().expanded.size).toBe(0);
+  });
+
+  it("変わらないときは、状態の参照を差し替えない（購読する画面を再描画しない）", () => {
+    useGroupStore.getState().expand("g1");
+    const before = useGroupStore.getState().expanded;
+    useGroupStore.getState().expand("g1");
+    useGroupStore.getState().collapse("none");
+    expect(useGroupStore.getState().expanded).toBe(before);
+  });
+
+  it("localStorage には保存しない", () => {
+    useGroupStore.getState().expand("g1");
+    expect(JSON.stringify({ ...localStorage })).not.toContain("g1");
   });
 });

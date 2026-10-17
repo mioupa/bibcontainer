@@ -166,6 +166,15 @@ const TAGS: readonly string[] = [
   "仕事",
 ];
 const COVER_PROBABILITY = 0.25;
+/**
+ * 同じ作品の巻（FR-LIST-08）を始める確率（1 行ごと）。作品は平均 21 冊（2〜40）なので、全体の約 25% の行が作品の巻になる。
+ * p × 21 ÷ (p × 21 + 1 − p) = 0.25 なら p ≈ 0.0156。偶然に同じ書名・著者になった本のぶんを見込んで、少し下げる。
+ */
+const WORK_START_PROBABILITY = 0.014;
+const WORK_MIN_VOLUMES = 2;
+const WORK_MAX_VOLUMES = 40;
+/** 作品の巻のうち、巻次の欄を持たず、書名の末尾に巻を書く本の割合。 */
+const WORK_TITLE_VOLUME_PROBABILITY = 0.1;
 
 /** 保管場所（ツリー）のダミー。 */
 export const MOCK_LOCATIONS: readonly Location[] = (() => {
@@ -216,31 +225,95 @@ function createdAtOf(rng: Rng): string {
   return `${int(rng, 2020, 2026)}-${pad(int(rng, 1, 12))}-${pad(int(rng, 1, 28))}T${pad(int(rng, 0, 23))}:${pad(int(rng, 0, 59))}:${pad(int(rng, 0, 59))}Z`;
 }
 
-/** ダミーの一覧用の行を作る。 */
+/** 同じ作品の巻をまとめて作るための計画。1 つの作品の全巻が、書名・著者・出版社を共有する。 */
+interface WorkPlan {
+  title: string;
+  kana: string;
+  hasKana: boolean;
+  authors: Author[];
+  publisher: string | null;
+  seriesName: string | null;
+  /** 全巻の数。 */
+  total: number;
+  /** 次に作る巻の番号（1 始まり）。 */
+  next: number;
+}
+
+function makeAuthors(rng: Rng, count: number): Author[] {
+  return Array.from({ length: count }, (_, k) => {
+    const surname = pick(rng, SURNAMES);
+    const given = pick(rng, GIVEN_NAMES);
+    return {
+      name: `${surname[0]} ${given[0]}`,
+      kana: `${surname[1]} ${given[1]}`,
+      role: k === 0 ? "著" : "共著",
+    };
+  });
+}
+
+function startWork(rng: Rng): WorkPlan {
+  const prefix = pick(rng, PREFIXES);
+  const noun = pick(rng, NOUNS);
+  const suffix = pick(rng, SUFFIXES);
+  return {
+    title: `${prefix[0]}${noun[0]}${suffix[0]}`,
+    kana: `${prefix[1]}${noun[1]}${suffix[1]}`,
+    hasKana: chance(rng, 0.8),
+    // 巻をまとめる表示を確かめるので、著者のない作品は作らない
+    authors: makeAuthors(rng, chance(rng, 0.85) ? 1 : int(rng, 2, 3)),
+    publisher: pick(rng, PUBLISHERS),
+    seriesName: chance(rng, 0.6) ? `${noun[0]}シリーズ` : null,
+    total: int(rng, WORK_MIN_VOLUMES, WORK_MAX_VOLUMES),
+    next: 1,
+  };
+}
+
+/**
+ * ダミーの一覧用の行を作る。約 25% の行は、同じ作品の巻（同じ書名・著者・出版社で、巻が 1〜n）。
+ * 巻の大半は巻次の欄（`volume`・`volumeSort`）を持ち、約 10% は巻次がなく、書名が「書名 n」の形。
+ */
 export function generateMockRows(count: number, seed = 20261014): ListRow[] {
   const rng = mulberry32(seed);
   const rows: ListRow[] = [];
+  let work: WorkPlan | null = null;
   for (let i = 0; i < count; i++) {
+    if (work === null && chance(rng, WORK_START_PROBABILITY)) work = startWork(rng);
+    // 作品の巻なら、その作品の何巻か（作品の最後の巻を作ったら、次の行からは作品ではない）
+    let workVolume: number | null = null;
+    let workTitleVolume = false;
+    const plan: WorkPlan | null = work;
+    if (plan !== null) {
+      workVolume = plan.next;
+      workTitleVolume = chance(rng, WORK_TITLE_VOLUME_PROBABILITY);
+      plan.next += 1;
+      if (plan.next > plan.total) work = null;
+    }
+
     const prefix = pick(rng, PREFIXES);
     const noun = pick(rng, NOUNS);
     const suffix = pick(rng, SUFFIXES);
-    const title = `${prefix[0]}${noun[0]}${suffix[0]}`;
+    let title = `${prefix[0]}${noun[0]}${suffix[0]}`;
     const kana = `${prefix[1]}${noun[1]}${suffix[1]}`;
-    const titleKana = chance(rng, 0.8) ? kana : null;
+    let titleKana: string | null = chance(rng, 0.8) ? kana : null;
 
     const authorCount = chance(rng, 0.1) ? 0 : chance(rng, 0.8) ? 1 : int(rng, 2, 3);
-    const authors: Author[] = Array.from({ length: authorCount }, (_, k) => {
-      const surname = pick(rng, SURNAMES);
-      const given = pick(rng, GIVEN_NAMES);
-      return {
-        name: `${surname[0]} ${given[0]}`,
-        kana: `${surname[1]} ${given[1]}`,
-        role: k === 0 ? "著" : "共著",
-      };
-    });
+    let authors: Author[] = makeAuthors(rng, authorCount);
 
-    const inSeries = chance(rng, 0.25);
-    const volumeNumber = inSeries ? int(rng, 1, 30) : null;
+    let inSeries = chance(rng, 0.25);
+    let volumeNumber: number | null = inSeries ? int(rng, 1, 30) : null;
+    let seriesName: string | null = inSeries ? `${noun[0]}シリーズ` : null;
+    if (plan !== null && workVolume !== null) {
+      title = workTitleVolume ? `${plan.title} ${workVolume}` : plan.title;
+      titleKana = plan.hasKana
+        ? workTitleVolume
+          ? `${plan.kana} ${workVolume}`
+          : plan.kana
+        : null;
+      authors = plan.authors.map((author) => ({ ...author }));
+      volumeNumber = workTitleVolume ? null : workVolume;
+      seriesName = plan.seriesName;
+      inSeries = seriesName !== null;
+    }
     const owned = chance(rng, 0.88);
     const ownership: ListRow["ownership"] = owned
       ? "owned"
@@ -264,7 +337,8 @@ export function generateMockRows(count: number, seed = 20261014): ListRow[] {
       metaRoll < 0.9 ? "ok" : metaRoll < 0.94 ? "pending" : metaRoll < 0.97 ? "partial" : "failed";
     const tagCount = chance(rng, 0.35) ? 0 : chance(rng, 0.7) ? 1 : 2;
     const tags = [...new Set(Array.from({ length: tagCount }, () => pick(rng, TAGS)))];
-    const publisher = chance(rng, 0.95) ? pick(rng, PUBLISHERS) : null;
+    const randomPublisher = chance(rng, 0.95) ? pick(rng, PUBLISHERS) : null;
+    const publisher = plan === null ? randomPublisher : plan.publisher;
     const listPrice = chance(rng, 0.9) ? int(rng, 4, 40) * 100 : null;
 
     rows.push({
@@ -275,8 +349,8 @@ export function generateMockRows(count: number, seed = 20261014): ListRow[] {
       subtitle: chance(rng, 0.2) ? "新装版" : null,
       volume: volumeNumber === null ? null : String(volumeNumber),
       volumeSort: volumeNumber,
-      seriesId: inSeries ? `series-${noun[0]}` : null,
-      seriesName: inSeries ? `${noun[0]}シリーズ` : null,
+      seriesId: inSeries && seriesName !== null ? `series-${seriesName}` : null,
+      seriesName,
       authors,
       publisher,
       publishedOn: chance(rng, 0.97) ? publishedOnOf(rng) : null,

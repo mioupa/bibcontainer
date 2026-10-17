@@ -18,7 +18,9 @@ export interface SortContext {
   locationPaths: ReadonlyMap<string, string>;
 }
 
-type Key = string | number | null;
+/** 並べ替えのキー。null は「値なし」。 */
+export type SortKey = string | number | null;
+type Key = SortKey;
 
 const READ_STATUS_ORDER: Record<ListRow["readStatus"], number> = {
   unread: 0,
@@ -71,6 +73,17 @@ const KEY_OF: Record<string, (row: ListRow, ctx: SortContext) => Key> = {
 /** この列 id は並べ替えできるか。 */
 export function isSortable(columnId: string): boolean {
   return columnId in KEY_OF;
+}
+
+/** 並べ替えできる列の id（キーのない列は含まない）。 */
+export const SORTABLE_COLUMN_IDS: readonly string[] = Object.keys(KEY_OF);
+
+/**
+ * 列のキー（並べ替えに使う値）。巻をまとめた行で「全部同じ値か」を調べるのにも使う。
+ * 並べ替えできない列（書影など）は undefined。
+ */
+export function sortKeyOf(columnId: string, row: ListRow, ctx: SortContext): SortKey | undefined {
+  return KEY_OF[columnId]?.(row, ctx);
 }
 
 /** 同じ列のキーは、どれも文字列か、どれも数値（null は呼び出し側で先に除く）。 */

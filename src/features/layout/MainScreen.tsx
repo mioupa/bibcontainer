@@ -4,6 +4,7 @@
 // 操作のつなぎ:
 //   手動登録・編集 … useEditorStore（フォームは features/editor。EditorHost が開く）
 //   スキャン登録・設定 … useScreenStore（画面の切り替えは App.tsx。⌘N・⇧⌘N・⌘, のショートカットも App が受ける）
+//   巻をまとめた表示（FR-LIST-08）… useGroupedList。選択はグループの key も含み、操作の対象にするときに本の ID にする
 //   検索欄の ISBN（FR-SCAN-09）・メイン画面でのスキャン（FR-SCAN-10）… 登録済みなら選ぶ、未登録ならスキャン登録へ引き渡す
 //   一括変更・再取得・書き出し（選んだ本・表示中の絞り込み結果）・ゴミ箱 … useLibraryActions
 import { DownloadIcon } from "lucide-react";
@@ -25,13 +26,16 @@ import {
   usePriceSettings,
   useTags,
 } from "@/features/library/hooks";
+import { countBooks } from "@/features/library/grouping";
 import { resolveIsbnSearch } from "@/features/library/isbnSearch";
+import { useGroupedList } from "@/features/library/useGroupedList";
 import { useLibraryView } from "@/features/library/useLibraryView";
 import { BookGrid } from "@/features/list/BookGrid";
 import { BookTable } from "@/features/list/BookTable";
 import { BulkEditDialog, type BulkDialogState } from "@/features/list/BulkEditDialog";
 import { tagsOfRows } from "@/features/list/bulk";
 import { ColumnPicker } from "@/features/list/ColumnPicker";
+import { GroupToggle } from "@/features/list/GroupToggle";
 import type { BulkChange, ListAction, ListViewProps } from "@/features/list/listActions";
 import { SortMenu } from "@/features/list/SortMenu";
 import { ViewSwitch } from "@/features/list/ViewSwitch";
@@ -48,6 +52,8 @@ import { useViewStore } from "@/stores/viewStore";
 
 export function MainScreen() {
   const view = useLibraryView();
+  // 巻をまとめた並び（FR-LIST-08）。表・グリッドに渡す。件数・書き出しは本の数なので、`view.rows` のまま
+  const grouped = useGroupedList(view.rows);
   const books = useBooks();
   const tags = useTags();
   const cCodes = useCCodeTable();
@@ -81,16 +87,11 @@ export function MainScreen() {
   const [unregisteredIsbn, setUnregisteredIsbn] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // 詳細ペインに出す本（focus している行。絞り込みで消えていれば出さない）
-  const focusRow = useMemo(
-    () => (focus === null ? null : (view.rows.find((row) => row.id === focus) ?? null)),
-    [view.rows, focus],
-  );
+  // 詳細ペインに出す本（focus している行。絞り込みで消えていれば出さない。focus がグループの行なら、本ではないので出さない）
+  const focusRow = focus === null ? null : (grouped.rowById.get(focus) ?? null);
   const detail = useBookDetail(detailOpen && focusRow !== null ? focusRow.id : null);
-  const selectedVisibleCount = useMemo(
-    () => view.rows.reduce((count, row) => count + (selected.has(row.id) ? 1 : 0), 0),
-    [view.rows, selected],
-  );
+  // 選んでいる冊数（グループを選んでいれば、その全巻。重なりは数えない）
+  const selectedVisibleCount = useMemo(() => countBooks(selected, grouped), [selected, grouped]);
 
   const handleAction = useCallback(
     (action: Exclude<ListAction, "edit">, ids: string[]) => {
@@ -162,10 +163,11 @@ export function MainScreen() {
   );
 
   // 表示中の絞り込み結果（今、一覧に出ている本すべて）を CSV に書き出す（FR-IO-01）
+  // （巻をまとめていても、グループの全巻を、表示の順に書き出す）
   const shownCount = view.rows.length;
   const exportShown = useCallback(() => {
-    void actions.exportCsv(view.rows.map((row) => row.id));
-  }, [actions, view.rows]);
+    void actions.exportCsv(grouped.bookIds);
+  }, [actions, grouped.bookIds]);
 
   // ⌘F（検索欄）と ⌘I（詳細ペイン）は、メイン画面だけで効く。⌘N・⇧⌘N・⌘, は、どの画面でも効くので App が受ける
   // （features/shortcuts/useGlobalShortcuts.ts）
@@ -188,6 +190,7 @@ export function MainScreen() {
   // 表とグリッドは、同じ props を受け取る
   const listProps: ListViewProps = {
     rows: view.rows,
+    grouped,
     cCodes,
     locationPaths: view.locationPaths,
     price,
@@ -224,6 +227,7 @@ export function MainScreen() {
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="flex h-8 shrink-0 items-center gap-1 border-b px-2">
             <ViewSwitch />
+            <GroupToggle />
             <div className="ml-auto flex items-center gap-1">
               <Button variant="ghost" size="xs" disabled={shownCount === 0} onClick={exportShown}>
                 <DownloadIcon />
