@@ -1,10 +1,26 @@
 import { useState } from "react";
 import { coverAccentVar } from "@/lib/coverColor";
-import { DETAIL_COVER_SIZE, LIST_COVER_SIZE, coverUrl } from "@/lib/cover";
+import {
+  DETAIL_COVER_SIZE,
+  GRID_COVER_SIZE,
+  LIST_COVER_SIZE,
+  coverUrl,
+  type CoverSize,
+} from "@/lib/cover";
 import { cn } from "@/lib/utils";
 import { useCoverVersion } from "@/stores/coverVersionStore";
 
-export type CoverVariant = "sm" | "lg";
+export type CoverVariant = "sm" | "lg" | "grid";
+
+/** 変種ごとの、取り寄せるサムネイルの大きさ。 */
+const COVER_SIZE: Record<CoverVariant, CoverSize> = {
+  sm: LIST_COVER_SIZE,
+  lg: DETAIL_COVER_SIZE,
+  grid: GRID_COVER_SIZE,
+};
+
+/** 仮の表紙の左端の線の太さ（px）。 */
+const SPINE_WIDTH: Record<CoverVariant, number> = { sm: 3, lg: 8, grid: 5 };
 
 interface BookCoverProps {
   /** 本の ID（仮の表紙の色を決める）。 */
@@ -13,17 +29,21 @@ interface BookCoverProps {
   /** 著者の表示用の文字列。 */
   authors: string;
   coverHash: string | null;
-  /** sm: 一覧の小さな表紙。lg: 詳細ペインの大きな表紙。 */
+  /** sm: 一覧の小さな表紙。lg: 詳細ペインの大きな表紙。grid: グリッドのカードの表紙（置き場所の幅いっぱい）。 */
   variant?: CoverVariant;
   className?: string;
 }
 
+const FRAME_CLASS: Record<CoverVariant, string> = {
+  sm: "aspect-[5/7] w-7 rounded-[3px]",
+  lg: "aspect-[5/7] w-full max-w-60 rounded-md shadow-md",
+  grid: "aspect-[5/7] w-full rounded-md shadow-sm",
+};
+
 function frameClass(variant: CoverVariant, className?: string) {
   return cn(
     "relative shrink-0 overflow-hidden ring-1 ring-foreground/10",
-    variant === "sm"
-      ? "aspect-[5/7] w-7 rounded-[3px]"
-      : "aspect-[5/7] w-full max-w-60 rounded-md shadow-md",
+    FRAME_CLASS[variant],
     className,
   );
 }
@@ -49,12 +69,7 @@ export function BookCover({
       <div className={frameClass(variant, className)}>
         <img
           key={version}
-          src={coverUrl(
-            coverHash,
-            variant === "sm" ? LIST_COVER_SIZE : DETAIL_COVER_SIZE,
-            undefined,
-            version,
-          )}
+          src={coverUrl(coverHash, COVER_SIZE[variant], undefined, version)}
           alt=""
           loading="lazy"
           decoding="async"
@@ -97,13 +112,23 @@ export function PlaceholderCover({
       style={{
         // 背景に色を薄く混ぜ、文字は本文色にして、ライト・ダークのどちらでも読めるようにする
         backgroundColor: `color-mix(in srgb, ${accent} 28%, var(--ctp-base))`,
-        borderLeft: `${variant === "sm" ? 3 : 8}px solid ${accent}`,
+        borderLeft: `${SPINE_WIDTH[variant]}px solid ${accent}`,
       }}
     >
       {variant === "sm" ? (
         <span className="absolute inset-0 flex items-center justify-center text-[11px] leading-none font-bold text-foreground/80">
           {Array.from(title)[0] ?? ""}
         </span>
+      ) : variant === "grid" ? (
+        // グリッドのカードは幅が狭いので、lg より字を小さくし、行数を絞る
+        <div className="flex size-full flex-col justify-between gap-1 p-2 text-foreground">
+          <p className="line-clamp-4 text-xs leading-snug font-bold break-words">{title}</p>
+          {authors !== "" && (
+            <p className="line-clamp-2 text-[10px] leading-snug break-words text-foreground/70">
+              {authors}
+            </p>
+          )}
+        </div>
       ) : (
         <div className="flex size-full flex-col justify-between p-3 text-foreground">
           <p className="line-clamp-6 text-base leading-snug font-bold break-words">{title}</p>

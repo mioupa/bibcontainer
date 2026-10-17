@@ -12,11 +12,21 @@ export type CoverSize = 80 | 160 | 320;
 /**
  * 一覧の書影（幅 28px × 高さ約 39px の枠。2 倍の画面でも 56 × 78px）に使う大きさ。
  * 枠より大きいサムネイルは無駄なので、枠に合わせた 80px（0010 §14）。メモリの目標に効いたのは、
- * この大きさよりも、Rust 側が一覧用（80）の応答に付ける `Cache-Control: no-store`。
+ * この大きさよりも、Rust 側がサムネイルの応答に付ける `Cache-Control: no-store`
+ * （どの大きさもキャッシュさせない。`src-tauri/src/metadata/cover_protocol.rs`、docs/decisions/0024）。
  */
 export const LIST_COVER_SIZE: CoverSize = 80;
-/** 詳細ペインとフォームの書影に使う大きさ。 */
+/**
+ * 詳細ペインとフォームの書影に使う大きさ。320 も `no-store` なので、本を選び直すたびに読み直す
+ * （ローカルのファイルで 1ms 未満。無視できる）。
+ */
 export const DETAIL_COVER_SIZE: CoverSize = 320;
+/**
+ * グリッドのカードの書影に使う大きさ。カードの書影は幅 7rem（16px で 112px）なので、2 倍の画面では
+ * 約 224 × 314 デバイス px 要る。160px では足りず、原寸では無駄なので、320px。
+ * 何千冊ぶんもあるが、画面の外のカードは仮想スクロールで外し、WebKit にも残させない（`no-store`）。
+ */
+export const GRID_COVER_SIZE: CoverSize = 320;
 
 /**
  * 書影の URL。`version` は、その書影が同期で届いた回数（`covers-arrived`。0 なら付けない）。

@@ -155,6 +155,26 @@ const listBase = {
   sortedAscending: "昇順",
   sortedDescending: "降順",
   sortHint: "クリックで並べ替え、Shift+クリックで複数列",
+  // 表示の形（表・グリッド。FR-LIST-07）
+  viewSwitch: {
+    ariaLabel: "表示の形",
+    table: "表",
+    tableHint: "表で見る",
+    grid: "グリッド",
+    gridHint: "書影のグリッドで見る",
+  },
+  // グリッドには列の見出しがないので、並べ替えはメニューで選ぶ
+  grid: {
+    ariaLabel: "蔵書のグリッド",
+  },
+  sortMenu: {
+    /** 引き金のボタンの文字。いまの並べ替えの先頭の項目と向きを出す（例: 並べ替え: 書名 ↑）。 */
+    button: (column: string, descending: boolean) =>
+      `並べ替え: ${column} ${descending ? "↓" : "↑"}`,
+    buttonNone: "並べ替え: なし",
+    columnHeading: "並べ替える項目",
+    directionHeading: "並べ替えの向き",
+  },
   resizeColumn: (name: string) => `${name}の幅を変更`,
   contextMenu: {
     edit: "編集",

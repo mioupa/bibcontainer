@@ -4,6 +4,7 @@ import {
   EMPTY_SELECTION,
   clickRow,
   moveFocus,
+  moveFocusTo,
   pruneSelection,
   selectAll,
   type ClickModifiers,
@@ -18,6 +19,8 @@ interface SelectionStore extends SelectionState {
     target: MoveTarget,
     options: { extend: boolean; pageSize: number },
   ) => void;
+  /** focus を `id` の行へ動かす（グリッドの上下左右など、行き先が決まっているとき）。`extend`（Shift）なら範囲で選ぶ。 */
+  moveTo: (ids: readonly string[], id: string, options: { extend: boolean }) => void;
   selectAll: (ids: readonly string[]) => void;
   /**
    * 1 冊だけを選び、一覧をその本までスクロールさせる（検索欄の ISBN など、ほかの場所から本へ移るとき）。
@@ -42,6 +45,7 @@ export const useSelectionStore = create<SelectionStore>()((set) => ({
   revealTick: 0,
   click: (ids, id, modifiers) => set((s) => clickRow(pick(s), ids, id, modifiers)),
   move: (ids, target, options) => set((s) => moveFocus(pick(s), ids, target, options)),
+  moveTo: (ids, id, options) => set((s) => moveFocusTo(pick(s), ids, id, options)),
   selectAll: (ids) => set((s) => selectAll(pick(s), ids)),
   reveal: (id) =>
     set((s) => ({

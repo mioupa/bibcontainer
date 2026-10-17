@@ -3,6 +3,7 @@ import {
   EMPTY_SELECTION,
   clickRow,
   moveFocus,
+  moveFocusTo,
   pruneSelection,
   selectAll,
   type SelectionState,
@@ -108,6 +109,62 @@ describe("moveFocus", () => {
 
   it("行がないときは何も変えない", () => {
     expect(moveFocus(EMPTY_SELECTION, [], "down", opts)).toBe(EMPTY_SELECTION);
+  });
+});
+
+describe("moveFocusTo（行き先が決まった focus の移動。グリッドの上下左右）", () => {
+  it("行き先の行だけを選び、起点・focus もそこへ動かす。行がなければ何も変えない", () => {
+    const s = moveFocusTo(clickRow(EMPTY_SELECTION, ids, "b", none), ids, "e", { extend: false });
+    expect(sel(s)).toEqual(["e"]);
+    expect(s).toMatchObject({ anchor: "e", focus: "e" });
+    const same = clickRow(EMPTY_SELECTION, ids, "b", none);
+    expect(moveFocusTo(same, ids, "zzz", { extend: false })).toBe(same);
+    expect(moveFocusTo(EMPTY_SELECTION, [], "a", { extend: true })).toBe(EMPTY_SELECTION);
+  });
+
+  it("extend（Shift）は、起点を動かさずに、起点から行き先までを範囲で選ぶ。向きが逆でもよい", () => {
+    let s = clickRow(EMPTY_SELECTION, ids, "c", none);
+    s = moveFocusTo(s, ids, "e", { extend: true });
+    expect(sel(s)).toEqual(["c", "d", "e"]);
+    expect(s).toMatchObject({ anchor: "c", focus: "e" });
+    s = moveFocusTo(s, ids, "a", { extend: true });
+    expect(sel(s)).toEqual(["a", "b", "c"]);
+    expect(s).toMatchObject({ anchor: "c", focus: "a" });
+  });
+
+  it("起点がないときの起点は、動かす前の focus（moveFocus と同じ）。focus もなければ先頭の行", () => {
+    const focusOnly: SelectionState = { selected: new Set(["b"]), anchor: null, focus: "b" };
+    expect(sel(moveFocusTo(focusOnly, ids, "d", { extend: true }))).toEqual(["b", "c", "d"]);
+    expect(moveFocusTo(focusOnly, ids, "d", { extend: true }).anchor).toBe("b");
+    // Shift+クリックの規則とは、起点がないときだけ違う（クリックは押した行が起点）
+    expect(sel(clickRow(focusOnly, ids, "d", { toggle: false, range: true }))).toEqual(["d"]);
+
+    const s = moveFocusTo(EMPTY_SELECTION, ids, "c", { extend: true });
+    expect(sel(s)).toEqual(["a", "b", "c"]);
+    expect(s).toMatchObject({ anchor: "a", focus: "c" });
+    // 先頭の行へ動かすなら、その行だけ
+    expect(sel(moveFocusTo(EMPTY_SELECTION, ids, "a", { extend: true }))).toEqual(["a"]);
+  });
+
+  it("起点が表示から消えているときも、focus から範囲を選び直す", () => {
+    const stale: SelectionState = { selected: new Set(["x"]), anchor: "x", focus: "b" };
+    const s = moveFocusTo(stale, ids, "d", { extend: true });
+    expect(sel(s)).toEqual(["b", "c", "d"]);
+    expect(s.anchor).toBe("b");
+  });
+
+  it("moveFocus が行き先を決めたあとの結果と同じ", () => {
+    for (const start of ["a", "c", "f"]) {
+      for (const target of ["down", "up", "first", "last", "pageDown", "pageUp"] as const) {
+        for (const extend of [false, true]) {
+          const from = clickRow(EMPTY_SELECTION, ids, start, none);
+          const moved = moveFocus(from, ids, target, { extend, pageSize: 2 });
+          const viaTo = moveFocusTo(from, ids, moved.focus!, { extend });
+          expect(sel(viaTo), `${start} ${target} ${extend}`).toEqual(sel(moved));
+          expect(viaTo.anchor).toBe(moved.anchor);
+        }
+      }
+    }
   });
 });
 

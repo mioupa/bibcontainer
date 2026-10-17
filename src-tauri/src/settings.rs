@@ -239,6 +239,17 @@ pub struct SortSpec {
     pub desc: bool,
 }
 
+/// 一覧の表示の形（FR-LIST-07）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum ListViewMode {
+    /// 表（既定）。
+    Table,
+    /// 書影のグリッド。
+    Grid,
+}
+
 /// 一覧（FR-LIST-01）。列の ID（`title`、`authors` など）の意味はフロントが決める。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
@@ -254,6 +265,10 @@ pub struct ListSettings {
     pub sorting: Vec<SortSpec>,
     pub sidebar_open: bool,
     pub detail_open: bool,
+    /// 表示の形（表・グリッド）。
+    pub view_mode: ListViewMode,
+    /// 同じシリーズの巻を、続けて 1 つのまとまりとして出す（FR-LIST-08。グリッドのとき）。
+    pub group_volumes: bool,
 }
 
 impl Default for ListSettings {
@@ -268,6 +283,8 @@ impl Default for ListSettings {
             }],
             sidebar_open: true,
             detail_open: true,
+            view_mode: ListViewMode::Table,
+            group_volumes: false,
         }
     }
 }
@@ -447,6 +464,8 @@ mod tests {
         assert!(list.sidebar_open && list.detail_open);
         assert_eq!(list.sorting.len(), 1);
         assert_eq!(list.sorting[0].id, "title");
+        assert_eq!(list.view_mode, ListViewMode::Table);
+        assert!(!list.group_volumes);
 
         let price = PriceSettings::default();
         assert_eq!(
@@ -495,6 +514,12 @@ mod tests {
         assert!(!list.sidebar_open);
         assert!(list.detail_open);
         assert_eq!(list.sorting, ListSettings::default().sorting);
+        assert_eq!(
+            list.view_mode,
+            ListViewMode::Table,
+            "古い保存には表示の形がない"
+        );
+        assert!(!list.group_volumes);
 
         let price: PriceSettings = from_stored(Some(json!({ "showTaxIncluded": true })));
         assert_eq!(
@@ -519,6 +544,23 @@ mod tests {
         assert_eq!(scan.timeout_sec, 10);
         assert_eq!(scan.key_interval_ms, 50, "正しい項目は生かす");
         assert!(scan.muted);
+
+        // 一覧の表示の形: 知らない値・型が違う値は、その項目だけ既定値。正しい値は生かす
+        let list: ListSettings = from_stored(Some(json!({
+            "viewMode": "carousel",
+            "groupVolumes": "yes",
+            "sidebarOpen": false,
+        })));
+        assert_eq!(list.view_mode, ListViewMode::Table);
+        assert!(!list.group_volumes);
+        assert!(!list.sidebar_open, "正しい項目は生かす");
+        let list: ListSettings = from_stored(Some(json!({ "viewMode": 3, "groupVolumes": 1 })));
+        assert_eq!(list.view_mode, ListViewMode::Table);
+        assert!(!list.group_volumes);
+        let list: ListSettings =
+            from_stored(Some(json!({ "viewMode": "grid", "groupVolumes": true })));
+        assert_eq!(list.view_mode, ListViewMode::Grid);
+        assert!(list.group_volumes);
 
         // 全体の形が違っても落ちない
         for stored in [json!(null), json!("x"), json!([1]), json!(42)] {

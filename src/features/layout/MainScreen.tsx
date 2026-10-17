@@ -27,10 +27,14 @@ import {
 } from "@/features/library/hooks";
 import { resolveIsbnSearch } from "@/features/library/isbnSearch";
 import { useLibraryView } from "@/features/library/useLibraryView";
-import { BookTable, type BulkChange, type ListAction } from "@/features/list/BookTable";
+import { BookGrid } from "@/features/list/BookGrid";
+import { BookTable } from "@/features/list/BookTable";
 import { BulkEditDialog, type BulkDialogState } from "@/features/list/BulkEditDialog";
 import { tagsOfRows } from "@/features/list/bulk";
 import { ColumnPicker } from "@/features/list/ColumnPicker";
+import type { BulkChange, ListAction, ListViewProps } from "@/features/list/listActions";
+import { SortMenu } from "@/features/list/SortMenu";
+import { ViewSwitch } from "@/features/list/ViewSwitch";
 import { useScanCapture } from "@/features/scan/useScanCapture";
 import { useShortcuts } from "@/features/shortcuts/useShortcuts";
 import { Sidebar } from "@/features/sidebar/Sidebar";
@@ -55,6 +59,7 @@ export function MainScreen() {
   const detailOpen = useLayoutStore((s) => s.detailOpen);
   const toggleDetail = useLayoutStore((s) => s.toggleDetail);
   const setDetailOpen = useLayoutStore((s) => s.setDetailOpen);
+  const viewMode = useLayoutStore((s) => s.viewMode);
   const selected = useSelectionStore((s) => s.selected);
   const focus = useSelectionStore((s) => s.focus);
 
@@ -180,6 +185,19 @@ export function MainScreen() {
   }, [bulkDialog, books.data]);
   const tagNames = useMemo(() => (tags.data ?? []).map((tag) => tag.name), [tags.data]);
 
+  // 表とグリッドは、同じ props を受け取る
+  const listProps: ListViewProps = {
+    rows: view.rows,
+    cCodes,
+    locationPaths: view.locationPaths,
+    price,
+    isLoading: view.isLoading,
+    onOpenEdit: openEdit,
+    onAction: handleAction,
+    onBulkChange: handleBulkChange,
+    inTrash,
+  };
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       <TopBar
@@ -204,24 +222,19 @@ export function MainScreen() {
         )}
 
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className="flex h-8 shrink-0 items-center justify-end gap-1 border-b px-2">
-            <Button variant="ghost" size="xs" disabled={shownCount === 0} onClick={exportShown}>
-              <DownloadIcon />
-              {ja.list.exportShown.label(shownCount)}
-            </Button>
-            <ColumnPicker />
+          <div className="flex h-8 shrink-0 items-center gap-1 border-b px-2">
+            <ViewSwitch />
+            <div className="ml-auto flex items-center gap-1">
+              <Button variant="ghost" size="xs" disabled={shownCount === 0} onClick={exportShown}>
+                <DownloadIcon />
+                {ja.list.exportShown.label(shownCount)}
+              </Button>
+              {/* 表は列の見出しで並べ替えるので、列のメニュー。グリッドには見出しがないので、並べ替えのメニュー */}
+              {viewMode === "grid" ? <SortMenu /> : <ColumnPicker />}
+            </div>
           </div>
-          <BookTable
-            rows={view.rows}
-            cCodes={cCodes}
-            locationPaths={view.locationPaths}
-            price={price}
-            isLoading={view.isLoading}
-            onOpenEdit={openEdit}
-            onAction={handleAction}
-            onBulkChange={handleBulkChange}
-            inTrash={inTrash}
-          />
+          {/* 選択はどちらの形でも同じ（selectionStore）。形を切り替えると、選んでいる本までスクロールする */}
+          {viewMode === "grid" ? <BookGrid {...listProps} /> : <BookTable {...listProps} />}
         </main>
 
         {detailOpen && (

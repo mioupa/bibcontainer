@@ -4,6 +4,7 @@ import type { ListSettings } from "@/bindings/ListSettings";
 import type { ScanSettings } from "@/bindings/ScanSettings";
 import { DEFAULT_SCAN_SETTINGS, DEFAULT_SOUND_SETTINGS } from "@/features/scan/config";
 import {
+  isListViewMode,
   layoutFromList,
   listWithLayout,
   listWithTable,
@@ -36,6 +37,8 @@ const list: ListSettings = {
   sorting: [{ id: "authors", desc: true }],
   sidebarOpen: false,
   detailOpen: true,
+  viewMode: "table",
+  groupVolumes: false,
 };
 
 describe("保存形式（zustand persist の { state, version }）", () => {
@@ -106,7 +109,16 @@ describe("table / layout ストア ↔ list", () => {
       columnOrder: ["title", "authors"],
       columnSizing: list.columnSizing,
     });
-    expect(layoutFromList(list)).toEqual({ sidebarOpen: false, detailOpen: true });
+    expect(layoutFromList(list)).toEqual({
+      sidebarOpen: false,
+      detailOpen: true,
+      viewMode: "table",
+      groupVolumes: false,
+    });
+    expect(layoutFromList({ ...list, viewMode: "grid", groupVolumes: true })).toMatchObject({
+      viewMode: "grid",
+      groupVolumes: true,
+    });
   });
 
   it("table の保存は、layout の項目を残して重ねる。列の並び順も list.columnOrder に書く（FR-LIST-01）", () => {
@@ -144,5 +156,41 @@ describe("table / layout ストア ↔ list", () => {
     expect(next.detailOpen).toBe(true);
     expect(next.sorting).toEqual(list.sorting);
     expect(next.columnSizing).toEqual(list.columnSizing);
+  });
+
+  it("layout の保存は、表示の形（表・グリッド）と巻のまとめ表示も list に書く。table の保存はこの 2 項目を残す", () => {
+    const next = listWithLayout(list, {
+      sidebarOpen: false,
+      detailOpen: true,
+      viewMode: "grid",
+      groupVolumes: true,
+    });
+    expect(next.viewMode).toBe("grid");
+    expect(next.groupVolumes).toBe(true);
+
+    const afterTable = listWithTable(next, {
+      sorting: [],
+      columnVisibility: {},
+      columnOrder: [],
+      columnSizing: {},
+    });
+    expect(afterTable.viewMode).toBe("grid");
+    expect(afterTable.groupVolumes).toBe(true);
+  });
+
+  it("表示の形・巻のまとめ表示がない（古い保存内容）、知らない値・型が違う値は、今の値のまま", () => {
+    const current = { ...list, viewMode: "grid", groupVolumes: true } as const;
+    const old = { sidebarOpen: true, detailOpen: true };
+    expect(listWithLayout(current, old)).toMatchObject({ viewMode: "grid", groupVolumes: true });
+    expect(
+      listWithLayout(current, { ...old, viewMode: "carousel", groupVolumes: "yes" }),
+    ).toMatchObject({ viewMode: "grid", groupVolumes: true });
+    expect(listWithLayout(current, { ...old, viewMode: 1, groupVolumes: null })).toMatchObject({
+      viewMode: "grid",
+      groupVolumes: true,
+    });
+    expect(listWithLayout(list, { ...old, viewMode: "table" }).viewMode).toBe("table");
+    expect(isListViewMode("table") && isListViewMode("grid")).toBe(true);
+    expect(isListViewMode("Grid") || isListViewMode(undefined) || isListViewMode(0)).toBe(false);
   });
 });

@@ -587,10 +587,19 @@ fn settings_round_trip_with_partial_input_and_clamping() {
     );
     assert_eq!(list["sidebarOpen"], false);
     assert_eq!(list["detailOpen"], true);
+    // 表示の形（FR-LIST-07）は、既定が表・まとめない。保存した値は camelCase の文字列で返る
+    assert_eq!(list["viewMode"], "table");
+    assert_eq!(list["groupVolumes"], false);
     assert_eq!(
         h.ok("get_list_settings", json!({}))["sorting"][0]["id"],
         "authors"
     );
+    let list = h.ok(
+        "set_list_settings",
+        json!({ "settings": { "viewMode": "grid", "groupVolumes": true } }),
+    );
+    assert_eq!(list["viewMode"], "grid");
+    assert_eq!(h.ok("get_list_settings", json!({}))["groupVolumes"], true);
 
     assert_eq!(
         h.ok("get_display_settings", json!({})),

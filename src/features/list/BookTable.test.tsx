@@ -370,6 +370,38 @@ describe("BookTable", () => {
       expect(scrollTo).not.toHaveBeenCalled();
     });
 
+    it("開いたときに選んでいる本があれば（グリッドから切り替えたとき）、その行までスクロールする", () => {
+      useSelectionStore.setState({
+        selected: new Set(["row-60"]),
+        anchor: "row-60",
+        focus: "row-60",
+      });
+      // 描画の前に scrollTo を使えるよう、要素の作りに差し込む（jsdom の scrollHeight は 0 なので、十分な高さにもする）
+      const scrollTo = vi.fn();
+      const original = HTMLElement.prototype.scrollTo;
+      const heightDescriptor = Object.getOwnPropertyDescriptor(
+        HTMLElement.prototype,
+        "scrollHeight",
+      );
+      HTMLElement.prototype.scrollTo = scrollTo;
+      Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+        configurable: true,
+        get: () => 200 * 48,
+      });
+      try {
+        renderTable();
+        expect(scrollTo).toHaveBeenCalled();
+        const top = (scrollTo.mock.calls.at(-1)?.[0] as ScrollToOptions).top ?? 0;
+        expect(top).toBeGreaterThan(40 * 48);
+      } finally {
+        if (original) HTMLElement.prototype.scrollTo = original;
+        else delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollTo;
+        if (heightDescriptor)
+          Object.defineProperty(HTMLElement.prototype, "scrollHeight", heightDescriptor);
+        else delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollHeight;
+      }
+    });
+
     it("reveal（検索欄の ISBN など）は、すでに focus している本でも、その行までスクロールする", () => {
       const { grid } = renderTable();
       const scrollTo = installScroll(grid);

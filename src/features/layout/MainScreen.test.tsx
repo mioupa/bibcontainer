@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { EditorHost } from "@/features/editor/EditorHost";
@@ -109,7 +109,12 @@ describe("メイン画面", () => {
     useViewStore.getState().setSearchText("");
     useSelectionStore.getState().clear();
     useTableStore.getState().resetColumns();
-    useLayoutStore.setState({ sidebarOpen: true, detailOpen: true });
+    useLayoutStore.setState({
+      sidebarOpen: true,
+      detailOpen: true,
+      viewMode: "table",
+      groupVolumes: false,
+    });
     useSettingsStore.setState({ theme: "system", scan: { ...DEFAULT_SCAN_SETTINGS } });
     useScreenStore.setState({ screen: "main", handoff: null });
     useEditorStore.getState().close();
@@ -375,6 +380,106 @@ describe("メイン画面", () => {
       expect(
         await screen.findByRole("button", { name: ja.list.exportShown.label(0) }),
       ).toBeDisabled();
+    });
+  });
+
+  describe("表示の形（表・グリッド。FR-LIST-07）", () => {
+    const viewButton = (name: string) => screen.getByRole("button", { name });
+
+    it("既定は表。表示の形のボタンは左、右に CSV の書き出しと、表では列のメニューが並ぶ", async () => {
+      renderMain();
+      await screen.findByRole("grid", { name: ja.list.ariaLabel });
+      await rowsReady();
+      expect(viewButton(ja.list.viewSwitch.table)).toHaveAttribute("aria-pressed", "true");
+      expect(viewButton(ja.list.viewSwitch.grid)).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getByRole("button", { name: ja.list.columnPicker.button })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^並べ替え/ })).not.toBeInTheDocument();
+      expect(screen.getAllByRole("columnheader").length).toBeGreaterThan(0);
+    });
+
+    it("グリッドに切り替えると、カードのグリッドと並べ替えのメニューを出す。選んだ形は layoutStore に入る", async () => {
+      renderMain();
+      await screen.findByRole("grid", { name: ja.list.ariaLabel });
+      await rowsReady();
+
+      fireEvent.click(viewButton(ja.list.viewSwitch.grid));
+      expect(useLayoutStore.getState().viewMode).toBe("grid");
+      expect(await screen.findByRole("grid", { name: ja.list.grid.ariaLabel })).toBeInTheDocument();
+      expect(screen.queryByRole("grid", { name: ja.list.ariaLabel })).not.toBeInTheDocument();
+      expect(screen.queryByRole("columnheader")).not.toBeInTheDocument();
+      expect(rowEl("a")).toHaveAttribute("role", "gridcell");
+      expect(
+        within(rowEl("a")!).getByText("吾輩は猫である", { selector: "p[title]" }),
+      ).toBeVisible();
+      expect(viewButton(ja.list.viewSwitch.grid)).toHaveAttribute("aria-pressed", "true");
+      // 列のメニューの代わりに、並べ替えのメニュー（いまの並びは書名の昇順）
+      expect(
+        screen.queryByRole("button", { name: ja.list.columnPicker.button }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "並べ替え: 書名 ↑" })).toBeInTheDocument();
+      // CSV の書き出しは、どちらの形でも右に残る
+      expect(
+        screen.getByRole("button", { name: ja.list.exportShown.label(2) }),
+      ).toBeInTheDocument();
+
+      // 表へ戻す
+      fireEvent.click(viewButton(ja.list.viewSwitch.table));
+      expect(useLayoutStore.getState().viewMode).toBe("table");
+      expect(await screen.findByRole("grid", { name: ja.list.ariaLabel })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: ja.list.columnPicker.button })).toBeInTheDocument();
+    });
+
+    it("保存してあった表示の形（グリッド）で開く", async () => {
+      useLayoutStore.setState({ viewMode: "grid" });
+      renderMain();
+      expect(await screen.findByRole("grid", { name: ja.list.grid.ariaLabel })).toBeInTheDocument();
+      await rowsReady();
+    });
+
+    it("形を切り替えても、選択は変わらず、選んだ本が詳細ペインに出たまま。並べ替えのメニューは表と同じ状態を使う", async () => {
+      renderMain();
+      await screen.findByRole("grid");
+      await rowsReady();
+      fireEvent.click(rowEl("b")!);
+      expect(await screen.findAllByText("詳細のメモ")).not.toHaveLength(0);
+
+      fireEvent.click(viewButton(ja.list.viewSwitch.grid));
+      await screen.findByRole("grid", { name: ja.list.grid.ariaLabel });
+      expect([...useSelectionStore.getState().selected]).toEqual(["b"]);
+      expect(useSelectionStore.getState().focus).toBe("b");
+      expect(rowEl("b")).toHaveAttribute("aria-selected", "true");
+      expect(rowEl("a")).toHaveAttribute("aria-selected", "false");
+
+      // 並べ替え（書名の降順）→ 順番が入れ替わり、表へ戻しても同じ並び
+      fireEvent.pointerDown(screen.getByRole("button", { name: /^並べ替え/ }), {
+        button: 0,
+        ctrlKey: false,
+      });
+      fireEvent.click(await screen.findByRole("menuitemradio", { name: ja.list.sortedDescending }));
+      expect(useTableStore.getState().sorting).toEqual([{ id: "title", desc: true }]);
+      const order = () =>
+        [...document.querySelectorAll("[data-row-id]")].map((el) => el.getAttribute("data-row-id"));
+      await waitFor(() => expect(order()).toEqual(["b", "a"]));
+
+      fireEvent.click(viewButton(ja.list.viewSwitch.table));
+      await screen.findByRole("grid", { name: ja.list.ariaLabel });
+      await waitFor(() => expect(order()).toEqual(["b", "a"]));
+      expect(rowEl("b")).toHaveAttribute("aria-selected", "true");
+    });
+
+    it("グリッドでも、カードのダブルクリックで編集を開く。Enter でも開く", async () => {
+      useLayoutStore.setState({ viewMode: "grid" });
+      renderMain();
+      await screen.findByRole("grid", { name: ja.list.grid.ariaLabel });
+      await rowsReady();
+      fireEvent.doubleClick(rowEl("a")!);
+      expect(useEditorStore.getState().request).toMatchObject({ mode: "edit" });
+      await closeEditor();
+
+      fireEvent.click(rowEl("b")!);
+      fireEvent.keyDown(screen.getByRole("grid"), { code: "Enter" });
+      expect(useEditorStore.getState().request).toMatchObject({ mode: "edit" });
+      await closeEditor();
     });
   });
 

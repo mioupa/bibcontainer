@@ -5,11 +5,12 @@
 //
 //   bibcontainer.settings … display（テーマ・フォント・文字サイズ）と scan（スキャン入力・通知音）
 //   bibcontainer.table    … list（並べ替え・列の表示・並び順・幅）
-//   bibcontainer.layout   … list（サイドバーと詳細ペインの開閉）
+//   bibcontainer.layout   … list（サイドバーと詳細ペインの開閉、一覧の表示の形（表・グリッド）、巻のまとめ表示）
 //
 // `list` は table と layout の 2 つのストアが分け合うので、書くときは、もう一方の項目を残して重ねる。
 import type { DisplaySettings } from "@/bindings/DisplaySettings";
 import type { ListSettings } from "@/bindings/ListSettings";
+import type { ListViewMode } from "@/bindings/ListViewMode";
 import type { ScanSettings as ScanSettingsDto } from "@/bindings/ScanSettings";
 import {
   DEFAULT_SCAN_SETTINGS,
@@ -132,6 +133,13 @@ export interface TablePersisted {
 export interface LayoutPersisted {
   sidebarOpen: boolean;
   detailOpen: boolean;
+  viewMode: ListViewMode;
+  groupVolumes: boolean;
+}
+
+/** 一覧の表示の形として正しい値か。 */
+export function isListViewMode(value: unknown): value is ListViewMode {
+  return value === "table" || value === "grid";
 }
 
 export function tableFromList(list: ListSettings): TablePersisted {
@@ -144,7 +152,12 @@ export function tableFromList(list: ListSettings): TablePersisted {
 }
 
 export function layoutFromList(list: ListSettings): LayoutPersisted {
-  return { sidebarOpen: list.sidebarOpen, detailOpen: list.detailOpen };
+  return {
+    sidebarOpen: list.sidebarOpen,
+    detailOpen: list.detailOpen,
+    viewMode: list.viewMode,
+    groupVolumes: list.groupVolumes,
+  };
 }
 
 /** table ストアの保存内容を、list セクションに重ねる（layout の項目は残す）。 */
@@ -170,5 +183,7 @@ export function listWithLayout(list: ListSettings, state: unknown): ListSettings
     ...list,
     sidebarOpen: typeof saved.sidebarOpen === "boolean" ? saved.sidebarOpen : list.sidebarOpen,
     detailOpen: typeof saved.detailOpen === "boolean" ? saved.detailOpen : list.detailOpen,
+    viewMode: isListViewMode(saved.viewMode) ? saved.viewMode : list.viewMode,
+    groupVolumes: typeof saved.groupVolumes === "boolean" ? saved.groupVolumes : list.groupVolumes,
   };
 }

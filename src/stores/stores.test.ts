@@ -231,6 +231,55 @@ describe("layoutStore", () => {
     useLayoutStore.getState().toggleDetail();
     expect(useLayoutStore.getState().detailOpen).toBe(true);
   });
+
+  it("一覧の表示の形（表・グリッド）と巻のまとめ表示を切り替えられる。既定は表・まとめない", () => {
+    useLayoutStore.setState({ viewMode: "table", groupVolumes: false });
+    useLayoutStore.getState().setViewMode("grid");
+    useLayoutStore.getState().setGroupVolumes(true);
+    expect(useLayoutStore.getState()).toMatchObject({ viewMode: "grid", groupVolumes: true });
+    useLayoutStore.getState().setViewMode("table");
+    expect(useLayoutStore.getState().viewMode).toBe("table");
+    useLayoutStore.getState().setViewMode("carousel" as never);
+    expect(useLayoutStore.getState().viewMode).toBe("table");
+  });
+
+  it("保存内容を読み戻す。壊れた値（知らない表示の形、型が違う項目）は、その項目だけ既定値のまま", async () => {
+    useLayoutStore.setState({
+      sidebarOpen: true,
+      detailOpen: true,
+      viewMode: "table",
+      groupVolumes: false,
+    });
+    localStorage.setItem(
+      STORAGE_KEYS.layout,
+      JSON.stringify({
+        state: { sidebarOpen: false, detailOpen: true, viewMode: "grid", groupVolumes: true },
+        version: 1,
+      }),
+    );
+    await useLayoutStore.persist.rehydrate();
+    expect(useLayoutStore.getState()).toMatchObject({
+      sidebarOpen: false,
+      viewMode: "grid",
+      groupVolumes: true,
+    });
+
+    useLayoutStore.setState({ viewMode: "table", groupVolumes: false, sidebarOpen: true });
+    localStorage.setItem(
+      STORAGE_KEYS.layout,
+      JSON.stringify({
+        state: { sidebarOpen: "no", viewMode: "carousel", groupVolumes: 1, detailOpen: false },
+        version: 1,
+      }),
+    );
+    await useLayoutStore.persist.rehydrate();
+    expect(useLayoutStore.getState()).toMatchObject({
+      sidebarOpen: true,
+      detailOpen: false,
+      viewMode: "table",
+      groupVolumes: false,
+    });
+  });
 });
 
 describe("viewStore", () => {
@@ -287,6 +336,16 @@ describe("selectionStore", () => {
     useSelectionStore.getState().clear();
     expect(useSelectionStore.getState().selected.size).toBe(0);
     expect(useSelectionStore.getState().focus).toBeNull();
+  });
+
+  it("moveTo は、行き先の行へ focus を動かす。extend なら起点から範囲で選ぶ", () => {
+    useSelectionStore.getState().click(ids, "a", { toggle: false, range: false });
+    useSelectionStore.getState().moveTo(ids, "c", { extend: true });
+    expect([...useSelectionStore.getState().selected].sort()).toEqual(["a", "b", "c"]);
+    expect(useSelectionStore.getState()).toMatchObject({ anchor: "a", focus: "c" });
+    useSelectionStore.getState().moveTo(ids, "b", { extend: false });
+    expect([...useSelectionStore.getState().selected]).toEqual(["b"]);
+    expect(useSelectionStore.getState().focus).toBe("b");
   });
 
   it("表示から消えた行は選択から外れる。変化がなければ状態を差し替えない", () => {

@@ -3,11 +3,12 @@
 //! - URL: `cover://localhost/<hash>?size=80`（macOS）、`http://cover.localhost/<hash>?size=80`（Windows）。
 //! - `<hash>`: 小文字の 16 進 64 桁だけを受け付ける（パスの組み立てに使うので、`..`・`/`・`%`・大文字などは弾く。
 //!   パストラバーサル対策）。
-//! - `size`: なし（原寸）、`80`（一覧）、`160`、`320`（詳細ペイン・フォーム）。サムネイルはキャッシュに作る。
+//! - `size`: なし（原寸）、`80`（一覧）、`160`、`320`（グリッド・詳細ペイン・フォーム）。サムネイルはキャッシュに作る。
 //!   それ以外は 400。ほかのキー（`v` など）は読み捨てる。`v` は、同期で書影があとから届いたとき、画面が URL を変えて
 //!   読み込み直すための版（0016）。
-//! - 応答: 200（`Content-Type: image/jpeg`。内容は変わらないので、160・320・原寸は長いキャッシュ期間を付ける。
-//!   一覧用の 80 は WebKit のメモリキャッシュに残さない `no-store`。理由は `CACHE_CONTROL_LIST`）、
+//! - 応答: 200（`Content-Type: image/jpeg`。サムネイル（80・160・320）はすべて、WebKit のメモリキャッシュに
+//!   残さない `no-store`。原寸だけは、内容が変わらないので長いキャッシュ期間を付ける。理由は
+//!   `CACHE_CONTROL_THUMBNAIL`）、
 //!   400（ハッシュ・大きさが正しくない）、404（書影がない）、405（GET・HEAD 以外）、500・503（読めない・まだ使えない）。
 //!
 //! フェーズ 2 で同期フォルダの書影からも読めるようにするときは、`locate_original` に探す場所を足す。
@@ -15,9 +16,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use bibcontainer_metadata::cover::{
-    LIST_THUMBNAIL_SIZE, THUMBNAIL_SIZES, cover_path, ensure_thumbnail, is_valid_hash,
-};
+use bibcontainer_metadata::cover::{THUMBNAIL_SIZES, cover_path, ensure_thumbnail, is_valid_hash};
 use tauri::http::{self, HeaderValue, Method, Response, StatusCode};
 use tauri::{Manager, Runtime};
 
@@ -25,21 +24,23 @@ use super::state::{CoverDirs, MetadataState};
 
 /// スキームの名前。
 pub const SCHEME: &str = "cover";
-/// 書影は内容（ハッシュ）が決まれば変わらないので、1 年・変更なしとする（詳細ペイン・フォームの 320、原寸など）。
+/// 書影の原寸は内容（ハッシュ）が決まれば変わらないので、1 年・変更なしとする。
 const CACHE_CONTROL_OK: &str = "public, max-age=31536000, immutable";
-/// 一覧用のサムネイル（長辺 80px）は、WebKit のメモリキャッシュに残さない。
+/// サムネイル（長辺 80・160・320px）は、WebKit のメモリキャッシュに残さない。
 ///
-/// 一覧は仮想化していて、画面から出た行の `<img>` は外される。それでも WebKit は、読み込んだ画像を
-/// 使われなくなったあともメモリキャッシュに持ち続け、画像の大きさによらず 1 枚あたり約 11KB を使う
-/// （書影のある 2,823 冊を表示すると、WebContent のフットプリントが約 30MB 増える）。書影は端末内の
-/// ファイルで、読み込みは 1ms 未満なので、キャッシュさせずに、行が出るたびに読み直す
-/// （docs/decisions/0010 §14）。
-const CACHE_CONTROL_LIST: &str = "no-store";
+/// 一覧もグリッドも仮想化していて、画面から出た行・カードの `<img>` は外される。それでも WebKit は、
+/// 読み込んだ画像を使われなくなったあともメモリキャッシュに持ち続ける。一覧の 80px でも 1 枚あたり
+/// 約 11KB（書影のある 2,823 冊を表示すると、WebContent のフットプリントが約 30MB 増える）で、
+/// グリッドは 320px のサムネイルを何千冊ぶんも見せるので、残させるとメモリが際限なく増える。
+/// 書影は端末内のファイルで、読み込みは 1ms 未満なので、どの大きさもキャッシュさせずに、
+/// 行・カードが出るたびに読み直す。詳細ペインの 320 も、本を選び直すたびに読み直すことになるが、無視できる
+/// （docs/decisions/0024、0010 §14）。原寸は何千枚も並べないので、内容が変わらないことを生かして長くキャッシュさせる。
+const CACHE_CONTROL_THUMBNAIL: &str = "no-store";
 
-/// `size` に対する、200 の応答の `Cache-Control`。
+/// `size` に対する、200 の応答の `Cache-Control`。サムネイルは `no-store`、原寸（`size` なし）だけ長くキャッシュさせる。
 fn cache_control_for(size: Option<u32>) -> &'static str {
-    if size == Some(LIST_THUMBNAIL_SIZE) {
-        CACHE_CONTROL_LIST
+    if size.is_some() {
+        CACHE_CONTROL_THUMBNAIL
     } else {
         CACHE_CONTROL_OK
     }
@@ -348,34 +349,42 @@ mod tests {
     }
 
     #[test]
-    fn list_thumbnails_are_not_kept_in_the_webview_memory_cache_but_the_others_are() {
+    fn thumbnails_are_not_kept_in_the_webview_memory_cache_but_the_original_is() {
         let (_tmp, dirs, hash) = dirs_with_cover();
         let path = format!("/{hash}");
-        // 一覧用（80）: WebKit のメモリキャッシュに残さない
-        let list = respond(&dirs, &path, Some("size=80"));
-        assert_eq!(list.status, 200);
-        assert_eq!(list.cache_control, "no-store");
-        assert_eq!(
-            list.clone().into_http(false).headers()["cache-control"],
-            "no-store"
-        );
-        assert_eq!(dimensions(&list.body).0.max(dimensions(&list.body).1), 80);
-        // 詳細ペイン・フォーム（320）、160、原寸: 内容は変わらないので長くキャッシュさせる
-        for query in [Some("size=160"), Some("size=320"), None] {
-            let reply = respond(&dirs, &path, query);
-            assert_eq!(reply.status, 200, "{query:?}");
-            assert_eq!(reply.cache_control, CACHE_CONTROL_OK, "{query:?}");
+        // サムネイル（一覧の 80、160、グリッド・詳細ペイン・フォームの 320）: WebKit のメモリキャッシュに残さない
+        for edge in [80u32, 160, 320] {
+            let thumb = respond(&dirs, &path, Some(&format!("size={edge}")));
+            assert_eq!(thumb.status, 200, "{edge}");
+            assert_eq!(thumb.cache_control, CACHE_CONTROL_THUMBNAIL, "{edge}");
+            assert_eq!(thumb.cache_control, "no-store", "{edge}");
+            let (w, h) = dimensions(&thumb.body);
+            assert_eq!(w.max(h), edge, "{edge}");
             assert_eq!(
-                reply.into_http(false).headers()["cache-control"],
-                CACHE_CONTROL_OK
+                thumb.clone().into_http(false).headers()["cache-control"],
+                "no-store",
+                "{edge}"
+            );
+            // HEAD でも同じヘッダー
+            assert_eq!(
+                thumb.into_http(true).headers()["cache-control"],
+                "no-store",
+                "{edge}"
+            );
+            // 2 回目（サムネイルがキャッシュフォルダにあるとき）も同じ
+            assert_eq!(
+                respond(&dirs, &path, Some(&format!("size={edge}"))).cache_control,
+                "no-store",
+                "{edge}"
             );
         }
-        // HEAD でも同じヘッダー
-        assert_eq!(list.into_http(true).headers()["cache-control"], "no-store");
-        // 2 回目（サムネイルがキャッシュフォルダにあるとき）も同じ
+        // 原寸: 内容は変わらないので長くキャッシュさせる
+        let original = respond(&dirs, &path, None);
+        assert_eq!(original.status, 200);
+        assert_eq!(original.cache_control, CACHE_CONTROL_OK);
         assert_eq!(
-            respond(&dirs, &path, Some("size=80")).cache_control,
-            "no-store"
+            original.into_http(false).headers()["cache-control"],
+            CACHE_CONTROL_OK
         );
     }
 

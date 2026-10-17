@@ -43,6 +43,8 @@ const list: ListSettings = {
   sorting: [{ id: "title", desc: false }],
   sidebarOpen: true,
   detailOpen: true,
+  viewMode: "table",
+  groupVolumes: false,
 };
 
 // persist が呼ぶ StateStorage の形（createJSONStorage の中身）を直接たたく。
@@ -118,6 +120,29 @@ describe("設定の保存先（Tauri の中: Rust の local_settings）", () => 
       columnOrder: ["authors", "title"],
       columnSizing: { title: 480 },
       sidebarOpen: false,
+    });
+  });
+
+  it("layout ストアは、表示の形（表・グリッド）と巻のまとめ表示も list セクションで読み書きする", async () => {
+    const stored = await read(STORAGE_KEYS.layout);
+    expect(stored?.state).toEqual({
+      sidebarOpen: true,
+      detailOpen: true,
+      viewMode: "table",
+      groupVolumes: false,
+    });
+
+    await write(STORAGE_KEYS.layout, {
+      sidebarOpen: true,
+      detailOpen: true,
+      viewMode: "grid",
+      groupVolumes: true,
+    });
+    await flush();
+    expect(ipc.setListSettings.mock.calls.at(-1)?.[0]).toEqual({
+      ...list,
+      viewMode: "grid",
+      groupVolumes: true,
     });
   });
 

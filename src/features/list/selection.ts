@@ -97,19 +97,37 @@ export function moveFocus(
 
   const nextId = ids[next];
   if (nextId === undefined) return state;
+  return moveFocusTo(state, ids, nextId, options);
+}
+
+/**
+ * focus を `id` の行へ動かしたときの新しい選択。動かす先が決まっているとき（グリッドの上下左右など）に使う。
+ * `moveFocus` と同じ規則で、`extend` が true（Shift）なら起点から `id` までを範囲で選ぶ（起点がなければ、いまの focus から。
+ * focus もなければ先頭の行から）。`clickRow` の Shift+クリックとは、起点がないときの起点だけが違う
+ * （クリックは押した行から、キーボードは動かす前の行から）。`id` が `ids` にないときは何も変えない。
+ */
+export function moveFocusTo(
+  state: SelectionState,
+  ids: readonly string[],
+  id: string,
+  options: { extend: boolean },
+): SelectionState {
+  const next = ids.indexOf(id);
+  if (next < 0) return state;
 
   if (options.extend) {
+    const current = state.focus === null ? -1 : ids.indexOf(state.focus);
     const anchor =
       state.anchor !== null && ids.includes(state.anchor)
         ? state.anchor
-        : (ids[Math.max(current, 0)] ?? nextId);
+        : (ids[Math.max(current, 0)] ?? id);
     return {
       selected: new Set(rangeIds(ids, ids.indexOf(anchor), next)),
       anchor,
-      focus: nextId,
+      focus: id,
     };
   }
-  return { selected: new Set([nextId]), anchor: nextId, focus: nextId };
+  return { selected: new Set([id]), anchor: id, focus: id };
 }
 
 export function selectAll(state: SelectionState, ids: readonly string[]): SelectionState {
