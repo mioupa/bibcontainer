@@ -16,6 +16,7 @@ export function makeRow(overrides: Partial<ListRow> = {}): ListRow {
     volumeSort: null,
     seriesId: null,
     seriesName: null,
+    workId: null,
     authors: [],
     publisher: null,
     publishedOn: null,

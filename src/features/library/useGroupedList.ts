@@ -5,6 +5,8 @@
 //   同じ描画で並びに入るよう、開いている状態に focus のグループを足して並びを作り（選択の整理で消されないように）、
 //   あとの effect で、その開いた状態を groupStore に保存する。
 // - まとめる設定をオフにしたとき、選んでいたグループは、メンバーの選択に置き換える。
+// - 作品の操作（まとめる・外す・自動に戻す。0026）のあと、行の更新が届いたら、保留中の選択（selectionStore の `pendingWork`）を済ませる。
+//   更新が届くまでの間、対象の本への focus では、グループを開かない（まとめた作品を、畳んだまま選ぶため）。
 import { useEffect, useLayoutEffect, useMemo } from "react";
 import {
   buildWorkLayout,
@@ -12,7 +14,7 @@ import {
   layoutEntries,
   type GroupedList,
 } from "@/features/library/grouping";
-import { ungroupSelection } from "@/features/list/selection";
+import { resolvePendingWork, ungroupSelection } from "@/features/list/selection";
 import { useGroupStore } from "@/stores/groupStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { useSelectionStore } from "@/stores/selectionStore";
@@ -22,11 +24,17 @@ export function useGroupedList(rows: readonly ListRow[]): GroupedList {
   const enabled = useLayoutStore((s) => s.groupVolumes);
   const stored = useGroupStore((s) => s.expanded);
   const focus = useSelectionStore((s) => s.focus);
+  const pendingWork = useSelectionStore((s) => s.pendingWork);
 
   // 展開の状態に依らない部分（グループの計算）。行か設定が変わったときだけやり直す
   const layout = useMemo(() => buildWorkLayout(rows, enabled), [rows, enabled]);
 
-  const focusGroup = focus === null ? undefined : layout.groupOfBook.get(focus);
+  // 作品の操作の対象の本に（操作の前から）focus があるときは、行の更新が届くまでの間、そのグループを開かない。
+  // 操作のあとに選ぶ行（`pendingWork`）が決まるまでに、できた作品を開いてしまわないため
+  const focusGroup =
+    focus === null || pendingWork?.bookIds.includes(focus) === true
+      ? undefined
+      : layout.groupOfBook.get(focus);
   const expanded = useMemo<ReadonlySet<string>>(
     () =>
       focusGroup === undefined || stored.has(focusGroup) ? stored : new Set(stored).add(focusGroup),
@@ -54,6 +62,19 @@ export function useGroupedList(rows: readonly ListRow[]): GroupedList {
     );
     if (next !== state) useSelectionStore.setState(next);
   }, [enabled, rows]);
+
+  // 作品の操作のあとに選ぶ行。操作は済んでいても、行の更新は遅れて届くので、対象の本の行が更新されるまで待つ。
+  // 選ぶのは一覧の選択の整理（usePruneSelection）より先に済ませたいので、layout effect で行う
+  useLayoutEffect(() => {
+    if (pendingWork === null) return;
+    const next = resolvePendingWork(
+      pendingWork,
+      layout.groups,
+      (id) => layout.rowById.get(id)?.workId,
+      Date.now(),
+    );
+    if (next !== "wait") useSelectionStore.getState().settleWork(next);
+  }, [pendingWork, layout]);
 
   return grouped;
 }

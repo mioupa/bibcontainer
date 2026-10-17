@@ -5,7 +5,9 @@
 
 use std::sync::Arc;
 
-use bibcontainer_core::library::{self, ChangeReport, FieldChange, UpdateOptions};
+use bibcontainer_core::library::{
+    self, ChangeReport, FieldChange, MergeWorksResult, UpdateOptions,
+};
 use tauri::{AppHandle, Runtime, State};
 
 use super::env;
@@ -122,6 +124,24 @@ pub async fn modify_tags<R: Runtime>(
     Ok(changed)
 }
 
+/// 選んだ本を 1 つの作品にまとめる（`work_id` を書く）。まとめた作品の ID と、書き換えた本の ID を返す。
+/// 作品から外す・自動に戻すのは、`update_books` で `work_id` を変える（`"none"` と null）。
+/// 作品はタグ・シリーズの件数に響かないので、`others` は false。
+#[tauri::command]
+pub async fn merge_works<R: Runtime>(
+    app: AppHandle<R>,
+    db: State<'_, Arc<Database>>,
+    ids: Vec<String>,
+) -> Result<MergeWorksResult, AppError> {
+    let result = db
+        .run(move |conn, _| Ok(library::merge_works(conn, &env(), &ids)?))
+        .await?;
+    if !result.changed.is_empty() {
+        emit_library_changed(&app, result.changed.clone(), false);
+    }
+    Ok(result)
+}
+
 /// 書籍をゴミ箱に移す。実際に変えた本の ID を返す。
 #[tauri::command]
 pub async fn trash_books<R: Runtime>(
@@ -202,6 +222,10 @@ mod tests {
         assert!(changed_reports(&[report("a", &["title", "tags"])]).1);
         assert!(changed_reports(&[report("a", &["series_id"])]).1);
         assert!(!changed_reports(&[report("a", &["location_id", "rating"])]).1);
+        assert!(
+            !changed_reports(&[report("a", &["work_id"])]).1,
+            "作品の指定は、タグ・シリーズの件数に響かない"
+        );
         assert!(touches_tags_or_series(["tags"]));
         assert!(!touches_tags_or_series(["title", "authors"]));
     }

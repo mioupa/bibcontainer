@@ -215,6 +215,10 @@ const listBase = {
     markPurchased: "購入済みにする",
     refetch: "書誌を再取得…",
     export: "CSV に書き出し…",
+    // 作品の手動のまとめ・外し（巻をまとめる設定がオンのときだけ。0026）
+    mergeWorks: "1 つの作品にまとめる",
+    excludeFromWorks: "作品から外す",
+    resetWorks: "自動に戻す",
     trash: "ゴミ箱へ移動",
     // ゴミ箱を開いているときのメニュー
     restore: "ゴミ箱から戻す",

@@ -244,6 +244,57 @@ fn csv_fields_that_could_be_formulas_get_a_leading_quote() {
 }
 
 #[test]
+fn csv_has_the_manual_work_column_right_after_the_volume_sort_column() {
+    const WORK: &str = "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0d01";
+    let mut fx = Fx::new();
+    let auto = add_titled(&mut fx, "自動");
+    let none = add(
+        &mut fx,
+        &[("title", json!("まとめない")), ("work_id", json!("none"))],
+    );
+    let manual_work = add(
+        &mut fx,
+        &[("title", json!("手動の作品")), ("work_id", json!(WORK))],
+    );
+    // 他端末から届いた値は検証を通らない。数式になりうる値も、ほかの列と同じに無害化する。
+    let remote = "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0a99";
+    common::apply(
+        &mut fx.conn,
+        &common::remote_op(
+            common::DEV_B,
+            T0 + 1000,
+            0,
+            Entity::Book,
+            remote,
+            json!({ "title": "届いた本", "work_id": "=1+1" }),
+        ),
+    );
+
+    let ids = [
+        auto.clone(),
+        none.clone(),
+        manual_work.clone(),
+        remote.to_owned(),
+    ];
+    let (_, rows) = csv_of(&fx.conn, Some(&ids));
+    let headers = csv_headers();
+    let at = headers.iter().position(|h| *h == "作品（手動）").unwrap();
+    assert_eq!(headers[at - 1], "巻次（並べ替え用）", "直前の列");
+    assert_eq!(headers[at + 1], "著者", "直後の列");
+    assert_eq!(col(&rows, "作品（手動）"), at);
+
+    let value = |i: usize| rows[1 + i][at].as_str();
+    assert_eq!(value(0), "", "自動（NULL）は空");
+    assert_eq!(value(1), "まとめない", "none は日本語で");
+    assert_eq!(value(2), WORK, "手動の作品は ID のまま");
+    assert_eq!(
+        value(3),
+        "'=1+1",
+        "数式の先頭の文字は、ほかの列と同じに無害化する"
+    );
+}
+
+#[test]
 fn csv_file_is_written_atomically() {
     let lib = library_fixture();
     let dir = tempdir().unwrap();

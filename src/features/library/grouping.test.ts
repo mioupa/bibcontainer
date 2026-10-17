@@ -393,6 +393,287 @@ describe("expandToBookIds / countBooks", () => {
   });
 });
 
+// 本ごとの手動の指定（`workId`。0026）。"none" はどの作品にも入れない、それ以外は手動の作品の ID
+describe("作品の手動の指定（0026）", () => {
+  const W1 = "w-1";
+  const W2 = "w-2";
+  const KEY1 = "work:\u001fw-1";
+  const KEY2 = "work:\u001fw-2";
+  /** 手動の指定のある本。`id` は作品の ID・書名・巻・著者から作る。 */
+  function man(
+    workId: string | null,
+    title: string,
+    volume: number | null,
+    authors: string[] = ["山田 太郎"],
+    extra: Partial<ListRow> = {},
+  ): ListRow {
+    return vol(title, volume, authors, {
+      id: `${workId ?? "auto"}:${title}-${volume ?? "-"}-${authors.join("+")}`,
+      workId,
+      ...extra,
+    });
+  }
+  const groupAt = (grouped: GroupedList, index: number) =>
+    grouped.entries[index] as Extract<ListEntry, { kind: "group" }>;
+  const manualSlow = () => [1, 2, 3, 4, 5, 6, 7].map((n) => man(W1, "スローループ", n));
+
+  describe("作品から外した本（none）", () => {
+    it("書名・著者が同じ本があっても、どの作品にも入らない。束にも入れないので、相手の自動の本もグループにならない", () => {
+      const rows = [vol("風", 1), man("none", "風", 2), vol("風", 3, ["山田 太郎"], { id: "x" })];
+      // 自動の本は 2 冊（風 1・風 3）で、"none" の 1 冊は入らない
+      const grouped = groupRows(rows, true, NONE);
+      expect(kinds(grouped.entries)).toBe("G2 B1");
+      expect(grouped.groupOfBook.has((rows[1] as ListRow).id)).toBe(false);
+      expect(grouped.entries[1]?.key).toBe((rows[1] as ListRow).id);
+
+      // 自動の本が 1 冊と "none" の本だけなら、どちらもふつうの行
+      expect(kinds(groupRows([rows[0], rows[1]] as ListRow[], true, NONE).entries)).toBe("B1 B1");
+      // "none" どうしも、まとめない
+      expect(
+        kinds(groupRows([man("none", "風", 1), man("none", "風", 2)], true, NONE).entries),
+      ).toBe("B1 B1");
+    });
+
+    it("手動の作品と書名・著者が同じでも、none の本は、その作品に入らない", () => {
+      const rows = [
+        man(W1, "風", 1),
+        man(W1, "風", 2),
+        man("none", "風", 3),
+        vol("風", 4, ["山田 太郎"], { id: "auto-4" }),
+      ];
+      const grouped = groupRows(rows, true, NONE);
+      expect(kinds(grouped.entries)).toBe("G3 B1");
+      expect(groupAt(grouped, 0).group.members.map((m) => m.id)).toEqual([
+        rows[0]?.id,
+        rows[1]?.id,
+        "auto-4",
+      ]);
+      expect(grouped.entries[1]?.key).toBe(rows[2]?.id);
+    });
+  });
+
+  describe("手動の作品（同じ ID の本が 1 つの作品）", () => {
+    it("書名・著者が違っても、同じ ID なら 1 つのグループ。key は `work:` + 区切り + ID。名前は巻の順で先頭の本のもの", () => {
+      const rows = [
+        man(W1, "スローループ 公式アンソロジー", null, ["別の 著者"]),
+        man(W1, "スローループ", 2),
+        man(W1, "スローループ", 1),
+      ];
+      const grouped = groupRows(rows, true, NONE);
+      expect(kinds(grouped.entries)).toBe("G3");
+      const { group } = groupAt(grouped, 0);
+      expect(group.key).toBe(KEY1);
+      expect(isGroupKey(group.key)).toBe(true);
+      // 巻のない本は最後。作品名は先頭の本（スローループ 1 巻）のもの
+      expect(group.members.map((m) => m.volume)).toEqual(["1", "2", null]);
+      expect(group.baseTitle).toBe("スローループ");
+      expect(group.firstVolume).toBe("1");
+      expect(group.lastVolume).toBe("2");
+      expect(grouped.groupOfBook.get((rows[0] as ListRow).id)).toBe(group.key);
+      expect(grouped.bookIds).toEqual(group.members.map((m) => m.id));
+    });
+
+    it("書名が空の本・著者のない本でも、手動の作品には入る", () => {
+      const rows = [man(W1, " ", null, []), man(W1, "風", 1, [])];
+      expect(kinds(groupRows(rows, true, NONE).entries)).toBe("G2");
+    });
+
+    it("グループの位置は、最初のメンバー（与えられた並びで先に出る本）の位置。ほかの本は、そのまま", () => {
+      const rows = [
+        vol("あ", 1, ["a"]),
+        man(W1, "い", 1, ["b"]),
+        vol("う", 1, ["c"]),
+        man(W1, "え", 1, ["d"]),
+        vol("お", 1, ["e"]),
+      ];
+      const grouped = groupRows(rows, true, NONE);
+      expect(kinds(grouped.entries)).toBe("B1 G2 B1 B1");
+      expect(keysOf(grouped)).toEqual([rows[0]?.id, KEY1, rows[2]?.id, rows[4]?.id]);
+    });
+
+    it("違う ID の手動の作品どうしは、書名・著者が同じでも、まとめない", () => {
+      const rows = [
+        man(W1, "風", 1),
+        man(W1, "風", 2),
+        man(W2, "風", 3),
+        man(W2, "風", 4),
+        // 両方の手動の作品とつながる自動の本は、どちらにも入らない
+        vol("風", 5, ["山田 太郎"], { id: "auto-5" }),
+      ];
+      const grouped = groupRows(rows, true, NONE);
+      expect(kinds(grouped.entries)).toBe("G2 G2 B1");
+      expect(keysOf(grouped)).toEqual([KEY1, KEY2, "auto-5"]);
+    });
+
+    it("表示中に 1 冊しかない手動の作品は、ふつうの行（絞り込みの結果。表示中の本だけで決まる）", () => {
+      const all = [man(W1, "風", 1), man(W1, "風", 2), man(W1, "雲", 3, ["別の 著者"])];
+      expect(kinds(groupRows(all, true, NONE).entries)).toBe("G3");
+      expect(kinds(groupRows(all.slice(1), true, NONE).entries)).toBe("G2");
+      const one = groupRows(all.slice(2), true, NONE);
+      expect(kinds(one.entries)).toBe("B1");
+      expect(one.groups.size).toBe(0);
+    });
+  });
+
+  describe("自動の作品が、手動の作品に入る", () => {
+    it("あとから登録した巻（自動の 1 冊。書名の末尾だけに巻がある）は、書名・著者が同じ手動の作品に入り、巻の順で最後に並ぶ", () => {
+      const newest = vol("スローループ 8", null, ["山田 太郎"], { id: "new-8" });
+      const grouped = groupRows([newest, ...manualSlow()], true, NONE);
+      expect(kinds(grouped.entries)).toBe("G8");
+      const { group } = groupAt(grouped, 0);
+      expect(group.key).toBe(KEY1);
+      expect(group.members.at(-1)?.id).toBe("new-8");
+      expect(group.lastVolume).toBe("8");
+      expect(group.baseTitle).toBe("スローループ");
+      expect(grouped.groupOfBook.get("new-8")).toBe(KEY1);
+    });
+
+    it("著者が 1 人でも共通すれば入る。共通する著者がなければ入らない", () => {
+      const rows = [
+        ...manualSlow(),
+        vol("スローループ 8", null, ["山田 太郎", "別の 著者"], { id: "co-author" }),
+        vol("スローループ 9", null, ["他の 人"], { id: "stranger" }),
+      ];
+      const grouped = groupRows(rows, true, NONE);
+      expect(kinds(grouped.entries)).toBe("G8 B1");
+      expect(groupAt(grouped, 0).group.members.map((m) => m.id)).toContain("co-author");
+      expect(grouped.entries[1]?.key).toBe("stranger");
+    });
+
+    it("書名（作品名の比べ方）が違えば、著者が同じでも入らない", () => {
+      const rows = [...manualSlow(), vol("スローループ 公式アンソロジー", null, ["山田 太郎"])];
+      expect(kinds(groupRows(rows, true, NONE).entries)).toBe("G7 B1");
+    });
+
+    it("自動の作品が 2 冊以上あれば、まとめて入る（著者のない本も、その作品の一員なら一緒に）", () => {
+      const rows = [
+        ...manualSlow(),
+        vol("スローループ", 8, ["山田 太郎"], { id: "auto-8" }),
+        vol("スローループ", 9, ["山田 太郎", "絵 担当"], { id: "auto-9" }),
+        vol("スローループ", 10, [], { id: "auto-10" }),
+      ];
+      const grouped = groupRows(rows, true, NONE);
+      expect(kinds(grouped.entries)).toBe("G10");
+      expect(groupAt(grouped, 0).group.members.map((m) => m.volumeSort)).toEqual([
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+      ]);
+    });
+
+    it("著者のない自動の本だけの作品は、手動の作品とつながらない（自動の作品のまま）", () => {
+      const single = [...manualSlow(), vol("スローループ", 8, [], { id: "no-author" })];
+      const grouped = groupRows(single, true, NONE);
+      expect(kinds(grouped.entries)).toBe("G7 B1");
+      expect(grouped.entries[1]?.key).toBe("no-author");
+      // 著者のない本どうしは、自動の作品としてまとまる（手動の作品には入らない）
+      const two = [
+        ...manualSlow(),
+        vol("スローループ", 8, [], { id: "n8" }),
+        vol("スローループ", 9, [], { id: "n9" }),
+      ];
+      expect(kinds(groupRows(two, true, NONE).entries)).toBe("G7 G2");
+    });
+
+    it("手動の作品の側に、書名か著者がない本しかなければ、つながりは作らない", () => {
+      const noAuthors = [man(W1, "風", 1, []), man(W1, "風", 2, []), vol("風", 3, ["山田 太郎"])];
+      expect(kinds(groupRows(noAuthors, true, NONE).entries)).toBe("G2 B1");
+      const noTitle = [man(W1, " ", 1), man(W1, " ", 2), vol(" ", 3, ["山田 太郎"])];
+      expect(kinds(groupRows(noTitle, true, NONE).entries)).toBe("G2 B1");
+    });
+
+    it("つながる手動の作品が 2 つ以上なら、どれにも入らない。自動の作品は自動のまま（2 冊以上ならグループ）", () => {
+      const rows = [
+        man(W1, "風", 1, ["A"]),
+        man(W1, "風", 2, ["A"]),
+        man(W2, "風", 3, ["B"]),
+        man(W2, "風", 4, ["B"]),
+        vol("風", 5, ["A", "B"], { id: "bridge-1" }),
+        vol("風", 6, ["A"], { id: "bridge-2" }),
+        vol("風", 7, ["B"], { id: "lonely" }),
+      ];
+      const grouped = groupRows(rows, true, NONE);
+      // 風 5・6・7 は著者でつながって 1 つの自動の作品（3 冊）。A の作品にも B の作品にも触れるので、どちらにも入らない
+      expect(kinds(grouped.entries)).toBe("G2 G2 G3");
+      const auto = groupAt(grouped, 2).group;
+      expect(auto.key).toBe("work:風\u001fa");
+      expect(auto.members.map((m) => m.id)).toEqual(["bridge-1", "bridge-2", "lonely"]);
+    });
+
+    it("1 冊だけの自動の本が 2 つの手動の作品とつながるときも、どちらにも入らない", () => {
+      const rows = [
+        man(W1, "風", 1, ["A"]),
+        man(W1, "風", 2, ["A"]),
+        man(W2, "風", 3, ["B"]),
+        man(W2, "風", 4, ["B"]),
+        vol("風", 5, ["A", "B"], { id: "bridge" }),
+      ];
+      const grouped = groupRows(rows, true, NONE);
+      expect(kinds(grouped.entries)).toBe("G2 G2 B1");
+      expect(grouped.entries[2]?.key).toBe("bridge");
+    });
+
+    it("表示中の手動の本が 1 冊だけでも、自動の本が入れば、2 冊のグループになる", () => {
+      const rows = [man(W1, "風", 1), vol("風", 2, ["山田 太郎"], { id: "auto-2" })];
+      const grouped = groupRows(rows, true, NONE);
+      expect(kinds(grouped.entries)).toBe("G2");
+      expect(groupAt(grouped, 0).group.key).toBe(KEY1);
+      // 手動の本が 1 冊で、入る自動の本がなければ、ふつうの行
+      expect(kinds(groupRows([rows[0] as ListRow], true, NONE).entries)).toBe("B1");
+    });
+
+    it("つながりは、表示中の手動の本だけで決まる（絞り込みで手動の本が隠れたら、自動の作品に戻る）", () => {
+      const manual = [man(W1, "風", 1, ["A"]), man(W1, "雲", 2, ["B"])];
+      const autos = [
+        vol("雲", 3, ["B"], { id: "cloud-3" }),
+        vol("雲", 4, ["B"], { id: "cloud-4" }),
+      ];
+      // 雲 2（手動）が見えていれば、雲 3・雲 4 は手動の作品に入る
+      expect(kinds(groupRows([...manual, ...autos], true, NONE).entries)).toBe("G4");
+      // 雲 2 が絞り込みで隠れると、雲 3・雲 4 は自動の作品（手動の風 1 は 1 冊で、ふつうの行）
+      const hidden = groupRows([manual[0] as ListRow, ...autos], true, NONE);
+      expect(kinds(hidden.entries)).toBe("B1 G2");
+      expect(groupAt(hidden, 1).group.key).toBe("work:雲\u001fb");
+    });
+  });
+
+  it("「巻をまとめる」がオフなら、workId は使わない（すべてふつうの行）", () => {
+    const rows = [man(W1, "風", 1), man(W1, "雲", 2, ["別の 著者"]), man("none", "風", 3)];
+    const grouped = groupRows(rows, false, NONE);
+    expect(grouped.entries.map((e) => e.kind)).toEqual(["book", "book", "book"]);
+    expect(grouped.groups.size).toBe(0);
+    expect(grouped.bookIds).toEqual(rows.map((r) => r.id));
+  });
+
+  it("手動の作品の key で開閉できる（layoutEntries）。開くと、メンバーが level 2 で続く", () => {
+    const rows = [man(W1, "風", 1), man(W1, "雲", 2, ["別の 著者"]), vol("嵐", 1, ["x"])];
+    const layout = buildWorkLayout(rows, true);
+    expect(kinds(layoutEntries(layout, NONE).entries)).toBe("G2 B1");
+    const open = layoutEntries(layout, new Set([KEY1]));
+    expect(kinds(open.entries)).toBe("G2 B2 B2 B1");
+    expect(open.entries[1]).toMatchObject({ level: 2, groupKey: KEY1 });
+  });
+
+  it("expandToBookIds: 手動の作品の key は、表示中の全メンバー（入った自動の本を含む。隠れた本は含まない）に広がる", () => {
+    const rows = [
+      vol("嵐", 1, ["x"]),
+      man(W1, "風", 1),
+      man(W1, "雲", 2, ["別の 著者"]),
+      vol("風", 3, ["山田 太郎"], { id: "absorbed" }),
+      man(W1, "霧", 9, ["別の 著者"]),
+    ];
+    // 絞り込みで、霧 9 は隠れている
+    const grouped = groupRows(rows.slice(0, 4), true, NONE);
+    expect(keysOf(grouped)).toEqual([rows[0]?.id, KEY1]);
+    expect(expandToBookIds([KEY1], grouped)).toEqual([rows[1]?.id, rows[2]?.id, "absorbed"]);
+    expect(expandToBookIds([KEY1, rows[0]?.id as string], grouped)).toEqual([
+      rows[0]?.id,
+      rows[1]?.id,
+      rows[2]?.id,
+      "absorbed",
+    ]);
+    expect(countBooks([KEY1], grouped)).toBe(3);
+  });
+});
+
 describe("groupSummary（グループの行に出す値）", () => {
   const ctx = { locationPaths: new Map([["loc-1", "自宅 > 書斎"]]) };
   function summaryOf(rows: ListRow[]) {

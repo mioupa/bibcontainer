@@ -174,6 +174,20 @@ describe(`${ROW_COUNT.toLocaleString("ja-JP")} 行の性能`, () => {
       grouped.bookIds.length - grouped.entries.filter((e) => e.kind === "book").length;
     expect(grouped.groups.size).toBeGreaterThan(100);
     expect(inGroups).toBeGreaterThan(ROW_COUNT * 0.15);
+    // ダミーデータは、約 2% の行が手動の作品、約 1% が「作品から外す」（0026）。手動の作品のグループも含めて測っている
+    const manualGroups = [...grouped.groups.keys()].filter((key) => key.startsWith("work:\u001f"));
+    expect(manualGroups.length).toBeGreaterThan(50);
+  });
+
+  it("巻のグループ化: 手動の指定がない行だけ（上書きのない蔵書。手動の作品の処理は走らない）", () => {
+    const plain = sortRows(
+      rows.map((row) => ({ ...row, workId: null })),
+      [{ id: "title", desc: false }],
+      sortCtx,
+    );
+    const none: ReadonlySet<string> = new Set();
+    const r = record("巻のグループ化（上書きなし）", () => groupRows(plain, true, none));
+    expect(r.min).toBeLessThan(BUDGET_MS);
   });
 
   it("巻のグループ化: 全行が新しい状態（最初の読み込み。書名・著者の正規化から）", () => {

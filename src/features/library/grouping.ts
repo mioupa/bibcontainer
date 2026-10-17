@@ -10,16 +10,36 @@
 //   著者のある作品が 2 つ以上あれば、どれに入るか決められないので、単独のまま。
 // - 2 冊以上ある作品だけをグループにする（いまの絞り込みの中で数える。1 冊だけなら、ふつうの行）。
 //
+// 本ごとの手動の指定（`ListRow.workId`。0026）は、自動の規則より先に使う。
+// - `"none"` の本は、どの作品にも入れない（ふつうの行。束にも入れない）。
+// - `"none"` でも null でもない本は、同じ ID どうしが 1 つの作品（書名や著者が違ってもよい。違う ID は、書名・著者が同じでも別の作品）。
+//   自動の規則の束には入れない。
+// - null の本は、上の自動の規則で作品に分ける（1 冊だけのものも）。その作品が、手動の作品の本と、作品名の比べ方が同じで
+//   著者が 1 人でも共通するなら、その手動の作品に入る（著者のない本は「つながり」を作らないが、作品の中にいれば一緒に入る）。
+//   つながる手動の作品が 2 つ以上なら、どれにも入らない（自動の作品のまま）。
+// 「巻をまとめる」がオフのときは、`workId` は使わない。
+//
 // 2 段に分けてある。`buildWorkLayout`（行 → 作品のまとまり。展開の状態に依らない）と、`layoutEntries`（展開の状態 → 並び）。
 // 展開の状態だけが変わったときは、後者だけをやり直せばよい（グループの計算は使い回す）。`groupRows` は 2 つを続けて呼ぶ。
 import { SORTABLE_COLUMN_IDS, sortKeyOf, type SortContext } from "@/features/library/sort";
-import { volumeLabel, volumeOrder, workInfo, type WorkInfo } from "@/features/library/works";
+import {
+  WORK_NONE,
+  volumeLabel,
+  volumeOrder,
+  workInfo,
+  type WorkInfo,
+} from "@/features/library/works";
 import { ja } from "@/i18n/ja";
 import type { ListRow } from "@/types/contracts";
 
 /** グループの key の先頭。本の ID（UUID）とは決して重ならない。 */
 export const GROUP_KEY_PREFIX = "work:";
 const KEY_SEPARATOR = "\u001f";
+
+/** 手動の作品のグループの key。自動の key は作品名の比べ方（空でない）から始まるので、重ならない。 */
+export function manualGroupKey(workId: string): string {
+  return `${GROUP_KEY_PREFIX}${KEY_SEPARATOR}${workId}`;
+}
 
 /** グループの key か（本の ID ではないか）。 */
 export function isGroupKey(key: string | null | undefined): key is string {
@@ -28,7 +48,10 @@ export function isGroupKey(key: string | null | undefined): key is string {
 
 /** 同じ作品の巻のまとまり。 */
 export interface WorkGroup {
-  /** `work:` + 作品名の比べ方 + 区切り + 著者の比べ方のうち最小のもの（なければ空）。 */
+  /**
+   * 自動の作品は `work:` + 作品名の比べ方 + 区切り + 著者の比べ方のうち最小のもの（なければ空）。
+   * 手動の作品は `work:` + 区切り + 手動の作品の ID（`manualGroupKey`）。
+   */
   key: string;
   /** 作品名（巻の表記を除いた書名。巻の順で先頭の本のもの）。 */
   baseTitle: string;
@@ -119,25 +142,51 @@ export function buildWorkLayout(rows: readonly ListRow[], enabled: boolean): Wor
     };
   }
 
-  // 1. 作品名の比べ方ごとの束（行の番号）
+  // 1. 手動の指定のない本は、作品名の比べ方ごとの束にする（行の番号）。手動の作品の本は、作品の ID ごとに集める。
+  //    "none" の本は、どちらにも入れない
   const infos: WorkInfo[] = new Array<WorkInfo>(n);
   const buckets = new Map<string, number[]>();
+  let manualRows: Map<string, number[]> | null = null;
   for (let i = 0; i < n; i++) {
-    const info = workInfo(rows[i] as ListRow);
+    const row = rows[i] as ListRow;
+    const workId = row.workId;
+    if (workId === WORK_NONE) continue;
+    const info = workInfo(row);
     infos[i] = info;
+    if (workId !== null) {
+      manualRows ??= new Map();
+      const members = manualRows.get(workId);
+      if (members === undefined) manualRows.set(workId, [i]);
+      else members.push(i);
+      continue;
+    }
     if (info.titleKey === "") continue;
     const bucket = buckets.get(info.titleKey);
     if (bucket === undefined) buckets.set(info.titleKey, [i]);
     else bucket.push(i);
   }
 
-  // 2. 束の中を、著者でつないで作品に分ける。2 冊以上の作品がグループ
+  // 手動の作品の本の、作品名の比べ方 → 作品の ID → 著者の比べ方（自動の作品が、どの手動の作品とつながるかを調べる）。
+  // 作品名か著者のない本は、つながりを作らない
+  const manualIndex = manualRows === null ? null : indexManualWorks(manualRows, infos);
+
+  // 2. 束の中を、著者でつないで作品に分ける。2 冊以上の作品がグループ。手動の作品があるときは、1 冊だけの作品も調べ、
+  //    つながる手動の作品がちょうど 1 つなら、その作品に入れる
   const groupOfRow = new Int32Array(n).fill(-1);
   const memberIndexes: number[][] = [];
   const groupKeys: string[] = [];
   for (const [titleKey, bucket] of buckets) {
-    if (bucket.length < 2) continue;
+    const linked = manualIndex?.get(titleKey);
+    if (bucket.length < 2 && linked === undefined) continue;
     for (const work of splitWorks(bucket, infos)) {
+      if (linked !== undefined) {
+        const workId = soleLinkedWork(work, infos, linked);
+        if (workId !== null) {
+          const members = (manualRows as Map<string, number[]>).get(workId);
+          if (members !== undefined) for (const index of work) members.push(index);
+          continue;
+        }
+      }
       if (work.length < 2) continue;
       const groupIndex = memberIndexes.length;
       let smallestAuthor = "";
@@ -149,6 +198,16 @@ export function buildWorkLayout(rows: readonly ListRow[], enabled: boolean): Wor
       }
       memberIndexes.push(work);
       groupKeys.push(`${GROUP_KEY_PREFIX}${titleKey}${KEY_SEPARATOR}${smallestAuthor}`);
+    }
+  }
+  // 手動の作品（自動の作品が入ったものを含む）。表示中に 2 冊以上あるものだけがグループ
+  if (manualRows !== null) {
+    for (const [workId, members] of manualRows) {
+      if (members.length < 2) continue;
+      const groupIndex = memberIndexes.length;
+      for (const index of members) groupOfRow[index] = groupIndex;
+      memberIndexes.push(members);
+      groupKeys.push(manualGroupKey(workId));
     }
   }
 
@@ -272,6 +331,54 @@ function splitWorks(bucket: readonly number[], infos: readonly WorkInfo[]): numb
   if (works.length === 1) (works[0] as number[]).push(...authorlessRows);
   else if (works.length === 0) works.push(authorlessRows);
   return works;
+}
+
+/** 手動の作品の本から、「作品名の比べ方 → 手動の作品の ID → その作品の著者の比べ方」を作る。作品名か著者のない本は入れない。 */
+function indexManualWorks(
+  manualRows: ReadonlyMap<string, readonly number[]>,
+  infos: readonly WorkInfo[],
+): Map<string, Map<string, Set<string>>> {
+  const index = new Map<string, Map<string, Set<string>>>();
+  for (const [workId, members] of manualRows) {
+    for (const row of members) {
+      const info = infos[row] as WorkInfo;
+      if (info.titleKey === "" || info.authorKeys.length === 0) continue;
+      let works = index.get(info.titleKey);
+      if (works === undefined) {
+        works = new Map<string, Set<string>>();
+        index.set(info.titleKey, works);
+      }
+      let authors = works.get(workId);
+      if (authors === undefined) {
+        authors = new Set<string>();
+        works.set(workId, authors);
+      }
+      for (const key of info.authorKeys) authors.add(key);
+    }
+  }
+  return index;
+}
+
+/**
+ * 自動の作品（行の番号。作品名の比べ方は全員同じ）とつながる手動の作品の ID。つながるのは、作品の中の著者のある本が、
+ * 手動の作品の本と著者を 1 人でも共有するとき。ちょうど 1 つならその ID、0 または 2 つ以上なら null。
+ */
+function soleLinkedWork(
+  work: readonly number[],
+  infos: readonly WorkInfo[],
+  linked: ReadonlyMap<string, ReadonlySet<string>>,
+): string | null {
+  let found: string | null = null;
+  for (const index of work) {
+    const keys = (infos[index] as WorkInfo).authorKeys;
+    if (keys.length === 0) continue;
+    for (const [workId, authors] of linked) {
+      if (workId === found || !keys.some((key) => authors.has(key))) continue;
+      if (found !== null) return null;
+      found = workId;
+    }
+  }
+  return found;
 }
 
 /** 作品のまとまりと展開の状態から、表示する並びを作る。展開したグループは、グループの行のあとに本の行（`level: 2`）が続く。 */

@@ -88,6 +88,12 @@ export const toast = {
   purged: (count: number) => `${n(count)} 冊を完全に削除しました`,
   bulkChanged: (count: number) => `${n(count)} 冊を変更しました`,
   nothingChanged: "変更する本はありませんでした",
+  // 作品の手動のまとめ・外し（0026）。まとめるの冊数は対象の本の数、外す・戻すの冊数は変わった本の数
+  worksMerged: (count: number) => `${n(count)} 冊を 1 つの作品にまとめました`,
+  worksExcluded: (count: number) => `${n(count)} 冊を作品から外しました`,
+  worksReset: (count: number) => `${n(count)} 冊を自動の判定に戻しました`,
+  /** モックの「1 つの作品にまとめる」で、対象が 2 冊に満たないとき（Rust の検証と同じ文言）。 */
+  worksNeedTwo: "2 冊以上を選んでください",
   exported: (count: number) => `${n(count)} 冊を書き出しました`,
   /** ブラウザで開いた確認用の画面（Tauri の外）では、ファイルを書き出せない。 */
   exportUnavailable: "この画面では、ファイルへ書き出せません",

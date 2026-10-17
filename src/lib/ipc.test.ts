@@ -79,6 +79,13 @@ describe("ipc", () => {
       ]);
     });
 
+    it("作品のまとめ（0026）: merge_works に ids を渡し、結果をそのまま返す", async () => {
+      const result = { workId: "w1", changed: ["b1", "b2"] };
+      invoke.mockResolvedValue(result);
+      await expect(ipc.mergeWorks(["b1", "b2"])).resolves.toEqual(result);
+      expect(invoke).toHaveBeenCalledExactlyOnceWith("merge_works", { ids: ["b1", "b2"] });
+    });
+
     it("保管場所・タグ・シリーズ", async () => {
       await ipc.createLocation("書斎");
       await ipc.moveLocation("l1", null);

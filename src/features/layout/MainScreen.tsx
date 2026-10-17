@@ -6,7 +6,7 @@
 //   スキャン登録・設定 … useScreenStore（画面の切り替えは App.tsx。⌘N・⇧⌘N・⌘, のショートカットも App が受ける）
 //   巻をまとめた表示（FR-LIST-08）… useGroupedList。選択はグループの key も含み、操作の対象にするときに本の ID にする
 //   検索欄の ISBN（FR-SCAN-09）・メイン画面でのスキャン（FR-SCAN-10）… 登録済みなら選ぶ、未登録ならスキャン登録へ引き渡す
-//   一括変更・再取得・書き出し（選んだ本・表示中の絞り込み結果）・ゴミ箱 … useLibraryActions
+//   一括変更・再取得・書き出し（選んだ本・表示中の絞り込み結果）・ゴミ箱・作品の手動のまとめ・外し（0026）… useLibraryActions
 import { DownloadIcon } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -30,6 +30,7 @@ import { countBooks } from "@/features/library/grouping";
 import { resolveIsbnSearch } from "@/features/library/isbnSearch";
 import { useGroupedList } from "@/features/library/useGroupedList";
 import { useLibraryView } from "@/features/library/useLibraryView";
+import { WORK_NONE } from "@/features/library/works";
 import { BookGrid } from "@/features/list/BookGrid";
 import { BookTable } from "@/features/list/BookTable";
 import { BulkEditDialog, type BulkDialogState } from "@/features/list/BulkEditDialog";
@@ -118,6 +119,15 @@ export function MainScreen() {
           break;
         case "markPurchased":
           void actions.markPurchased(ids);
+          break;
+        case "mergeWorks":
+          void actions.mergeWorks(ids);
+          break;
+        case "excludeFromWorks":
+          void actions.setWork(ids, WORK_NONE);
+          break;
+        case "resetWorks":
+          void actions.setWork(ids, null);
           break;
       }
     },

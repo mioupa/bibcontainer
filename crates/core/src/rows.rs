@@ -42,6 +42,9 @@ pub struct ListRow {
     pub volume_sort: Option<f64>,
     pub series_id: Option<String>,
     pub series_name: Option<String>,
+    /// 作品の手動の指定。null は自動（書名と著者から決める）、`"none"` は作品に入れない、
+    /// それ以外は手動でまとめた作品の ID（同じ ID の本が 1 つの作品になる）。
+    pub work_id: Option<String>,
     pub authors: Vec<Author>,
     pub publisher: Option<String>,
     /// `YYYY` / `YYYY-MM` / `YYYY-MM-DD`。
@@ -91,6 +94,8 @@ pub struct BookDetail {
     pub series_id: Option<String>,
     pub volume: Option<String>,
     pub volume_sort: Option<f64>,
+    /// 作品の手動の指定（`ListRow::work_id` と同じ）。
+    pub work_id: Option<String>,
     pub authors: Vec<Author>,
     pub publisher: Option<String>,
     pub published_on: Option<String>,
@@ -211,7 +216,7 @@ impl<'r, 'stmt> Cursor<'r, 'stmt> {
 
 const LIST_SELECT: &str =
     "SELECT b.id, b.isbn13, b.title, b.title_kana, b.subtitle, b.volume, b.volume_sort,
-        b.series_id, s.name, b.authors_json, b.publisher, b.published_on, b.c_code, b.ndc,
+        b.series_id, s.name, b.work_id, b.authors_json, b.publisher, b.published_on, b.c_code, b.ndc,
         b.list_price, b.pages, b.ownership, b.wish_priority, b.location_id, b.tags_json,
         b.read_status, b.read_finished_on, b.rating, b.purchased_on, b.purchase_price,
         b.purchase_store, b.cover_hash, b.meta_status, b.deleted, b.created_at,
@@ -232,6 +237,7 @@ fn list_row(row: &Row<'_>) -> rusqlite::Result<ListRow> {
     let volume_sort = c.get()?;
     let series_id = c.get()?;
     let series_name = c.get()?;
+    let work_id = c.get()?;
     let authors = parse_authors(&c.get::<String>()?);
     let publisher = c.get()?;
     let published_on = c.get()?;
@@ -269,6 +275,7 @@ fn list_row(row: &Row<'_>) -> rusqlite::Result<ListRow> {
         volume_sort,
         series_id,
         series_name,
+        work_id,
         authors,
         publisher,
         published_on,
@@ -336,7 +343,7 @@ pub fn get_rows(conn: &Connection, ids: &[String]) -> Result<Vec<ListRow>> {
 }
 
 const DETAIL_SELECT: &str =
-    "SELECT id, isbn13, title, title_kana, subtitle, series_id, volume, volume_sort,
+    "SELECT id, isbn13, title, title_kana, subtitle, series_id, volume, volume_sort, work_id,
         authors_json, publisher, published_on, c_code, ndc, list_price, ref_price_incl, pages,
         size_text, language, description, cover_hash, ownership, wish_priority, location_id,
         tags_json, read_status, read_started_on, read_finished_on, rating, review, purchased_on,
@@ -354,6 +361,7 @@ fn detail_row(row: &Row<'_>) -> rusqlite::Result<BookDetail> {
     let series_id = c.get()?;
     let volume = c.get()?;
     let volume_sort = c.get()?;
+    let work_id = c.get()?;
     let authors = parse_authors(&c.get::<String>()?);
     let publisher = c.get()?;
     let published_on = c.get()?;
@@ -397,6 +405,7 @@ fn detail_row(row: &Row<'_>) -> rusqlite::Result<BookDetail> {
         series_id,
         volume,
         volume_sort,
+        work_id,
         authors,
         publisher,
         published_on,

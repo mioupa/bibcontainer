@@ -7,6 +7,7 @@ import type { CCodeTable as CCodeTableBinding } from "@/bindings/CCodeTable";
 import type { ChangeReport } from "@/bindings/ChangeReport";
 import type { FetchMetadataResult } from "@/bindings/FetchMetadataResult";
 import type { IsbnMatch } from "@/bindings/IsbnMatch";
+import type { MergeWorksResult } from "@/bindings/MergeWorksResult";
 import type { MetaSecondTier } from "@/bindings/MetaSecondTier";
 import type { PriceSettings } from "@/bindings/PriceSettings";
 import type { RefetchSummary } from "@/bindings/RefetchSummary";
@@ -63,6 +64,11 @@ export interface LibraryApi {
   purgeBooks: (ids: string[]) => Promise<string[]>;
   /** 読書状況・所有状態など、1 項目を手入力として複数の本に書く。変えた本の ID を返す。 */
   setBooksField: (ids: string[], field: string, value: unknown) => Promise<string[]>;
+  /**
+   * 選んだ本（と、その本が入っている手動の作品の全巻）を、1 つの手動の作品にまとめる（0026）。
+   * 2 冊に満たなければ、検証のエラーで拒否する。作品から外す・自動に戻すは、`setBooksField(ids, "work_id", …)`。
+   */
+  mergeWorks: (ids: string[]) => Promise<MergeWorksResult>;
 
   // ---- 詳細・登録・編集（features/editor、features/detail） ----
   getBookDetail: (id: string) => Promise<BookDetail>;
@@ -117,6 +123,7 @@ const ipcApi: LibraryApi = {
     const reports = await ipc.updateBooks(ids, [{ field, value, origin: { kind: "manual" } }]);
     return reports.filter((report) => report.written.length > 0).map((report) => report.id);
   },
+  mergeWorks: ipc.mergeWorks,
   getBookDetail: ipc.getBookDetail,
   updateBook: ipc.updateBook,
   modifyTags: ipc.modifyTags,
@@ -150,6 +157,7 @@ const mockApi: LibraryApi = {
   restoreBooks: mockBackend.restoreBooks,
   purgeBooks: mockBackend.purgeBooks,
   setBooksField: mockBackend.setBooksField,
+  mergeWorks: mockBackend.mergeWorks,
   getBookDetail: mockBackend.getBookDetail,
   updateBook: mockBackend.updateBook,
   modifyTags: mockBackend.modifyTags,
@@ -185,6 +193,7 @@ export const libraryApi: LibraryApi = {
   restoreBooks: (ids) => backend().restoreBooks(ids),
   purgeBooks: (ids) => backend().purgeBooks(ids),
   setBooksField: (ids, field, value) => backend().setBooksField(ids, field, value),
+  mergeWorks: (ids) => backend().mergeWorks(ids),
   getBookDetail: (id) => backend().getBookDetail(id),
   updateBook: (id, changes, options) => backend().updateBook(id, changes, options),
   modifyTags: (ids, add, remove) => backend().modifyTags(ids, add, remove),

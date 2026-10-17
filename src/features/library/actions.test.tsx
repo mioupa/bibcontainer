@@ -9,6 +9,7 @@ import type { RefetchSummary } from "@/bindings/RefetchSummary";
 import { ja } from "@/i18n/ja";
 import { chooseSavePath } from "@/lib/dialog";
 import { IpcError, ipc } from "@/lib/ipc";
+import { useSelectionStore } from "@/stores/selectionStore";
 
 const toast = vi.hoisted(() =>
   Object.assign(vi.fn(), { success: vi.fn(), info: vi.fn(), error: vi.fn() }),
@@ -21,6 +22,7 @@ vi.mock("@/features/library/api", () => ({
     restoreBooks: vi.fn(),
     purgeBooks: vi.fn(),
     setBooksField: vi.fn(),
+    mergeWorks: vi.fn(),
     modifyTags: vi.fn(),
     refetchBooks: vi.fn(),
     getRows: vi.fn().mockResolvedValue([]),
@@ -149,6 +151,89 @@ describe("useLibraryActions", () => {
     await setup().markPurchased(["w"]);
     expect(api.setBooksField).toHaveBeenCalledWith(["w"], "ownership", "owned");
     expect(toast.success).toHaveBeenCalledWith(ja.toast.purchased(1));
+  });
+
+  // 作品の手動のまとめ・外し・自動に戻す（0026）
+  describe("作品のまとめ・外し", () => {
+    beforeEach(() => {
+      useSelectionStore.getState().clear();
+    });
+
+    it("まとめると、merge_works に対象の本を渡し、対象の冊数を通知する。できた作品の行を選ぶ予約をする", async () => {
+      api.mergeWorks.mockResolvedValue({ workId: "w-1", changed: ["b"] });
+      await setup().mergeWorks(["a", "b", "c"]);
+      expect(api.mergeWorks).toHaveBeenCalledWith(["a", "b", "c"]);
+      expect(toast.success).toHaveBeenCalledWith(ja.toast.worksMerged(3));
+      const pending = useSelectionStore.getState().pendingWork;
+      expect(pending).toMatchObject({
+        workId: "w-1",
+        bookIds: ["a", "b", "c"],
+        groupKey: "work:\u001fw-1",
+      });
+      expect(pending?.expiresAt).toBeGreaterThan(Date.now());
+    });
+
+    it("まとめても書き換える本がなければ、その旨を通知する（作品の行は選ぶ）", async () => {
+      api.mergeWorks.mockResolvedValue({ workId: "w-1", changed: [] });
+      await setup().mergeWorks(["a", "b"]);
+      expect(toast.info).toHaveBeenCalledWith(ja.toast.nothingChanged);
+      expect(toast.success).not.toHaveBeenCalled();
+      expect(useSelectionStore.getState().pendingWork).not.toBeNull();
+    });
+
+    it("まとめるのに失敗したら、Rust が用意した理由を通知する。選ぶ予約はしない", async () => {
+      api.mergeWorks.mockRejectedValue(
+        new IpcError({ kind: "validation", message: "2 冊以上を選んでください" }),
+      );
+      await setup().mergeWorks(["a"]);
+      expect(toast.error).toHaveBeenCalledWith("2 冊以上を選んでください");
+      expect(useSelectionStore.getState().pendingWork).toBeNull();
+    });
+
+    it("外すと、work_id に none を書き、変わった冊数を通知する。対象の本を選ぶ予約をする", async () => {
+      api.setBooksField.mockResolvedValue(["a"]);
+      await setup().setWork(["a", "b"], "none");
+      expect(api.setBooksField).toHaveBeenCalledWith(["a", "b"], "work_id", "none");
+      expect(toast.success).toHaveBeenCalledWith(ja.toast.worksExcluded(1));
+      expect(useSelectionStore.getState().pendingWork).toMatchObject({
+        workId: "none",
+        bookIds: ["a", "b"],
+        groupKey: null,
+      });
+    });
+
+    it("自動に戻すと、work_id に null を書き、変わった冊数を通知する", async () => {
+      api.setBooksField.mockResolvedValue(["a", "b"]);
+      await setup().setWork(["a", "b"], null);
+      expect(api.setBooksField).toHaveBeenCalledWith(["a", "b"], "work_id", null);
+      expect(toast.success).toHaveBeenCalledWith(ja.toast.worksReset(2));
+      expect(useSelectionStore.getState().pendingWork).toMatchObject({
+        workId: null,
+        bookIds: ["a", "b"],
+      });
+    });
+
+    it("変わった本がなければ、その旨を通知する（選択には触らない）。失敗したら理由を通知する", async () => {
+      api.setBooksField.mockResolvedValueOnce([]);
+      api.setBooksField.mockRejectedValueOnce(new IpcError({ kind: "io", message: "書けません" }));
+      const actions = setup();
+      await actions.setWork(["a"], "none");
+      expect(toast.info).toHaveBeenCalledWith(ja.toast.nothingChanged);
+      expect(useSelectionStore.getState().pendingWork).toBeNull();
+      await actions.setWork(["a"], null);
+      expect(toast.error).toHaveBeenCalledWith("書けません");
+    });
+
+    it("モック（Tauri の外）では、変えた本の行を自分で取り直す。まとめるときは、書き換えた本（対象とは限らない）を取り直す", async () => {
+      mock.value = true;
+      api.mergeWorks.mockResolvedValue({ workId: "w-1", changed: ["a", "z"] });
+      api.setBooksField.mockResolvedValue(["b"]);
+      const actions = setup();
+      await actions.mergeWorks(["a", "b"]);
+      expect(api.getRows).toHaveBeenLastCalledWith(["a", "z"]);
+      await actions.setWork(["b"], "none");
+      expect(api.getRows).toHaveBeenLastCalledWith(["b"]);
+    });
   });
 
   describe("書誌の再取得（FR-META-13）", () => {

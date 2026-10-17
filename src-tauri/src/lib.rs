@@ -81,6 +81,7 @@ pub fn run() {
             commands::books::update_book,
             commands::books::update_books,
             commands::books::modify_tags,
+            commands::books::merge_works,
             commands::books::trash_books,
             commands::books::restore_books,
             commands::books::purge_books,

@@ -1,13 +1,17 @@
 // バックエンドの代わりに、ダミーのデータを返す（Tauri の外で `pnpm dev` をブラウザで開いたとき用）。
 // 呼び出しは src/features/library/api.ts が、Tauri の外のときだけここへ振り分ける。
-// ゴミ箱への移動・復元・完全削除と 1 項目の一括変更は、メモリ上の行を書き換えるだけ（再読み込みで元に戻る）。
+// ゴミ箱への移動・復元・完全削除・1 項目の一括変更・作品のまとめ（mergeWorks）は、メモリ上の行を書き換えるだけ（再読み込みで元に戻る）。
 import { PROVISIONAL_C_CODE_TABLE } from "@/data/cCodeTable";
 import { MOCK_LOCATIONS, generateMockRows, normalizeSortKey } from "@/dev/mockRows";
 import type { ChangeReport } from "@/bindings/ChangeReport";
 import type { IsbnMatch } from "@/bindings/IsbnMatch";
+import type { MergeWorksResult } from "@/bindings/MergeWorksResult";
 import type { SeriesInfo } from "@/bindings/SeriesInfo";
 import type { StoreCount } from "@/bindings/StoreCount";
 import type { TagInfo } from "@/bindings/TagInfo";
+import { WORK_NONE } from "@/features/library/works";
+import { ja } from "@/i18n/ja";
+import { IpcError } from "@/lib/ipc";
 import type {
   BookDetail,
   CCodeTable,
@@ -97,6 +101,7 @@ function detailOf(row: ListRow): BookDetail {
     seriesId: row.seriesId,
     volume: row.volume,
     volumeSort: row.volumeSort,
+    workId: row.workId,
     authors: row.authors,
     publisher: row.publisher,
     publishedOn: row.publishedOn,
@@ -193,6 +198,7 @@ export const mockBackend = {
         volumeSort: null,
         seriesId: null,
         seriesName: draft.seriesName?.name ?? null,
+        workId: null,
         authors: [],
         publisher: null,
         publishedOn: null,
@@ -268,6 +274,49 @@ export const mockBackend = {
           : row,
       ),
     );
+  },
+  /**
+   * 選んだ本を 1 つの手動の作品にまとめる（Rust の `merge_works` と同じ規則。0026 §3）。対象は重複を除く。2 冊未満は検証のエラー。
+   * 対象が入っている手動の作品があれば、その全巻（ゴミ箱の本を含む）も同じ作品にし、作品の ID は、冊数がいちばん多いもの
+   * （同数なら文字列として小さいもの）。なければ新しい ID。
+   */
+  mergeWorks: (ids: string[]): Promise<MergeWorksResult> => {
+    const byId = new Map(rows().map((row) => [row.id, row]));
+    const targets = [...new Set(ids)].filter((id) => byId.has(id));
+    if (targets.length < 2) {
+      return Promise.reject(new IpcError({ kind: "validation", message: ja.toast.worksNeedTwo }));
+    }
+    const existing = new Set<string>();
+    for (const id of targets) {
+      const workId = (byId.get(id) as ListRow).workId;
+      if (workId !== null && workId !== WORK_NONE) existing.add(workId);
+    }
+    const counts = new Map<string, number>();
+    const rest: string[] = [];
+    const targetSet = new Set(targets);
+    for (const row of rows()) {
+      if (row.workId === null || !existing.has(row.workId)) continue;
+      counts.set(row.workId, (counts.get(row.workId) ?? 0) + 1);
+      if (!targetSet.has(row.id)) rest.push(row.id);
+    }
+    let chosen: string | null = null;
+    for (const [workId, count] of counts) {
+      const best = chosen === null ? 0 : (counts.get(chosen) as number);
+      if (chosen === null || count > best || (count === best && workId < chosen)) chosen = workId;
+    }
+    if (chosen === null) {
+      createdCount += 1;
+      chosen = `mock-work-${Date.now()}-${createdCount}`;
+    }
+    const workId = chosen;
+    const changedIds = new Set(
+      updateRows([...targets, ...rest], (row) =>
+        row.workId === workId ? row : { ...row, workId },
+      ),
+    );
+    // 選んだ本を渡した順に、続けて、同じ作品の残りを ID 順に（Rust と同じ並び）
+    const changed = [...targets, ...rest.sort()].filter((id) => changedIds.has(id));
+    return Promise.resolve({ workId, changed });
   },
   cCodeTable: (): Promise<CCodeTable> => Promise.resolve(PROVISIONAL_C_CODE_TABLE),
   /** 空白で区切った語をすべて含む本の ID を返す。本物の検索は Rust の FTS5（IPC の search_books）。 */

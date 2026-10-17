@@ -14,12 +14,17 @@ use common::*;
 
 const DEVICES: [&str; 3] = [DEV_A, DEV_B, DEV_C];
 
+/// 手動でまとめた作品の ID（`work_id` の値）。
+const WORK_1: &str = "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0d01";
+const WORK_2: &str = "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0d02";
+
 const BOOK_FIELDS: &[&str] = &[
     "title",
     "rating",
     "deleted",
     "authors",
     "volume_sort",
+    "work_id",
     "memo",
     "created_at",
     "zz_unknown_1",
@@ -94,6 +99,13 @@ fn value_for(field: &'static str) -> BoxedStrategy<Value> {
         ]
         .boxed(),
         "volume_sort" => prop_oneof![Just(json!(1)), Just(json!(1.5)), Just(json!(10.0))].boxed(),
+        // 作品の手動の指定: 作品から外す（none）、手動の作品の ID。null は下の 1 => で混ぜる。
+        "work_id" => prop_oneof![
+            Just(json!("none")),
+            Just(json!(WORK_1)),
+            Just(json!(WORK_2))
+        ]
+        .boxed(),
         _ => prop_oneof![
             Just(json!(1)),
             Just(json!("x")),

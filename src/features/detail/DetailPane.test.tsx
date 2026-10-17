@@ -164,6 +164,9 @@ describe("DetailPane（FR-LIST-06）", () => {
     seriesId: { label: ja.detail.fields.series }, // 名前（seriesName）で出す
     volume: { label: ja.detail.fields.volume },
     volumeSort: { hidden: "並べ替え用の内部の値" },
+    workId: {
+      hidden: "作品の手動の指定（一覧の巻のまとめ方に使う。詳細ペインには出さない。0026）",
+    },
     authors: { hidden: "見出しの下に出す" },
     publisher: { label: ja.detail.fields.publisher },
     publishedOn: { label: ja.detail.fields.publishedOn },

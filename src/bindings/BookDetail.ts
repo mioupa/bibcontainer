@@ -4,7 +4,11 @@ import type { Author } from "./Author";
 /**
  * 書籍 1 冊の詳細。同期する全項目と、項目ごとの取得元・手修正の記録。
  */
-export type BookDetail = { id: string, isbn13: string | null, title: string, titleKana: string | null, subtitle: string | null, seriesId: string | null, volume: string | null, volumeSort: number | null, authors: Array<Author>, publisher: string | null, publishedOn: string | null, cCode: string | null, ndc: string | null, listPrice: number | null, 
+export type BookDetail = { id: string, isbn13: string | null, title: string, titleKana: string | null, subtitle: string | null, seriesId: string | null, volume: string | null, volumeSort: number | null, 
+/**
+ * 作品の手動の指定（`ListRow::work_id` と同じ）。
+ */
+workId: string | null, authors: Array<Author>, publisher: string | null, publishedOn: string | null, cCode: string | null, ndc: string | null, listPrice: number | null, 
 /**
  * 参考の税込価格（楽天など）。
  */

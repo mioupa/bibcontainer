@@ -69,6 +69,7 @@ impl Harness {
                 super::books::update_book,
                 super::books::update_books,
                 super::books::modify_tags,
+                super::books::merge_works,
                 super::books::trash_books,
                 super::books::restore_books,
                 super::books::purge_books,
@@ -339,6 +340,116 @@ fn bulk_tag_changes_announce_the_changed_books() {
         h.take_events(),
         [json!({ "books": [a, b], "others": true })]
     );
+}
+
+#[test]
+fn merging_works_announces_exactly_the_changed_books() {
+    let h = Harness::new();
+    let a = create(&h, vec![manual("title", json!("A"))]);
+    let b = create(&h, vec![manual("title", json!("B"))]);
+    let c = create(&h, vec![manual("title", json!("C"))]);
+    h.take_events();
+
+    let merged = h.ok("merge_works", json!({ "ids": [a, b] }));
+    let work_id = merged["workId"].as_str().unwrap().to_owned();
+    assert_eq!(merged["changed"], json!([a, b]));
+    assert_eq!(
+        h.take_events(),
+        [json!({ "books": [a, b], "others": false })],
+        "書き換えた本だけを、タグ・シリーズの取り直しなしで通知する"
+    );
+    let rows = h.ok("get_rows", json!({ "ids": [a, c] }));
+    assert_eq!(rows[0]["workId"], json!(work_id));
+    assert_eq!(rows[1]["workId"], json!(null));
+    assert_eq!(
+        h.ok("get_book_detail", json!({ "id": b }))["workId"],
+        json!(work_id)
+    );
+
+    // 既にある作品に入れる: まだ入っていない本だけ書いて、通知する
+    let again = h.ok("merge_works", json!({ "ids": [c, a] }));
+    assert_eq!(again["workId"], json!(work_id));
+    assert_eq!(again["changed"], json!([c]));
+    assert_eq!(h.take_events(), [json!({ "books": [c], "others": false })]);
+
+    // 何も変わらないときは、通知しない
+    let same = h.ok("merge_works", json!({ "ids": [a, b, c] }));
+    assert_eq!(same, json!({ "workId": work_id, "changed": [] }));
+    assert!(h.take_events().is_empty());
+
+    // 1 冊だけ・存在しない本は、エラー（何も書かない）
+    assert_eq!(
+        h.err_kind("merge_works", json!({ "ids": [a] })),
+        "validation"
+    );
+    assert_eq!(
+        h.err_kind("merge_works", json!({ "ids": [a, a] })),
+        "validation"
+    );
+    assert_eq!(
+        h.err_kind(
+            "merge_works",
+            json!({ "ids": [a, "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0aff"] })
+        ),
+        "not_found"
+    );
+    assert!(h.take_events().is_empty());
+}
+
+#[test]
+fn setting_a_works_field_with_update_books_is_announced_without_the_other_lists() {
+    let h = Harness::new();
+    let a = create(&h, vec![manual("title", json!("A"))]);
+    let b = create(&h, vec![manual("title", json!("B"))]);
+    h.take_events();
+
+    // 作品から外す
+    let report = h.ok(
+        "update_books",
+        json!({ "ids": [a, b], "changes": [manual("work_id", json!("none"))] }),
+    );
+    assert_eq!(report[0]["written"], json!(["work_id"]));
+    assert_eq!(
+        h.take_events(),
+        [json!({ "books": [a, b], "others": false })]
+    );
+    assert_eq!(
+        h.ok("get_book_detail", json!({ "id": a }))["workId"],
+        json!("none")
+    );
+    // 取得元・手修正の記録は付かない
+    let detail = h.ok("get_book_detail", json!({ "id": a }));
+    assert!(detail["fieldSources"].get("work_id").is_none());
+    assert!(!detail["manualFields"].to_string().contains("work_id"));
+
+    // 同じ値は書かない・通知しない
+    let report = h.ok(
+        "update_books",
+        json!({ "ids": [a], "changes": [manual("work_id", json!("none"))] }),
+    );
+    assert_eq!(report[0]["written"], json!([]));
+    assert!(h.take_events().is_empty());
+
+    // 自動に戻す（null）
+    h.ok(
+        "update_books",
+        json!({ "ids": [a], "changes": [manual("work_id", json!(null))] }),
+    );
+    assert_eq!(h.take_events(), [json!({ "books": [a], "others": false })]);
+    assert_eq!(
+        h.ok("get_rows", json!({ "ids": [a] }))[0]["workId"],
+        json!(null)
+    );
+
+    // 書式が正しくない値は、検証エラー
+    assert_eq!(
+        h.err_kind(
+            "update_books",
+            json!({ "ids": [a], "changes": [manual("work_id", json!("abc"))] })
+        ),
+        "validation"
+    );
+    assert!(h.take_events().is_empty());
 }
 
 #[test]

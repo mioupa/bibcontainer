@@ -19,6 +19,7 @@ use crate::dump::dump_canonical;
 use crate::error::{Error, Result};
 use crate::hlc::{Clock, ms_to_iso8601};
 use crate::library::location::LocationIndex;
+use crate::library::works::WORK_NONE;
 use crate::meta;
 use crate::migrate::user_version;
 use crate::rows::{BookDetail, all_details, details_for};
@@ -74,6 +75,9 @@ const META_JA: &[(&str, &str)] = &[
     ("failed", "取得失敗"),
 ];
 
+/// 作品の手動の指定が「作品に入れない」（`work_id = "none"`）のときの CSV の値。
+const WORK_NONE_JA: &str = "まとめない";
+
 /// CSV の列（ヘッダー、値の取り出し方）。並びがそのまま CSV の列の並び。
 const COLUMNS: &[Column] = &[
     ("ID", |b, _| b.id.clone()),
@@ -90,6 +94,10 @@ const COLUMNS: &[Column] = &[
     }),
     ("巻次", |b, _| opt(&b.volume)),
     ("巻次（並べ替え用）", |b, _| num(&b.volume_sort)),
+    ("作品（手動）", |b, _| match b.work_id.as_deref() {
+        Some(WORK_NONE) => WORK_NONE_JA.to_owned(),
+        other => other.unwrap_or_default().to_owned(),
+    }),
     ("著者", |b, _| {
         b.authors
             .iter()

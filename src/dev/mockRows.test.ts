@@ -42,7 +42,8 @@ describe("ダミーデータ", () => {
   });
 
   it("約 25% の行は、同じ作品の巻（FR-LIST-08）: 同じ書名・著者・出版社で、巻が 1〜n（n は 2〜40）", () => {
-    const rows = generateMockRows(20_000);
+    // 作品の手動の指定（0026）は外して、自動の判定だけで見る（手動の作品は、別々の作品の本を混ぜる）
+    const rows = generateMockRows(20_000).map((row) => ({ ...row, workId: null }));
     const grouped = groupRows(rows, true, new Set());
     const share = grouped.groupOfBook.size / rows.length;
     expect(share).toBeGreaterThan(0.15);
@@ -84,6 +85,38 @@ describe("ダミーデータ", () => {
     }
     expect(inTitle / (withVolume + inTitle)).toBeGreaterThan(0.04);
     expect(inTitle / (withVolume + inTitle)).toBeLessThan(0.2);
+  });
+
+  it("約 2% の行は手動の作品（2〜5 冊ずつ）、約 1% の行は作品から外した本（0026）。ほかは自動", () => {
+    const rows = generateMockRows(20_000);
+    const none = rows.filter((row) => row.workId === "none");
+    const manual = rows.filter((row) => row.workId !== null && row.workId !== "none");
+    expect(none.length / rows.length).toBeCloseTo(0.01, 2);
+    expect(manual.length / rows.length).toBeGreaterThan(0.015);
+    expect(manual.length / rows.length).toBeLessThan(0.03);
+
+    const sizes = new Map<string, number>();
+    for (const row of manual)
+      sizes.set(row.workId as string, (sizes.get(row.workId as string) ?? 0) + 1);
+    expect(sizes.size).toBeGreaterThan(50);
+    for (const size of sizes.values()) {
+      expect(size).toBeGreaterThanOrEqual(2);
+      expect(size).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it("上書きは、まとめた結果に現れる: 手動の作品のグループができ、別の作品の巻を含むものもある", () => {
+    const rows = generateMockRows(20_000);
+    const grouped = groupRows(rows, true, new Set());
+    const manualGroups = [...grouped.groups.values()].filter((g) =>
+      g.key.startsWith("work:\u001f"),
+    );
+    expect(manualGroups.length).toBeGreaterThan(50);
+    // "none" の本は、どのグループにも入らない
+    for (const row of rows)
+      if (row.workId === "none") expect(grouped.groupOfBook.has(row.id)).toBe(false);
+    // 書名が 1 つに揃わない手動の作品がある（別の作品の本を混ぜている）
+    expect(manualGroups.some((g) => new Set(g.members.map((m) => m.title)).size > 1)).toBe(true);
   });
 
   it("並べ替えキーは NFKC・小文字・ひらがなに正規化する", () => {

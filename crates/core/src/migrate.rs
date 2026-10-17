@@ -35,6 +35,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "field_clocks_without_rowid",
         sql: include_str!("../migrations/0003_field_clocks_without_rowid.sql"),
     },
+    Migration {
+        version: 4,
+        name: "book_work",
+        sql: include_str!("../migrations/0004_book_work.sql"),
+    },
 ];
 
 /// アプリが知る最新のスキーマ版。

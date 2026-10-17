@@ -214,6 +214,7 @@ const BOOK_FIELDS: &[FieldDef] = &[
     nullable("series_id", Text),
     nullable("volume", Text),
     nullable("volume_sort", Real),
+    nullable("work_id", Text),
     column(required("authors", Json, Txt("[]")), "authors_json"),
     nullable("publisher", Text),
     nullable("published_on", Text),

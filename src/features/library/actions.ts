@@ -8,12 +8,18 @@ import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { applyLibraryChange } from "@/features/library/sync";
 import { libraryApi, usingMockData } from "@/features/library/api";
+import { manualGroupKey } from "@/features/library/grouping";
 import { describeRefetch } from "@/features/library/refetch";
+import type { WORK_NONE } from "@/features/library/works";
 import type { BulkChange } from "@/features/list/bulk";
 import { ja } from "@/i18n/ja";
 import { chooseSavePath } from "@/lib/dialog";
 import { errorMessage } from "@/lib/errors";
 import { ipc } from "@/lib/ipc";
+import { useSelectionStore } from "@/stores/selectionStore";
+
+/** 作品の操作のあとの選択を、一覧の行の更新が届くまで待つ時間の上限（過ぎたら、選ばずに捨てる）。 */
+const PENDING_WORK_MS = 10_000;
 
 /** `YYYYMMDD`（ローカルの日付）。書き出しの既定のファイル名に使う。 */
 export function dateStamp(date: Date = new Date()): string {
@@ -36,6 +42,13 @@ export interface LibraryActions {
   bulk: (change: BulkChange, ids: string[]) => Promise<void>;
   /** 欲しい本を購入済み（所有）にする。購入日が空なら、コアが今日の日付を入れる（FR-WISH-01）。 */
   markPurchased: (ids: string[]) => Promise<void>;
+  /**
+   * 選んだ本を 1 つの作品にまとめる（0026）。そのあと、一覧の行が更新されたら、できた作品の行を選ぶ
+   * （絞り込みで作品が 1 冊になるなら、対象の本を選ぶ）。
+   */
+  mergeWorks: (ids: string[]) => Promise<void>;
+  /** 作品から外す（`"none"`）か、自動に戻す（null）。そのあと、対象の本を選ぶ。 */
+  setWork: (ids: string[], value: typeof WORK_NONE | null) => Promise<void>;
   /** 書誌を再取得する。`overrideManual` が false なら、手で直した項目は上書きしない（AT-16）。 */
   refetch: (ids: string[], overrideManual: boolean) => Promise<void>;
 }
@@ -165,6 +178,53 @@ export function useLibraryActions(): LibraryActions {
     [refreshIfMock],
   );
 
+  const mergeWorks = useCallback(
+    async (ids: string[]) => {
+      try {
+        const { workId, changed } = await libraryApi.mergeWorks(ids);
+        await refreshIfMock(changed);
+        if (changed.length === 0) toast.info(ja.toast.nothingChanged);
+        else toast.success(ja.toast.worksMerged(ids.length));
+        useSelectionStore.getState().setPendingWork({
+          workId,
+          bookIds: ids,
+          groupKey: manualGroupKey(workId),
+          expiresAt: Date.now() + PENDING_WORK_MS,
+        });
+      } catch (error) {
+        toast.error(errorMessage(error));
+      }
+    },
+    [refreshIfMock],
+  );
+
+  const setWork = useCallback(
+    async (ids: string[], value: typeof WORK_NONE | null) => {
+      try {
+        const changed = await libraryApi.setBooksField(ids, "work_id", value);
+        await refreshIfMock(changed);
+        if (changed.length === 0) {
+          toast.info(ja.toast.nothingChanged);
+          return;
+        }
+        toast.success(
+          value === null
+            ? ja.toast.worksReset(changed.length)
+            : ja.toast.worksExcluded(changed.length),
+        );
+        useSelectionStore.getState().setPendingWork({
+          workId: value,
+          bookIds: ids,
+          groupKey: null,
+          expiresAt: Date.now() + PENDING_WORK_MS,
+        });
+      } catch (error) {
+        toast.error(errorMessage(error));
+      }
+    },
+    [refreshIfMock],
+  );
+
   const refetch = useCallback(async (ids: string[], overrideManual: boolean) => {
     try {
       const summary = await libraryApi.refetchBooks(ids, overrideManual);
@@ -176,7 +236,18 @@ export function useLibraryActions(): LibraryActions {
   }, []);
 
   return useMemo(
-    () => ({ trash, restore, purge, setField, exportCsv, bulk, markPurchased, refetch }),
-    [trash, restore, purge, setField, exportCsv, bulk, markPurchased, refetch],
+    () => ({
+      trash,
+      restore,
+      purge,
+      setField,
+      exportCsv,
+      bulk,
+      markPurchased,
+      mergeWorks,
+      setWork,
+      refetch,
+    }),
+    [trash, restore, purge, setField, exportCsv, bulk, markPurchased, mergeWorks, setWork, refetch],
   );
 }

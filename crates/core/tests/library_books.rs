@@ -1392,6 +1392,7 @@ fn list_rows_have_the_documented_shape_and_sort_keys() {
         "volumeSort",
         "seriesId",
         "seriesName",
+        "workId",
         "authors",
         "publisher",
         "publishedOn",
@@ -1423,6 +1424,7 @@ fn list_rows_have_the_documented_shape_and_sort_keys() {
     let r = &rows[0];
     assert_eq!(r.title, "吾輩は猫である");
     assert_eq!(r.series_name.as_deref(), Some("岩波文庫"));
+    assert_eq!(r.work_id, None, "作品の手動の指定は、既定では自動（null）");
     assert_eq!(r.volume_sort, Some(1.0));
     assert_eq!(r.authors.len(), 2);
     assert_eq!(r.authors[0].kana.as_deref(), Some("ナツメソウセキ"));

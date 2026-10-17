@@ -6,8 +6,10 @@ import {
   moveFocus,
   moveFocusTo,
   pruneSelection,
+  resolvePendingWork,
   selectAll,
   ungroupSelection,
+  type PendingWorkSelection,
   type SelectionState,
 } from "@/features/list/selection";
 
@@ -238,5 +240,71 @@ describe("ungroupSelection（巻をまとめる設定をオフにしたとき）
     expect(empty.focus).toBeNull();
     const before = state(["x", "y"], "x", "y");
     expect(ungroupSelection(before, membersOf)).toBe(before);
+  });
+});
+
+describe("resolvePendingWork（作品の操作のあとに選ぶ行。0026）", () => {
+  const NOW = 1_000;
+  const KEY = "work:\u001fw1";
+  const groups = new Map([[KEY, {}]]);
+  const pending = (over: Partial<PendingWorkSelection> = {}): PendingWorkSelection => ({
+    workId: "w1",
+    bookIds: ["a", "b", "c"],
+    groupKey: KEY,
+    expiresAt: NOW + 10_000,
+    ...over,
+  });
+  /** 表示中の本の workId（書いていない本は、表示にない本）。 */
+  const workIdOf = (map: Record<string, string | null>) => (id: string) => map[id];
+
+  it("対象の本の行が、まだ操作のあとの値でなければ（更新が届くまで）待つ", () => {
+    const stale = workIdOf({ a: null, b: "w1", c: "w1" });
+    expect(resolvePendingWork(pending(), groups, stale, NOW)).toBe("wait");
+    // 1 冊でも古ければ待つ（作品に前から入っていた本があっても、早く選ばない）
+    expect(resolvePendingWork(pending(), new Map(), stale, NOW)).toBe("wait");
+  });
+
+  it("更新が届き、作品の行が並びにあれば、その行だけを選ぶ", () => {
+    const next = resolvePendingWork(
+      pending(),
+      groups,
+      workIdOf({ a: "w1", b: "w1", c: "w1" }),
+      NOW,
+    );
+    expect(next).toEqual({ selected: new Set([KEY]), anchor: KEY, focus: KEY });
+  });
+
+  it("更新が届いても、作品の行がなければ（絞り込みで 1 冊しかない）、表示中の対象の本を選ぶ", () => {
+    // b・c は絞り込みで表示にない
+    const next = resolvePendingWork(pending(), new Map(), workIdOf({ a: "w1" }), NOW);
+    expect(next).toEqual({ selected: new Set(["a"]), anchor: "a", focus: "a" });
+  });
+
+  it("外す・自動に戻す（groupKey なし）は、更新が届いたら、表示中の対象の本を選ぶ", () => {
+    const excluded = pending({ workId: "none", groupKey: null });
+    expect(
+      resolvePendingWork(excluded, groups, workIdOf({ a: null, b: "none", c: "none" }), NOW),
+    ).toBe("wait");
+    const next = resolvePendingWork(
+      excluded,
+      groups,
+      workIdOf({ a: "none", b: "none", c: "none" }),
+      NOW,
+    );
+    expect(next).toEqual({ selected: new Set(["a", "b", "c"]), anchor: "a", focus: "a" });
+
+    const reset = pending({ workId: null, groupKey: null });
+    expect(resolvePendingWork(reset, groups, workIdOf({ a: null, b: "w1" }), NOW)).toBe("wait");
+    expect(resolvePendingWork(reset, groups, workIdOf({ a: null, b: null }), NOW)).toEqual({
+      selected: new Set(["a", "b"]),
+      anchor: "a",
+      focus: "a",
+    });
+  });
+
+  it("対象の本が 1 冊も表示にないときは、選ばずに捨てる。待っていても、期限を過ぎたら捨てる", () => {
+    expect(resolvePendingWork(pending(), groups, workIdOf({}), NOW)).toBeNull();
+    expect(resolvePendingWork(pending(), groups, workIdOf({ a: null }), NOW + 10_000)).toBe("wait");
+    expect(resolvePendingWork(pending(), groups, workIdOf({ a: null }), NOW + 10_001)).toBeNull();
   });
 });

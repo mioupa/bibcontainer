@@ -22,6 +22,7 @@ import type { LibraryChanged } from "@/bindings/LibraryChanged";
 import type { ListRow } from "@/bindings/ListRow";
 import type { ListSettings } from "@/bindings/ListSettings";
 import type { LocationInfo } from "@/bindings/LocationInfo";
+import type { MergeWorksResult } from "@/bindings/MergeWorksResult";
 import type { MetaSecondTier } from "@/bindings/MetaSecondTier";
 import type { NewBookDraft } from "@/bindings/NewBookDraft";
 import type { PriceSettings } from "@/bindings/PriceSettings";
@@ -108,6 +109,8 @@ interface CommandMap {
   trash_books: { args: { ids: string[] }; result: string[] };
   restore_books: { args: { ids: string[] }; result: string[] };
   purge_books: { args: { ids: string[] }; result: string[] };
+  /** 選んだ本を 1 つの作品にまとめる（0026）。作品から外す・自動に戻すは update_books で work_id を書く。 */
+  merge_works: { args: { ids: string[] }; result: MergeWorksResult };
 
   // 保管場所・タグ・シリーズ（commands/organize.rs）
   list_locations: { result: LocationInfo[] };
@@ -232,6 +235,8 @@ export const ipc = {
   trashBooks: (ids: string[]) => call("trash_books", { ids }),
   restoreBooks: (ids: string[]) => call("restore_books", { ids }),
   purgeBooks: (ids: string[]) => call("purge_books", { ids }),
+  /** 選んだ本（と、その本が入っている手動の作品の全巻）を、1 つの手動の作品にまとめる。 */
+  mergeWorks: (ids: string[]) => call("merge_works", { ids }),
 
   // ---- 保管場所・タグ・シリーズ ----
   listLocations: () => call("list_locations"),

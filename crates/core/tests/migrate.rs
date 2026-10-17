@@ -3,6 +3,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+mod common;
+
 use bibcontainer_core::migrate::{self, LATEST_VERSION, MIGRATIONS, Migration, user_version};
 use bibcontainer_core::{Error, open_with_migrations};
 use rusqlite::Connection;
@@ -257,37 +259,82 @@ fn freelist_count(conn: &Connection) -> i64 {
         .unwrap()
 }
 
-/// 版 2 の DB（0003 の前）を作り、本を `books` 冊作る。
+/// 2026-10-14T08:30:00Z 付近
+const T0: i64 = 1_791_966_600_000;
+
+/// 版 2 の DB（0003 の前）を作り、本を `books` 冊入れる。
+///
+/// 今のコード（`library`、`dump_canonical`、`apply_op`）は `books` の最新の列（0004 の `work_id`）を
+/// 読み書きするので、古い版の DB には使えない。古い版のアプリが書いた状態を、SQL で直接作る。
 fn v2_db_with_books(e: &Env, books: usize) -> Connection {
-    use bibcontainer_core::library::{self, FieldChange};
-    use bibcontainer_core::{ManualClock, library::Env as LibEnv};
-    use serde_json::json;
+    use bibcontainer_core::Hlc;
 
     let (mut conn, report) =
         open_with_migrations(&e.db_path, &e.backups, &MIGRATIONS[..2]).unwrap();
     assert_eq!(report.to_version, 2);
-    let clock = ManualClock::new(1_791_966_600_000);
-    let env = LibEnv::new(&clock).with_today("2026-10-14");
-    let batch: Vec<Vec<FieldChange>> = (0..books)
-        .map(|i| {
-            vec![
-                FieldChange::manual("title", json!(format!("書名 {i}"))),
-                FieldChange::manual(
-                    "authors",
-                    json!([{ "name": format!("著者 {i}"), "role": "著" }]),
-                ),
-                FieldChange::manual("publisher", json!("出版社")),
-                FieldChange::manual("memo", json!("メモ")),
-                FieldChange::manual("tags", json!(["研究/SiC", "小説"])),
-            ]
-        })
-        .collect();
-    library::create_books(&mut conn, &env, &batch).unwrap();
+    let tx = conn.transaction().unwrap();
+    {
+        let mut insert_book = tx
+            .prepare(
+                "INSERT INTO books(id, title, authors_json, publisher, memo, tags_json, created_at)
+                 VALUES (?1, ?2, ?3, '出版社', 'メモ', '[\"研究/SiC\",\"小説\"]', '2026-10-14T08:30:00.000Z')",
+            )
+            .unwrap();
+        let mut insert_clock = tx
+            .prepare(
+                "INSERT INTO field_clocks(entity, entity_id, field, hlc) VALUES ('book', ?1, ?2, ?3)",
+            )
+            .unwrap();
+        for i in 0..books {
+            let id = format!("0192f3a0-6c1e-7cc3-9b1a-{i:012}");
+            let authors = format!(r#"[{{"name":"著者 {i}","role":"著"}}]"#);
+            insert_book
+                .execute(rusqlite::params![id, format!("書名 {i}"), authors])
+                .unwrap();
+            let hlc = Hlc::new(T0 + i64::try_from(i).unwrap(), 0, "d-aaaaaaaaaaaa")
+                .unwrap()
+                .to_string();
+            for field in [
+                "title",
+                "authors",
+                "publisher",
+                "memo",
+                "tags",
+                "ownership",
+                "read_status",
+                "meta_status",
+                "deleted",
+                "purged",
+                "created_at",
+            ] {
+                insert_clock
+                    .execute(rusqlite::params![id, field, hlc])
+                    .unwrap();
+            }
+        }
+    }
+    tx.commit().unwrap();
     conn
 }
 
+/// テーブルの全行（第 1 列の順）。移行の前後で中身が変わらないことの確認に使う。
+fn snapshot(conn: &Connection, table: &str) -> Vec<Vec<rusqlite::types::Value>> {
+    let mut stmt = conn
+        .prepare(&format!("SELECT * FROM {table} ORDER BY 1"))
+        .unwrap();
+    let columns = stmt.column_count();
+    stmt.query_map([], |r| {
+        (0..columns)
+            .map(|i| r.get::<_, rusqlite::types::Value>(i))
+            .collect()
+    })
+    .unwrap()
+    .collect::<Result<_, _>>()
+    .unwrap()
+}
+
 #[test]
-fn the_real_migration_list_ends_with_field_clocks_without_rowid() {
+fn the_real_migration_list_has_field_clocks_without_rowid_as_the_third() {
     let m = &MIGRATIONS[2];
     assert_eq!((m.version, m.name), (3, "field_clocks_without_rowid"));
 }
@@ -300,7 +347,7 @@ fn upgrading_v2_to_v3_keeps_every_clock_and_the_whole_library() {
         !field_clocks_sql(&conn).contains("WITHOUT ROWID"),
         "0002 までは通常のテーブル"
     );
-    let before = bibcontainer_core::dump_canonical(&conn).unwrap();
+    let books_before = snapshot(&conn, "books");
     let rows_before: i64 = conn
         .query_row("SELECT count(*) FROM field_clocks", [], |r| r.get(0))
         .unwrap();
@@ -310,7 +357,7 @@ fn upgrading_v2_to_v3_keeps_every_clock_and_the_whole_library() {
         .unwrap();
     drop(conn);
 
-    let (conn, report) = open_with_migrations(&e.db_path, &e.backups, MIGRATIONS).unwrap();
+    let (conn, report) = open_with_migrations(&e.db_path, &e.backups, &MIGRATIONS[..3]).unwrap();
     assert_eq!((report.from_version, report.to_version), (2, 3));
     assert_eq!(report.applied, vec![3]);
     assert_eq!(user_version(&conn).unwrap(), 3);
@@ -358,7 +405,7 @@ fn upgrading_v2_to_v3_keeps_every_clock_and_the_whole_library() {
             .unwrap();
         assert_eq!(diff, 0, "{a} にあって {b} にない行がある");
     }
-    assert_eq!(bibcontainer_core::dump_canonical(&conn).unwrap(), before);
+    assert_eq!(snapshot(&conn, "books"), books_before);
 
     // 移行前のバックアップは v2 のまま残る
     let backup = Connection::open(report.backup_path.expect("移行前のバックアップ")).unwrap();
@@ -366,6 +413,7 @@ fn upgrading_v2_to_v3_keeps_every_clock_and_the_whole_library() {
     assert!(!field_clocks_sql(&backup).contains("WITHOUT ROWID"));
 
     // 作り直したあとも、時計の更新（ON CONFLICT ... DO UPDATE）と、新しい変更の記録が動く
+    // （最新の版まで上げる。`update_book` は最新の列を読む）
     drop(conn);
     let (mut conn, _) = open_with_migrations(&e.db_path, &e.backups, MIGRATIONS).unwrap();
     conn.execute_batch("DROP TABLE clocks_before;").unwrap();
@@ -422,7 +470,7 @@ fn upgrading_to_v3_shrinks_the_file_when_the_old_table_left_free_pages() {
     drop(conn);
     let size_before = fs::metadata(&e.db_path).unwrap().len();
 
-    let (conn, _) = open_with_migrations(&e.db_path, &e.backups, MIGRATIONS).unwrap();
+    let (conn, _) = open_with_migrations(&e.db_path, &e.backups, &MIGRATIONS[..3]).unwrap();
     conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
         .unwrap();
     drop(conn);
@@ -432,7 +480,7 @@ fn upgrading_to_v3_shrinks_the_file_when_the_old_table_left_free_pages() {
         size_after * 10 < size_before * 8,
         "VACUUM で 2 割以上は小さくなる: {size_before} → {size_after}"
     );
-    let (conn, _) = open_with_migrations(&e.db_path, &e.backups, MIGRATIONS).unwrap();
+    let (conn, _) = open_with_migrations(&e.db_path, &e.backups, &MIGRATIONS[..3]).unwrap();
     assert_eq!(freelist_count(&conn), 0, "空きページを残さない");
     let check: String = conn
         .query_row("PRAGMA integrity_check", [], |r| r.get(0))
@@ -472,4 +520,203 @@ fn field_clocks_in_a_fresh_db_is_without_rowid_and_the_convergence_rules_still_h
         .query_row("SELECT count(*) FROM field_clocks", [], |r| r.get(0))
         .unwrap();
     assert_eq!(rows, 1);
+}
+
+// ---------------------------------------------------------------------------
+// 0004: books.work_id（作品の手動の指定）
+// ---------------------------------------------------------------------------
+
+const WORK: &str = "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0d01";
+const OTHER_WORK: &str = "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0d02";
+
+#[test]
+fn the_real_migration_list_has_book_work_as_the_fourth() {
+    let m = &MIGRATIONS[3];
+    assert_eq!((m.version, m.name), (4, "book_work"));
+}
+
+fn book_columns(conn: &Connection) -> Vec<String> {
+    conn.prepare("SELECT name FROM pragma_table_info('books')")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap()
+}
+
+fn work_clock(conn: &Connection, id: &str) -> Option<String> {
+    bibcontainer_core::store::field_clock(conn, bibcontainer_core::Entity::Book, id, "work_id")
+        .unwrap()
+}
+
+fn work_column(conn: &Connection, id: &str) -> Option<String> {
+    conn.query_row("SELECT work_id FROM books WHERE id = ?1", [id], |r| {
+        r.get(0)
+    })
+    .unwrap()
+}
+
+fn extra_json(conn: &Connection, id: &str) -> serde_json::Value {
+    let text: String = conn
+        .query_row("SELECT extra_json FROM books WHERE id = ?1", [id], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    serde_json::from_str(&text).unwrap()
+}
+
+/// 版 3 の DB に、`work_id` を未知の項目として受け取った状態の本を入れる。
+/// この項目を知らない版のアプリは、届いた値を `extra_json` に入れ、時計を `field_clocks` に書く。
+/// 今のコード（`apply_op`）は `work_id` を知っているので、その状態は SQL で直接作る。
+fn insert_book_with_extra(conn: &Connection, id: &str, extra: &serde_json::Value, hlc: &str) {
+    conn.execute(
+        "INSERT INTO books(id, title, extra_json) VALUES (?1, ?2, ?3)",
+        rusqlite::params![id, format!("本 {id}"), extra.to_string()],
+    )
+    .unwrap();
+    if extra.get("work_id").is_some() {
+        conn.execute(
+            "INSERT INTO field_clocks(entity, entity_id, field, hlc) VALUES ('book', ?1, 'work_id', ?2)",
+            rusqlite::params![id, hlc],
+        )
+        .unwrap();
+    }
+}
+
+#[test]
+fn upgrading_v3_to_v4_moves_a_received_work_id_from_extra_json_into_the_column() {
+    use bibcontainer_core::{Entity, Hlc};
+    use serde_json::json;
+
+    const WITH_TEXT: &str = "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0a01";
+    const WITH_NULL: &str = "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0a02";
+    const WITH_NUMBER: &str = "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0a03";
+    const WITHOUT: &str = "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0a04";
+
+    let e = env();
+    let (conn, report) = open_with_migrations(&e.db_path, &e.backups, &MIGRATIONS[..3]).unwrap();
+    assert_eq!(report.to_version, 3);
+    assert!(!book_columns(&conn).contains(&"work_id".to_owned()));
+
+    let remote_hlc = Hlc::new(T0 + 10_000, 0, common::DEV_B).unwrap().to_string();
+    for (id, extra) in [
+        (WITH_TEXT, json!({ "future_field": "x", "work_id": WORK })),
+        (WITH_NULL, json!({ "future_field": "x", "work_id": null })),
+        (WITH_NUMBER, json!({ "future_field": "x", "work_id": 5 })),
+        (WITHOUT, json!({})),
+    ] {
+        insert_book_with_extra(&conn, id, &extra, &remote_hlc);
+    }
+    let clocks_before = snapshot(&conn, "field_clocks");
+    assert_eq!(clocks_before.len(), 3);
+    drop(conn);
+
+    let (mut conn, report) = open_with_migrations(&e.db_path, &e.backups, MIGRATIONS).unwrap();
+    assert_eq!((report.from_version, report.to_version), (3, 4));
+    assert_eq!(report.applied, vec![4]);
+    assert_eq!(user_version(&conn).unwrap(), 4);
+    assert!(book_columns(&conn).contains(&"work_id".to_owned()));
+
+    // 文字列と null は列へ移り、extra_json からキーが消える（ほかのキーは残る）
+    assert_eq!(work_column(&conn, WITH_TEXT).as_deref(), Some(WORK));
+    assert_eq!(extra_json(&conn, WITH_TEXT), json!({ "future_field": "x" }));
+    assert_eq!(work_column(&conn, WITH_NULL), None);
+    assert_eq!(extra_json(&conn, WITH_NULL), json!({ "future_field": "x" }));
+    // ほかの型の値は動かさない
+    assert_eq!(work_column(&conn, WITH_NUMBER), None);
+    assert_eq!(
+        extra_json(&conn, WITH_NUMBER),
+        json!({ "future_field": "x", "work_id": 5 })
+    );
+    // 受け取っていない本は、どちらも空
+    assert_eq!(work_column(&conn, WITHOUT), None);
+    assert_eq!(extra_json(&conn, WITHOUT), json!({}));
+
+    // 時計は 1 行も変わらない（0004 の決定: 受け取ったときの時計をそのまま使う）
+    assert_eq!(snapshot(&conn, "field_clocks"), clocks_before);
+    assert_eq!(work_clock(&conn, WITH_TEXT), Some(remote_hlc.clone()));
+    assert_eq!(work_clock(&conn, WITHOUT), None);
+    let dump = bibcontainer_core::dump_canonical(&conn).unwrap();
+    let row = common::dump_row(&dump, "books", WITH_TEXT);
+    assert_eq!(row["work_id"], json!(WORK));
+    assert_eq!(row["extra"], json!({ "future_field": "x" }));
+    assert_eq!(
+        common::dump_row(&dump, "books", WITH_NULL)["work_id"],
+        json!(null)
+    );
+
+    // 以後は、時計の比べ方が通常の項目と同じ: 古い Op は負け、新しい Op は勝つ
+    for id in [WITH_TEXT, WITH_NULL] {
+        let older = common::remote_op(
+            common::DEV_C,
+            T0 + 5_000,
+            0,
+            Entity::Book,
+            id,
+            json!({ "work_id": OTHER_WORK }),
+        );
+        let outcome = common::apply(&mut conn, &older);
+        assert_eq!((outcome.applied, outcome.stale), (0, 1), "古い Op は負ける");
+    }
+    assert_eq!(work_column(&conn, WITH_TEXT).as_deref(), Some(WORK));
+    assert_eq!(work_column(&conn, WITH_NULL), None);
+    for id in [WITH_TEXT, WITH_NULL] {
+        let newer = common::remote_op(
+            common::DEV_C,
+            T0 + 20_000,
+            0,
+            Entity::Book,
+            id,
+            json!({ "work_id": OTHER_WORK }),
+        );
+        let outcome = common::apply(&mut conn, &newer);
+        assert_eq!((outcome.applied, outcome.stale), (1, 0), "新しい Op は勝つ");
+        assert_eq!(work_column(&conn, id).as_deref(), Some(OTHER_WORK));
+        assert!(
+            extra_json(&conn, id).get("work_id").is_none(),
+            "extra_json には入らない"
+        );
+    }
+    let dump = bibcontainer_core::dump_canonical(&conn).unwrap();
+    assert_eq!(
+        common::dump_row(&dump, "books", WITH_TEXT)["work_id"],
+        json!(OTHER_WORK)
+    );
+
+    // 移行前のバックアップは v3 のまま残る
+    let backup = Connection::open(report.backup_path.expect("移行前のバックアップ")).unwrap();
+    assert_eq!(user_version(&backup).unwrap(), 3);
+    assert!(!book_columns(&backup).contains(&"work_id".to_owned()));
+}
+
+#[test]
+fn a_corrupt_extra_json_does_not_stop_the_work_id_migration() {
+    let e = env();
+    let (conn, _) = open_with_migrations(&e.db_path, &e.backups, &MIGRATIONS[..3]).unwrap();
+    // 壊れた JSON の行（他端末の書き込みではまず起きないが、移行が止まらないことを確かめる）
+    conn.execute(
+        "INSERT INTO books(id, extra_json) VALUES (?1, 'not json')",
+        ["0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0a01"],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO books(id, extra_json) VALUES (?1, ?2)",
+        rusqlite::params![
+            "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0a02",
+            format!(r#"{{"work_id":"{WORK}"}}"#)
+        ],
+    )
+    .unwrap();
+    drop(conn);
+
+    let (conn, report) = open_with_migrations(&e.db_path, &e.backups, MIGRATIONS).unwrap();
+    assert_eq!(report.applied, vec![4]);
+    assert_eq!(
+        work_column(&conn, "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0a01"),
+        None
+    );
+    assert_eq!(
+        work_column(&conn, "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0a02").as_deref(),
+        Some(WORK)
+    );
 }

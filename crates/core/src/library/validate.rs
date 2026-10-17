@@ -13,6 +13,8 @@ use crate::normalize::{is_valid_isbn13, nfkc};
 use crate::schema::Entity;
 use crate::values::{META_STATUSES, OWNERSHIPS, PURCHASE_CONDS, READ_STATUSES, WISH_PRIORITIES};
 
+use super::works::WORK_NONE;
+
 /// `update_book` などで直接変えられない項目（専用の操作がある）。
 const RESERVED: &[&str] = &["created_at", "deleted", "purged"];
 
@@ -190,6 +192,26 @@ fn entity_ref(field: &str, v: &Value) -> Result<Value> {
     }
 }
 
+/// 作品の指定（`work_id`）。null か空は自動、`"none"` は作品に入れない、ID の書式の文字列は手動でまとめた作品。
+/// 作品はエンティティではないので、存在は確かめない。
+fn work_ref(field: &str, v: &Value) -> Result<Value> {
+    if v.is_null() {
+        return Ok(Value::Null);
+    }
+    let s = as_string(field, v)?.trim();
+    if s.is_empty() {
+        return Ok(Value::Null);
+    }
+    if s == WORK_NONE || is_valid_entity_id(s) {
+        Ok(Value::String(s.to_owned()))
+    } else {
+        Err(bad(
+            field,
+            format!("作品の ID の書式が正しくありません（値: {s:?}）"),
+        ))
+    }
+}
+
 fn authors(field: &str, v: &Value) -> Result<Value> {
     if v.is_null() {
         return Ok(json!([]));
@@ -271,6 +293,7 @@ pub fn canonical_book_value(field: &str, value: &Value) -> Result<Value> {
         "isbn13" => isbn13(field, v),
         "c_code" => c_code(field, v),
         "series_id" | "location_id" => entity_ref(field, v),
+        "work_id" => work_ref(field, v),
         "volume_sort" => {
             if v.is_null() {
                 return Ok(Value::Null);
@@ -416,6 +439,25 @@ mod tests {
         );
         rejected("tags", json!([1]));
         rejected("tags", json!("小説"));
+    }
+
+    #[test]
+    fn work_ids() {
+        let id = "0192f3a0-6c1e-7cc3-9b1a-2f4e8d1c0d01";
+        assert_eq!(ok("work_id", json!(null)), json!(null));
+        assert_eq!(ok("work_id", json!("")), json!(null));
+        assert_eq!(ok("work_id", json!("  ")), json!(null));
+        assert_eq!(ok("work_id", json!("none")), json!("none"));
+        assert_eq!(ok("work_id", json!(" none ")), json!("none"));
+        assert_eq!(ok("work_id", json!(id)), json!(id));
+        assert_eq!(ok("work_id", json!(format!(" {id}\n"))), json!(id));
+        rejected("work_id", json!("abc"));
+        rejected("work_id", json!("None"));
+        rejected("work_id", json!(id.to_uppercase()));
+        rejected("work_id", json!(1));
+        rejected("work_id", json!(true));
+        rejected("work_id", json!([id]));
+        assert!(is_changeable_book_field("work_id"));
     }
 
     #[test]

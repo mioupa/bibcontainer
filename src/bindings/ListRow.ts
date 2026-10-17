@@ -4,7 +4,12 @@ import type { Author } from "./Author";
 /**
  * 一覧用の 1 行。形は `docs/decisions/0005-phase1-architecture.md` §4 のとおり。
  */
-export type ListRow = { id: string, isbn13: string | null, title: string, titleKana: string | null, subtitle: string | null, volume: string | null, volumeSort: number | null, seriesId: string | null, seriesName: string | null, authors: Array<Author>, publisher: string | null, 
+export type ListRow = { id: string, isbn13: string | null, title: string, titleKana: string | null, subtitle: string | null, volume: string | null, volumeSort: number | null, seriesId: string | null, seriesName: string | null, 
+/**
+ * 作品の手動の指定。null は自動（書名と著者から決める）、`"none"` は作品に入れない、
+ * それ以外は手動でまとめた作品の ID（同じ ID の本が 1 つの作品になる）。
+ */
+workId: string | null, authors: Array<Author>, publisher: string | null, 
 /**
  * `YYYY` / `YYYY-MM` / `YYYY-MM-DD`。
  */

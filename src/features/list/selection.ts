@@ -211,3 +211,52 @@ export function ungroupSelection(
   const focus = move(state.focus);
   return changed ? { selected, anchor, focus } : state;
 }
+
+/**
+ * 作品の操作（まとめる・外す・自動に戻す。0026）のあとに選ぶ行。操作は Rust で済んでいても、一覧の行の更新（`library-changed`）は
+ * あとから届くので、行が更新されるまで待ってから選ぶ（`resolvePendingWork`）。
+ */
+export interface PendingWorkSelection {
+  /** 操作のあと、対象の本が持つはずの `workId`（まとめたなら作品の ID、外したなら "none"、自動に戻したなら null）。 */
+  workId: string | null;
+  /** 対象の本の ID。 */
+  bookIds: readonly string[];
+  /** まとめたときに選ぶ作品の行の key（その行が並びになければ、対象の本を選ぶ）。外す・戻すでは null。 */
+  groupKey: string | null;
+  /** この時刻（`Date.now()` の値）を過ぎたら、選ばずに捨てる（更新が届かなかったときに、あとの選択を奪わない）。 */
+  expiresAt: number;
+}
+
+/**
+ * 保留中の選択を、いまの表示に当てはめる。
+ * - 表示中の対象の本が、すべて操作のあとの `workId` になるまで（行の更新が届くまで）は "wait"。
+ * - なったら、`groupKey` の行が並びにあればその行だけを、なければ表示中の対象の本を選ぶ（新しい選択を返す）。
+ * - 対象の本が 1 冊も表示されていないか、期限を過ぎたら、選ばずに捨てる（null）。
+ * `groups` は、並びにあるグループの key、`workIdOf` は表示中の本の ID → その本の `workId`（表示にない本は undefined）。
+ */
+export function resolvePendingWork(
+  pending: PendingWorkSelection,
+  groups: ReadonlyMap<string, unknown>,
+  workIdOf: (id: string) => string | null | undefined,
+  now: number,
+): SelectionState | "wait" | null {
+  const shown: string[] = [];
+  let updated = true;
+  for (const id of pending.bookIds) {
+    const workId = workIdOf(id);
+    if (workId === undefined) continue;
+    shown.push(id);
+    if (workId !== pending.workId) updated = false;
+  }
+  const first = shown[0];
+  if (first === undefined) return null;
+  if (!updated) return now > pending.expiresAt ? null : "wait";
+  if (pending.groupKey !== null && groups.has(pending.groupKey)) {
+    return {
+      selected: new Set([pending.groupKey]),
+      anchor: pending.groupKey,
+      focus: pending.groupKey,
+    };
+  }
+  return { selected: new Set(shown), anchor: first, focus: first };
+}

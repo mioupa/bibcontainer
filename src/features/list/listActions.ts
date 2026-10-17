@@ -7,7 +7,8 @@ import type { CCodeTable, ListRow } from "@/types/contracts";
 /**
  * 一覧から起こせる操作（右クリックメニューとキーボード）。実際の処理は呼び出し側が行う。
  * location・addTags・removeTags は、値を選ぶダイアログを開く操作。markPurchased は、欲しい本を所有にする
- * （`ids` には欲しい本だけが入る）。
+ * （`ids` には欲しい本だけが入る）。mergeWorks・excludeFromWorks・resetWorks は、作品の手動のまとめ・外し・自動に戻す（0026。
+ * 巻をまとめる設定がオンのときだけ、メニューに出る）。
  */
 export type ListAction =
   | "edit"
@@ -19,7 +20,10 @@ export type ListAction =
   | "location"
   | "addTags"
   | "removeTags"
-  | "markPurchased";
+  | "markPurchased"
+  | "mergeWorks"
+  | "excludeFromWorks"
+  | "resetWorks";
 
 export type { BulkChange };
 

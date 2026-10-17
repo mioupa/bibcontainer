@@ -7,6 +7,9 @@
 // 取りすぎないことを優先する。区切りの空白（か `.`・括弧）のない末尾は巻とみなさない（`坂の上`・`1Q84`・`2001年宇宙の旅`）。
 import type { ListRow } from "@/types/contracts";
 
+/** `ListRow.workId` の値: この本はどの作品にも入れない（「作品から外す」。0026）。null は自動、それ以外は手動の作品の ID。 */
+export const WORK_NONE = "none";
+
 export interface WorkInfo {
   /** 末尾の巻の表記を取り除いた書名（表示用）。 */
   baseTitle: string;

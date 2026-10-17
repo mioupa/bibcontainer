@@ -31,6 +31,9 @@ const int = (rng: Rng, min: number, max: number) => min + Math.floor(rng() * (ma
 const hex = (rng: Rng, length: number) =>
   Array.from({ length }, () => Math.floor(rng() * 16).toString(16)).join("");
 const pad = (n: number, width = 2) => String(n).padStart(width, "0");
+/** UUIDv7 に似た形の ID（本の ID と、手動の作品の ID に使う）。 */
+const uuidOf = (rng: Rng) =>
+  `${hex(rng, 8)}-${hex(rng, 4)}-7${hex(rng, 3)}-${hex(rng, 4)}-${hex(rng, 12)}`;
 
 // [表記, ヨミ]
 const PREFIXES: readonly (readonly [string, string])[] = [
@@ -175,6 +178,13 @@ const WORK_MIN_VOLUMES = 2;
 const WORK_MAX_VOLUMES = 40;
 /** 作品の巻のうち、巻次の欄を持たず、書名の末尾に巻を書く本の割合。 */
 const WORK_TITLE_VOLUME_PROBABILITY = 0.1;
+
+/** 手動の作品（0026）に入れる行の割合（全体に対する）。1 つの作品は 2〜5 冊で、行は種つきの乱数で無作為に選ぶ。 */
+const MANUAL_WORK_SHARE = 0.02;
+const MANUAL_WORK_MIN = 2;
+const MANUAL_WORK_MAX = 5;
+/** 「作品から外す」（`"none"`）にする行の割合。 */
+const WORK_NONE_SHARE = 0.01;
 
 /** 保管場所（ツリー）のダミー。 */
 export const MOCK_LOCATIONS: readonly Location[] = (() => {
@@ -342,7 +352,7 @@ export function generateMockRows(count: number, seed = 20261014): ListRow[] {
     const listPrice = chance(rng, 0.9) ? int(rng, 4, 40) * 100 : null;
 
     rows.push({
-      id: `${hex(rng, 8)}-${hex(rng, 4)}-7${hex(rng, 3)}-${hex(rng, 4)}-${hex(rng, 12)}`,
+      id: uuidOf(rng),
       isbn13: chance(rng, 0.97) ? isbn13Of(rng) : null,
       title,
       titleKana,
@@ -351,6 +361,7 @@ export function generateMockRows(count: number, seed = 20261014): ListRow[] {
       volumeSort: volumeNumber,
       seriesId: inSeries && seriesName !== null ? `series-${seriesName}` : null,
       seriesName,
+      workId: null,
       authors,
       publisher,
       publishedOn: chance(rng, 0.97) ? publishedOnOf(rng) : null,
@@ -382,5 +393,47 @@ export function generateMockRows(count: number, seed = 20261014): ListRow[] {
       sortAuthors: normalizeSortKey(authors[0]?.kana ?? authors[0]?.name ?? ""),
     });
   }
+  applyWorkOverrides(rows, seed);
   return rows;
+}
+
+/**
+ * 作品の手動の指定（`workId`。0026）を、約 2% の行（手動の作品）と約 1% の行（`"none"`）に付ける。
+ * 手動の作品は、無作為に選んだ 2〜5 冊（別の作品の巻や、どの作品でもない本が混ざる）。行を作る乱数とは別の乱数を使い、
+ * 上書きのない行の中身は、上書きを付ける前と変わらない。
+ */
+function applyWorkOverrides(rows: ListRow[], seed: number): void {
+  const n = rows.length;
+  if (n < MANUAL_WORK_MAX) return;
+  const rng = mulberry32((seed ^ 0x5bd1e995) >>> 0);
+  const taken = new Uint8Array(n);
+  const claim = (): number | null => {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const index = Math.floor(rng() * n);
+      if (taken[index] === 0) {
+        taken[index] = 1;
+        return index;
+      }
+    }
+    return null;
+  };
+  let manualRows = 0;
+  const manualTarget = Math.round(n * MANUAL_WORK_SHARE);
+  while (manualRows < manualTarget) {
+    const members: number[] = [];
+    const size = int(rng, MANUAL_WORK_MIN, MANUAL_WORK_MAX);
+    for (let k = 0; k < size; k++) {
+      const index = claim();
+      if (index !== null) members.push(index);
+    }
+    if (members.length < 2) break;
+    const workId = uuidOf(rng);
+    for (const index of members) (rows[index] as ListRow).workId = workId;
+    manualRows += members.length;
+  }
+  const noneTarget = Math.round(n * WORK_NONE_SHARE);
+  for (let k = 0; k < noneTarget; k++) {
+    const index = claim();
+    if (index !== null) (rows[index] as ListRow).workId = "none";
+  }
 }

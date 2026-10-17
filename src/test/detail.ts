@@ -11,6 +11,7 @@ export function makeDetail(overrides: Partial<BookDetail> = {}): BookDetail {
     seriesId: null,
     volume: null,
     volumeSort: null,
+    workId: null,
     authors: [],
     publisher: null,
     publishedOn: null,

@@ -15,6 +15,7 @@ pub mod query;
 pub mod series;
 pub mod tag;
 pub mod validate;
+pub mod works;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -40,6 +41,7 @@ pub use series::{
     rename_series,
 };
 pub use tag::{TagInfo, list_tags, modify_tags, rename_tag, set_tag_color};
+pub use works::{MergeWorksResult, WORK_NONE, merge_works};
 
 /// 操作の環境。時計と「今日」の日付。
 #[derive(Clone, Copy)]
