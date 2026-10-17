@@ -1,0 +1,1540 @@
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+  <version>1.2</version>
+  <numberOfRecords>101</numberOfRecords>
+  <nextRecordPosition>21</nextRecordPosition>
+  <extraResponseData>
+    <facets>
+      <lst name="REPOSITORY_NO">
+        <int name="R100000002">101</int>
+      </lst>
+      <lst name="NDC">
+        <int name="7">11</int>
+        <int name="9">82</int>
+      </lst>
+      <lst name="ISSUED_DATE">
+        <int name="1914">1</int>
+        <int name="1917">1</int>
+        <int name="1918">1</int>
+        <int name="1927">1</int>
+        <int name="1928">1</int>
+        <int name="1935">1</int>
+        <int name="1947">2</int>
+        <int name="1948">2</int>
+        <int name="1949">2</int>
+        <int name="1950">3</int>
+        <int name="1952">2</int>
+        <int name="1953">2</int>
+        <int name="1954">1</int>
+        <int name="1955">2</int>
+        <int name="1956">1</int>
+        <int name="1960">1</int>
+        <int name="1963">1</int>
+        <int name="1965">1</int>
+        <int name="1966">2</int>
+        <int name="1967">3</int>
+        <int name="1968">2</int>
+        <int name="1969">1</int>
+        <int name="1970">2</int>
+        <int name="1971">3</int>
+        <int name="1972">2</int>
+        <int name="1973">2</int>
+        <int name="1974">1</int>
+        <int name="1975">2</int>
+        <int name="1976">2</int>
+        <int name="1977">2</int>
+        <int name="1978">2</int>
+        <int name="1979">1</int>
+        <int name="1980">1</int>
+        <int name="1981">1</int>
+        <int name="1982">2</int>
+        <int name="1983">1</int>
+        <int name="1984">4</int>
+        <int name="1985">3</int>
+        <int name="1986">1</int>
+        <int name="1987">1</int>
+        <int name="1988">1</int>
+        <int name="1989">2</int>
+        <int name="1990">2</int>
+        <int name="1991">2</int>
+        <int name="1992">1</int>
+        <int name="1993">1</int>
+        <int name="1994">1</int>
+        <int name="1996">1</int>
+        <int name="1997">1</int>
+        <int name="1999">1</int>
+      </lst>
+      <lst name="LIBRARY">
+        <int name="国立国会図書館">101</int>
+        <int name="大阪市立図書館">32</int>
+        <int name="さいたま市立中央図書館">22</int>
+        <int name="長崎県立長崎図書館">22</int>
+        <int name="堺市立中央図書館">20</int>
+        <int name="熊本県立図書館">20</int>
+        <int name="札幌市中央図書館">19</int>
+        <int name="静岡市立中央図書館">18</int>
+        <int name="千葉市中央図書館">17</int>
+        <int name="川崎市立図書館">17</int>
+        <int name="広島市立中央図書館">17</int>
+        <int name="横浜市立図書館">17</int>
+        <int name="北海道立図書館">15</int>
+        <int name="徳島県立図書館">15</int>
+        <int name="大分県立図書館">14</int>
+        <int name="宮城県図書館">14</int>
+        <int name="岡山県立図書館">14</int>
+        <int name="石川県立図書館">14</int>
+        <int name="和歌山県立図書館">13</int>
+        <int name="山口県立山口図書館">13</int>
+        <int name="秋田県立図書館">13</int>
+        <int name="相模原市立図書館">12</int>
+        <int name="福井県立図書館">12</int>
+        <int name="大阪府立中央図書館">11</int>
+        <int name="愛知県図書館">11</int>
+        <int name="福島県立図書館">11</int>
+        <int name="鳥取県立図書館">11</int>
+        <int name="奈良県立図書情報館">10</int>
+        <int name="香川県立図書館">10</int>
+        <int name="静岡県立中央図書館">9</int>
+        <int name="高知県立図書館">9</int>
+        <int name="名古屋市図書館">8</int>
+        <int name="山梨県立図書館">8</int>
+        <int name="岐阜県図書館">8</int>
+        <int name="滋賀県立図書館">8</int>
+        <int name="新潟県立図書館">7</int>
+        <int name="東京都立多摩図書館">7</int>
+        <int name="栃木県立図書館">7</int>
+        <int name="福岡市総合図書館">7</int>
+        <int name="サピエ図書館">6</int>
+        <int name="広島県立図書館">6</int>
+        <int name="愛媛県立図書館">6</int>
+        <int name="東京都立中央図書館">6</int>
+        <int name="茨城県立図書館">6</int>
+        <int name="鹿児島県立図書館">6</int>
+        <int name="佐賀県立図書館">5</int>
+        <int name="兵庫県立図書館">5</int>
+        <int name="千葉県立東部図書館">5</int>
+        <int name="宮崎県立図書館">5</int>
+        <int name="島根県立図書館">5</int>
+      </lst>
+    </facets>
+  </extraResponseData>
+  <records>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000529447">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000529447#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000529447#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/42001488"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000000529447"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">42001488</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000000529447</dcterms:identifier>
+            <dcterms:title>こころ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こころ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>岩波書店</foaf:name>
+                <dcndl:transcription>イワナミ ショテン</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>大正6</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1917</dcterms:issued>
+            <dcterms:description>縮刷版</dcterms:description>
+            <dc:subject rdf:datatype="http://ndl.go.jp/dcndl/terms/NDC">913.6</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>438p ; 15cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/MicroForm" rdfs:label="マイクロ資料"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000529447"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000529447#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I35119410052589#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I35119410052590#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000529447#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000039-I906330#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>1</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000561586">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000561586#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000561586#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/43014051"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000000561586"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">43014051</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000000561586</dcterms:identifier>
+            <dcterms:title>こゝろ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こゝろ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>岩波書店</foaf:name>
+                <dcndl:transcription>イワナミ ショテン</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>大正3</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1914</dcterms:issued>
+            <dc:subject rdf:datatype="http://ndl.go.jp/dcndl/terms/NDC">913.6</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>426p ; 22cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/MicroForm" rdfs:label="マイクロ資料"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000561586"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000561586#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I10111110192071#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I23211009940037648#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I2911151176902#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000561586#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000039-I945471#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970867909781182253#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>2</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000837129">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000837129#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000837129#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/48002865"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000000837129"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">48002865</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000000837129</dcterms:identifier>
+            <dcterms:title>こゝろ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こゝろ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>青磁社</foaf:name>
+                <dcndl:transcription>セイジシャ</dcndl:transcription>
+                <dcndl:location>札幌</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>1948</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1948</dcterms:issued>
+            <dc:subject rdf:datatype="http://ndl.go.jp/dcndl/terms/NDC">913.6</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>297p ; 19cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/MicroForm" rdfs:label="マイクロ資料"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000837129"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000837129#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000837129#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000039-I1708606#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970586434866043038#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>3</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000851463">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000851463#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000851463#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/49000942"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000000851463"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">49000942</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000000851463</dcterms:identifier>
+            <dcterms:title>心</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>心</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>百万人文庫</foaf:name>
+                <dcndl:transcription>ヒャクマンニン ブンコ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>1949</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1949</dcterms:issued>
+            <dc:subject rdf:datatype="http://ndl.go.jp/dcndl/terms/NDC">913.6</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>309p ; 19cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/MicroForm" rdfs:label="マイクロ資料"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000851463"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000851463#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000851463#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000039-I1704501#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>4</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000936792">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000936792#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000936792#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/55009620"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000000936792"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">55009620</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000000936792</dcterms:identifier>
+            <dcterms:title>こころ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こころ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>春陽堂書店</foaf:name>
+                <dcndl:transcription>シュンヨウドウ ショテン</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>1955</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1955</dcterms:issued>
+            <dcterms:description>原文を新かなづかいおよび当用漢字に書き改めたもの</dcterms:description>
+            <dc:subject rdf:datatype="http://ndl.go.jp/dcndl/terms/NDC">913.6</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>208p ; 18cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000936792"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000936792#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I01111009510115219#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000936792#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000039-I1644225#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1971430859727366330#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>5</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000939487">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000939487#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000939487#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/55012315"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000000939487"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">55012315</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000000939487</dcterms:identifier>
+            <dcterms:title>こゝろ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こゝろ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>芸術社</foaf:name>
+                <dcndl:transcription>ゲイジュツシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>1955</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1955</dcterms:issued>
+            <dc:subject rdf:datatype="http://ndl.go.jp/dcndl/terms/NDC">913.6</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>198p ; 18cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000939487"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000939487#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I01111009510115849#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000939487#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000039-I1644400#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1971149384782243100#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>6</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000001706895">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/1977</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000001706895#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000001706895#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/85011012"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000001706895"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">85011012</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000001706895</dcterms:identifier>
+            <dcterms:title>こころ : 縮刷</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こころ : 縮刷</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>岩波書店</foaf:name>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>1984.1</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1984</dcterms:issued>
+            <dcterms:description>大正6年刊の複製</dcterms:description>
+            <dcterms:description>発売: 岩波ブックセンター信山社</dcterms:description>
+            <dcterms:description>外箱入</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/KH426"/>
+            <dc:subject rdf:datatype="http://ndl.go.jp/dcndl/terms/NDC8">913.6</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>438p ; 16cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000001706895"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000001706895#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000001706895#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000039-I12543786#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>7</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000007737309">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/1987</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000007737309#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000007737309#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/20780849"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000007737309"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">20780849</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000007737309</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4091848168"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4-09-184816-8</dcterms:identifier>
+            <dcterms:title>こころ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こころ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00689109">
+                <foaf:name>榎本, ナリコ, 1967-</foaf:name>
+                <dcndl:transcription>エノモト, ナリコ, 1967-</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 [原作]</dc:creator>
+            <dc:creator>榎本ナリコ 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>小学館</foaf:name>
+                <dcndl:transcription>ショウガクカン</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2005.7</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2005</dcterms:issued>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc9/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>933円</dcndl:price>
+            <dcterms:extent>210p ; 21cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000007737309"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000007737309#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000014427411#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27221007000485828#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000007737309#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1971149384807621768#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I091848160000d0000000#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784091848161#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>8</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033998753">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/2018</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>511</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033998753#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033998753#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/033998753"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">033998753</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9787538761344"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9787538761344</dcterms:identifier>
+            <dcterms:title>心 = こころ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>心</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:alternative>
+              <rdf:Description>
+                <rdf:value>こころ</rdf:value>
+              </rdf:Description>
+            </dcndl:alternative>
+            <dcndl:alternative>
+              <rdf:Description>
+                <rdf:value>こころ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:alternative>
+            <dcndl:alternative>
+              <rdf:Description>
+                <rdf:value>こころ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:alternative>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>竺, 家荣</foaf:name>
+                <dcndl:transcription>ジク, カエイ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dc:creator>竺家荣 译</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>時代文藝出版社</foaf:name>
+                <dcndl:location>北京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">CN</dcndl:publicationPlace>
+            <dcterms:date>2020.1</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2020</dcterms:issued>
+            <dcterms:description>コレクション : 日本関係外国語図書</dcterms:description>
+            <dcterms:description>表現種別 : テキスト</dcterms:description>
+            <dcterms:description>機器種別 : 機器不用</dcterms:description>
+            <dcterms:description>キャリア種別 : 冊子</dcterms:description>
+            <dcterms:description>原書タイトル: こころ</dcterms:description>
+            <dcterms:description>記述は第7次印刷 (2024.1)による</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/KH971"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">chi</dcterms:language>
+            <dcndl:originalLanguage rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcndl:originalLanguage>
+            <dcndl:price>35.00元</dcndl:price>
+            <dcterms:extent>237 p ; 22 cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033998753"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033998753#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I14223546623#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I40111111678930#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033998753#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>9</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033107265">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/2018</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033107265#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033107265#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/23901503"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/033107265"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">23901503</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">033107265</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4010660422"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4-01-066042-2</dcterms:identifier>
+            <dcterms:title>こころ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こころ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>愛と青春の名作集</rdf:value>
+                <dcndl:transcription>アイ ト セイシュン ノ メイサクシュウ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>旺文社</foaf:name>
+                <dcndl:transcription>オウブンシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>1997.4</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1997</dcterms:issued>
+            <dcterms:description>表現種別 : テキスト</dcterms:description>
+            <dcterms:description>機器種別 : 機器不用</dcterms:description>
+            <dcterms:description>キャリア種別 : 冊子</dcterms:description>
+            <dcterms:description>年譜あり</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/KH971"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/913.6"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>1000円</dcndl:price>
+            <dcterms:extent>374 p ; 18 cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033107265"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033107265#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I01211001001010977#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I04111107035778#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I05111009710044013#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I11211258243#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I12211000010508010#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I14221297562#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I17111009710178475#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I18111103551250#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I19111009710029433#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I20111009710024663#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I22211001101384273#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I25111115058#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27221000000417321#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I2911121004620#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I30111100368709#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I34211100556385#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I36111100004856#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I40221104224599#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I42111009710040193#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I46111135023587#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033107265#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000128-IB16257021#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1971712334727559706#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784010660423#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>10</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000818432">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>114</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000818432#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000818432#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/45026459"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000000818432"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">45026459</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000000818432</dcterms:identifier>
+            <dcterms:title>こころ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こころ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>アイドル・ブックス ; 5</rdf:value>
+                <dcndl:transcription>アイドル ブックス</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00022315">
+                <foaf:name>市川, 禎男, 1921-1993</foaf:name>
+                <dcndl:transcription>イチカワ, サダオ, 1921-1993</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dc:creator>市川禎男 絵</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>ポプラ社</foaf:name>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>昭和40</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1965</dcterms:issued>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>302p 図版 ; 20cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347327">
+                <rdf:value>児童図書</rdf:value>
+                <dcndl:transcription>ジドウ トショ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>児童</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000818432"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000818432#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I09111100646851#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I13131100556004#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I20111000001406736#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I23211009410246221#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I23211009410246221#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000818432#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000039-I1655992#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>11</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000010882080">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/1987</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000010882080#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000010882080#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/21765251"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000010882080"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">21765251</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000010882080</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784834284157"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-8342-8415-7</dcterms:identifier>
+            <dcterms:title>こゝろ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こゝろ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>Home comics. 青い文学シリーズ : アニメコミックス ; 2</rdf:value>
+                <dcndl:transcription>アオイ ブンガク シリーズ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 原作</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>ホーム社</foaf:name>
+                <dcndl:transcription>ホームシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>集英社 </foaf:name>
+                <dcndl:transcription>シュウエイシャ</dcndl:transcription>
+                <dcterms:description>発売</dcterms:description>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2010.5</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2010</dcterms:issued>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc9/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>1143円</dcndl:price>
+            <dcterms:extent>160p ; 21cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000010882080"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000010882080#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I43111101054913#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000010882080#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784834284157#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>12</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033135964">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/2018</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033135964#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033135964#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/23925681"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/033135964"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">23925681</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">033135964</dcterms:identifier>
+            <dcterms:title>こゝろ : 岩波書店版</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こゝろ : 岩波書店版</rdf:value>
+                <dcndl:transcription>ココロ : イワナミ ショテンバン</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>新選名著複刻全集近代文学館</rdf:value>
+                <dcndl:transcription>シンセン メイチョ フッコク ゼンシュウ キンダイ ブンガクカン</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dcndl:seriesCreator>名著複刻全集編集委員会 編集</dcndl:seriesCreator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>日本近代文学館</foaf:name>
+                <dcndl:transcription>ニホン キンダイ ブンガクカン</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>ほるぷ</foaf:name>
+                <dcndl:transcription>ホルプ</dcndl:transcription>
+                <dcterms:description>頒布</dcterms:description>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>1977.1 (第15刷)</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1977</dcterms:issued>
+            <dcterms:description>表現種別 : テキスト</dcterms:description>
+            <dcterms:description>機器種別 : 機器不用</dcterms:description>
+            <dcterms:description>キャリア種別 : 冊子</dcterms:description>
+            <dcterms:description>表紙のタイトル: 心</dcterms:description>
+            <dcterms:description>原本: 岩波書店 大正3年刊</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/KH971"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/913.6"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>426 p ; 23 cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033135964"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033135964#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033135964#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>13</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000871837">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000871837#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000871837#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/50007033"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000000871837"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">50007033</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000000871837</dcterms:identifier>
+            <dcterms:title>こゝろ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こゝろ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>岩波文庫</rdf:value>
+                <dcndl:transcription>イワナミ ブンコ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>岩波書店</foaf:name>
+                <dcndl:transcription>イワナミ ショテン</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>1950</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1950</dcterms:issued>
+            <dc:subject rdf:datatype="http://ndl.go.jp/dcndl/terms/NDC">913.6</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>205p ; 15cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000871837"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000871837#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I14211190517150#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I30111100011000#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I35119210025227#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000871837#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000039-I1642509#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959829054133#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>14</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000008662237">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/1987</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>112</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000008662237#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000008662237#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/21263949"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000008662237"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">21263949</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000008662237</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/4003550048"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/setisbn/4002011240"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">4-00-355004-8</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/SetISBN">4-00-201124-0</dcterms:identifier>
+            <dcterms:title>こゝろ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こゝろ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>岩波文庫創刊書目復刻</rdf:value>
+                <dcndl:transcription>イワナミ ブンコ ソウカン ショモク フッコク</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>岩波書店</foaf:name>
+                <dcndl:transcription>イワナミ ショテン</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2006.12</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2006</dcterms:issued>
+            <dcterms:description>原本: 岩波書店昭和2年刊</dcterms:description>
+            <dcterms:description>ISBN(set) : 4-00-201124-0（(シリーズ) (set)）</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/KH426"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc9/913.6"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>240p ; 16cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000008662237"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000008662237#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I09111101360402#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I11141197619413#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I14111103096800#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I3411B10214940#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I36111102440784#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I45111100766435#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000008662237#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784003550045#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>15</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000790756">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000790756#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000790756#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/47037525"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000000790756"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">47037525</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000000790756</dcterms:identifier>
+            <dcterms:title>こゝろ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こゝろ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>岩波文庫 ; 8-9</rdf:value>
+                <dcndl:transcription>イワナミ ブンコ ; 8</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>岩波書店</foaf:name>
+                <dcndl:transcription>イワナミ ショテン</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>昭和2</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1927</dcterms:issued>
+            <dc:subject rdf:datatype="http://ndl.go.jp/dcndl/terms/NDC">913.6</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>[ ] ; 16cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000790756"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000790756#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I10111100228557#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I20111000001375806#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I20111000001375806#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I20111000001375807#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I20111000001547613#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I39111108125775#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I40111104043102#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000790756#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1971430859748284064#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>16</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000001079335">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000001079335#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000001079335#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/66004070"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000001079335"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">66004070</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000001079335</dcterms:identifier>
+            <dcterms:title>こゝろ : 他一編</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こゝろ : 他一編</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>旺文社文庫</rdf:value>
+                <dcndl:transcription>オウブンシャ ブンコ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>旺文社</foaf:name>
+                <dcndl:transcription>オウブンシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>1966</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1966</dcterms:issued>
+            <dcterms:description>付: 参考文献</dcterms:description>
+            <dc:subject rdf:datatype="http://ndl.go.jp/dcndl/terms/NDC">913.6</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>150円 (税込)</dcndl:price>
+            <dcterms:extent>337p ; 16cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000001079335"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000001079335#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000001079335#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000039-I1650299#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>17</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I027756864">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/1987</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I027756864#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I027756864#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/22827092"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/027756864"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">22827092</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">027756864</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/TOHANMARCNO">33537306</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784803009736"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-8030-0973-6</dcterms:identifier>
+            <dcterms:title>こころOF THE DEAD : スーパー漱石大戦. 1</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こころOF THE DEAD : スーパー漱石大戦</rdf:value>
+                <dcndl:transcription>ココロ オブ ザ デッド : スーパー ソウセキ タイセン</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>1</rdf:value>
+                <dcndl:transcription>1</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>EARTH STAR COMICS</rdf:value>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00839197">
+                <foaf:name>目黒, 三吉</foaf:name>
+                <dcndl:transcription>メグロ, サンキチ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 原作</dc:creator>
+            <dc:creator>架神恭介 アメイジング翻案</dc:creator>
+            <dc:creator>目黒三吉 漫画</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>アース・スターエンターテイメント</foaf:name>
+                <dcndl:transcription>アーススターエンターテイメント</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>泰文堂 </foaf:name>
+                <dcndl:transcription>タイブンドウ</dcndl:transcription>
+                <dcterms:description>発売</dcterms:description>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2016.12</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2016</dcterms:issued>
+            <dcterms:description>奥付のタイトル: こころオブ・ザ・デッド</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc9/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>600円</dcndl:price>
+            <dcterms:extent>1冊 ; 19cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I027756864"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I027756864#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I027756864#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784803009736#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>18</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000860557">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000860557#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000860557#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/49010041"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/000000860557"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">49010041</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">000000860557</dcterms:identifier>
+            <dcterms:title>こゝろ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こゝろ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>小山文庫 ; 第20</rdf:value>
+                <dcndl:transcription>オヤマ ブンコ ; 20</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>小山書店</foaf:name>
+                <dcndl:transcription>オヤマ ショテン</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>1949</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">1949</dcterms:issued>
+            <dc:subject rdf:datatype="http://ndl.go.jp/dcndl/terms/NDC">913.6</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcterms:extent>289p ; 19cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/MicroForm" rdfs:label="マイクロ資料"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000860557"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I000000860557#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I01111009710054118#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I000000860557#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000039-I1705829#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>19</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I025541445">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/1987</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>111</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I025541445#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I025541445#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/22429430"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/025541445"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">22429430</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">025541445</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/TOHANMARCNO">33120629</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784796405775"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-7964-0577-5</dcterms:identifier>
+            <dcterms:title>こころ</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>こころ</rdf:value>
+                <dcndl:transcription>ココロ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>海王社文庫</rdf:value>
+                <dcndl:transcription>カイオウシャ ブンコ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00054222">
+                <foaf:name>夏目, 漱石, 1867-1916</foaf:name>
+                <dcndl:transcription>ナツメ, ソウセキ, 1867-1916</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>夏目漱石 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>海王社</foaf:name>
+                <dcndl:transcription>カイオウシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2014.7</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2014</dcterms:issued>
+            <dcterms:description>朗読: 谷山紀章</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/YU21"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/KH884"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc9/913.6"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>972円</dcndl:price>
+            <dcterms:extent>309p ; 15cm + 録音ディスク(1枚 8cm)</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I025541445"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I025541445#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000013023189#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I27211000013023189#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I42111000002276671#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000001-I43111102273714#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I025541445#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784796405775#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>20</recordPosition>
+    </record>
+  </records>
+</searchRetrieveResponse>

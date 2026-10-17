@@ -1,0 +1,91 @@
+{
+  "kind": "books#volumes",
+  "totalItems": 1234,
+  "items": [
+    {
+      "kind": "books#volume",
+      "id": "SYNTHETICSRCH01",
+      "etag": "synthetic",
+      "selfLink": "https://www.googleapis.com/books/v1/volumes/SYNTHETICSRCH01",
+      "volumeInfo": {
+        "title": "Clean Code",
+        "subtitle": "A Handbook of Agile Software Craftsmanship",
+        "authors": ["Robert C. Martin"],
+        "publisher": "Pearson Education",
+        "publishedDate": "2008-08-01",
+        "description": "Even bad code can function. <br>But if code isn't clean, it can bring a development organization to its knees.",
+        "industryIdentifiers": [
+          {"type": "ISBN_10", "identifier": "0132350882"},
+          {"type": "ISBN_13", "identifier": "9780132350884"}
+        ],
+        "pageCount": 464,
+        "printType": "BOOK",
+        "imageLinks": {
+          "smallThumbnail": "http://books.google.com/books/content?id=SYNTHETICSRCH01&printsec=frontcover&img=1&zoom=5&edge=curl&source=gbs_api",
+          "thumbnail": "http://books.google.com/books/content?id=SYNTHETICSRCH01&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"
+        },
+        "language": "en",
+        "infoLink": "http://books.google.com/books?id=SYNTHETICSRCH01&dq=clean+code+martin&hl=&source=gbs_api",
+        "canonicalVolumeLink": "https://books.google.com/books/about/Clean_Code.html?hl=&id=SYNTHETICSRCH01"
+      },
+      "searchInfo": {"textSnippet": "synthetic"}
+    },
+    {
+      "kind": "books#volume",
+      "id": "SYNTHETICSRCH02",
+      "volumeInfo": {
+        "title": "The Clean Coder",
+        "subtitle": "A Code of Conduct for Professional Programmers",
+        "authors": ["Robert C. Martin"],
+        "publisher": "Pearson Education",
+        "publishedDate": "2011",
+        "industryIdentifiers": [{"type": "ISBN_10", "identifier": "0137081073"}],
+        "language": "en"
+      }
+    },
+    {
+      "kind": "books#volume",
+      "id": "SYNTHETICSRCH03",
+      "volumeInfo": {
+        "title": "クリーンコード",
+        "subtitle": "アジャイルソフトウェア達人の技",
+        "authors": ["Robert C. Martin", "花井 志生"],
+        "publisher": "KADOKAWA",
+        "publishedDate": "2009-05",
+        "industryIdentifiers": [
+          {"type": "ISBN_13", "identifier": "9784048676885"}
+        ],
+        "language": "ja"
+      }
+    },
+    {
+      "kind": "books#volume",
+      "id": "SYNTHETICSRCH04",
+      "volumeInfo": {
+        "title": "Clean Code Collection",
+        "authors": ["Robert C. Martin"],
+        "language": "en"
+      }
+    },
+    {
+      "kind": "books#volume",
+      "id": "SYNTHETICSRCH05",
+      "volumeInfo": {
+        "title": "Clean Code (OCLC only)",
+        "industryIdentifiers": [{"type": "OTHER", "identifier": "OCLC:123456789"}]
+      }
+    },
+    {
+      "kind": "books#volume",
+      "id": "ab",
+      "volumeInfo": {
+        "title": "Clean Code (checksum is wrong, id is too short)",
+        "industryIdentifiers": [{"type": "ISBN_13", "identifier": "9780132350885"}]
+      }
+    },
+    {
+      "kind": "books#volume",
+      "id": "SYNTHETICSRCH07"
+    }
+  ]
+}

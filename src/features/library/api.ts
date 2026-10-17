@@ -10,12 +10,17 @@ import type { IsbnMatch } from "@/bindings/IsbnMatch";
 import type { MergeWorksResult } from "@/bindings/MergeWorksResult";
 import type { MetaSecondTier } from "@/bindings/MetaSecondTier";
 import type { PriceSettings } from "@/bindings/PriceSettings";
+import type { ProviderId } from "@/bindings/ProviderId";
+import type { ProviderSearchResult } from "@/bindings/ProviderSearchResult";
+import type { ProviderStatus } from "@/bindings/ProviderStatus";
 import type { RefetchSummary } from "@/bindings/RefetchSummary";
+import type { SearchHit } from "@/bindings/SearchHit";
 import type { SeriesInfo } from "@/bindings/SeriesInfo";
 import type { StoreCount } from "@/bindings/StoreCount";
 import type { TagInfo } from "@/bindings/TagInfo";
 import type { UpdateOptions } from "@/bindings/UpdateOptions";
 import { mockBackend } from "@/dev/mockBackend";
+import { mockSearch } from "@/dev/mockSearch";
 import { DEFAULT_PRICE_SETTINGS } from "@/features/library/price";
 import { ja } from "@/i18n/ja";
 import { IpcError, ipc } from "@/lib/ipc";
@@ -87,8 +92,22 @@ export interface LibraryApi {
   purchaseStores: () => Promise<StoreCount[]>;
   getPriceSettings: () => Promise<PriceSettings>;
 
+  // ---- キーワード検索（書名・著者。editor/search）。モックは決まった結果を返す ----
+  /** 取得元の一覧（検索に対応するか、有効か、使えるか）。 */
+  listProviders: () => Promise<ProviderStatus[]>;
+  /** 取得元 1 つに検索する。通信の失敗・該当なしは、エラーではなく結果の `outcome`。 */
+  searchMetadata: (
+    provider: ProviderId,
+    title: string | null,
+    author: string | null,
+  ) => Promise<ProviderSearchResult>;
+  /** 取得元のページ・クレジットの URL を、既定のブラウザで開く。 */
+  openLink: (url: string) => Promise<null>;
+
   // ---- Rust が要る操作（Tauri の外のモックでは使えない） ----
   fetchMetadata: (isbn13: string, secondTier?: MetaSecondTier) => Promise<FetchMetadataResult>;
+  /** 検索結果の 1 件から、`fetchMetadata` と同じ形の下書きを作る。 */
+  fetchSearchHit: (hit: SearchHit) => Promise<FetchMetadataResult>;
   refetchBooks: (ids: string[], overrideManual: boolean) => Promise<RefetchSummary>;
   importCoverFile: (path: string) => Promise<string>;
   importCoverBytes: (bytes: Uint8Array) => Promise<string>;
@@ -131,7 +150,11 @@ const ipcApi: LibraryApi = {
   findByIsbn: ipc.findByIsbn,
   purchaseStores: ipc.purchaseStoreSuggestions,
   getPriceSettings: ipc.getPriceSettings,
+  listProviders: ipc.listProviders,
+  searchMetadata: ipc.searchMetadata,
+  openLink: ipc.openLink,
   fetchMetadata: ipc.fetchMetadata,
+  fetchSearchHit: ipc.fetchSearchHit,
   refetchBooks: ipc.refetchBooks,
   importCoverFile: ipc.importCoverFile,
   importCoverBytes: (bytes) => ipc.importCoverBytes(bytes),
@@ -165,7 +188,15 @@ const mockApi: LibraryApi = {
   findByIsbn: mockBackend.findByIsbn,
   purchaseStores: mockBackend.purchaseStores,
   getPriceSettings: () => Promise.resolve(DEFAULT_PRICE_SETTINGS),
+  listProviders: mockSearch.listProviders,
+  searchMetadata: mockSearch.searchMetadata,
+  // ブラウザでは、許可したサイトかどうかの確認（Rust の `open_link`）はなく、そのまま新しいタブで開く
+  openLink: (url) => {
+    window.open(url, "_blank", "noopener");
+    return Promise.resolve(null);
+  },
   fetchMetadata: mockUnavailable(),
+  fetchSearchHit: mockUnavailable(),
   refetchBooks: mockUnavailable(),
   importCoverFile: mockUnavailable(),
   importCoverBytes: mockUnavailable(),
@@ -201,7 +232,11 @@ export const libraryApi: LibraryApi = {
   findByIsbn: (isbn) => backend().findByIsbn(isbn),
   purchaseStores: () => backend().purchaseStores(),
   getPriceSettings: () => backend().getPriceSettings(),
+  listProviders: () => backend().listProviders(),
+  searchMetadata: (provider, title, author) => backend().searchMetadata(provider, title, author),
+  openLink: (url) => backend().openLink(url),
   fetchMetadata: (isbn13, secondTier) => backend().fetchMetadata(isbn13, secondTier),
+  fetchSearchHit: (hit) => backend().fetchSearchHit(hit),
   refetchBooks: (ids, overrideManual) => backend().refetchBooks(ids, overrideManual),
   importCoverFile: (path) => backend().importCoverFile(path),
   importCoverBytes: (bytes) => backend().importCoverBytes(bytes),

@@ -27,6 +27,7 @@ import type { MetaSecondTier } from "@/bindings/MetaSecondTier";
 import type { NewBookDraft } from "@/bindings/NewBookDraft";
 import type { PriceSettings } from "@/bindings/PriceSettings";
 import type { ProviderId } from "@/bindings/ProviderId";
+import type { ProviderSearchResult } from "@/bindings/ProviderSearchResult";
 import type { ProviderSettings } from "@/bindings/ProviderSettings";
 import type { ProviderStatus } from "@/bindings/ProviderStatus";
 import type { ProviderTestResult } from "@/bindings/ProviderTestResult";
@@ -34,6 +35,7 @@ import type { RefetchSummary } from "@/bindings/RefetchSummary";
 import type { RestoreReport } from "@/bindings/RestoreReport";
 import type { ScanCode } from "@/bindings/ScanCode";
 import type { ScanSettings } from "@/bindings/ScanSettings";
+import type { SearchHit } from "@/bindings/SearchHit";
 import type { SeriesInfo } from "@/bindings/SeriesInfo";
 import type { SetupMode } from "@/bindings/SetupMode";
 import type { StoreCount } from "@/bindings/StoreCount";
@@ -159,6 +161,8 @@ interface CommandMap {
   // フォルダを開く（commands/system.rs）
   open_logs_dir: { result: null };
   open_backup_dir: { result: null };
+  /** 取得元のページ・クレジットの URL を、既定のブラウザで開く（開けるのは許可したサイトの https だけ）。 */
+  open_link: { args: { url: string }; result: null };
 
   // 書誌の取得（src-tauri/src/metadata/commands.rs。0010）
   get_provider_settings: { result: ProviderSettings };
@@ -172,6 +176,12 @@ interface CommandMap {
     args: { isbn13: string; secondTier?: MetaSecondTier };
     result: FetchMetadataResult;
   };
+  /** 書名・著者のキーワード検索（取得元 1 つ分。0025）。 */
+  search_metadata: {
+    args: { provider: ProviderId; title: string | null; author: string | null };
+    result: ProviderSearchResult;
+  };
+  fetch_search_hit: { args: { hit: SearchHit }; result: FetchMetadataResult };
   create_books_from_drafts: { args: { drafts: NewBookDraft[] }; result: string[] };
   refetch_books: { args: { ids: string[]; overrideManual: boolean }; result: RefetchSummary };
   trigger_pending_refetch: { result: null };
@@ -292,6 +302,8 @@ export const ipc = {
   // ---- フォルダを開く ----
   openLogsDir: () => call("open_logs_dir"),
   openBackupDir: () => call("open_backup_dir"),
+  /** 取得元のページ・クレジットの URL を、既定のブラウザで開く。 */
+  openLink: (url: string) => call("open_link", { url }),
 
   // ---- 書誌の取得 ----
   getProviderSettings: () => call("get_provider_settings"),
@@ -307,6 +319,11 @@ export const ipc = {
   /** ISBN の書誌を取得して、登録フォームの下書きを返す（DB には書かない）。 */
   fetchMetadata: (isbn13: string, secondTier?: MetaSecondTier) =>
     call("fetch_metadata", { isbn13, secondTier }),
+  /** 取得元 1 つに、書名・著者でキーワード検索する。通信の失敗・該当なしは、エラーではなく結果の `outcome`。 */
+  searchMetadata: (provider: ProviderId, title: string | null, author: string | null) =>
+    call("search_metadata", { provider, title, author }),
+  /** 検索結果の 1 件から、登録フォームの下書きを作る（`fetchMetadata` と同じ形。DB には書かない）。 */
+  fetchSearchHit: (hit: SearchHit) => call("fetch_search_hit", { hit }),
   /** 下書きから本を作る（全体で 1 トランザクション）。新しい本の ID を渡した順に返す。 */
   createBooksFromDrafts: (drafts: NewBookDraft[]) => call("create_books_from_drafts", { drafts }),
   /** 選んだ本の書誌を再取得する。`overrideManual` が false なら、手で直した項目は上書きしない。 */

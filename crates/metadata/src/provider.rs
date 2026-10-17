@@ -12,8 +12,9 @@ use thiserror::Error;
 use ts_rs::TS;
 
 use crate::error::{FetchError, ParseError, SearchError};
+use crate::normalize::clean_text;
 use crate::transport::{ProviderRateLimit, Transport};
-use crate::types::{Candidate, MetaField, ProviderId};
+use crate::types::{Candidate, MetaField, ProviderId, SearchResults};
 
 /// 取得元が必要とする認証情報。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -63,12 +64,40 @@ pub struct RawResponse {
     pub body: String,
 }
 
-/// キーワード検索の条件（フェーズ 3 で使う。今は枠だけ）。
+/// 書名・著者それぞれの長さの上限（整えたあとの文字数）。
+pub const MAX_SEARCH_TERM_CHARS: usize = 200;
+
+/// キーワード検索の条件（書名・著者）。1 回に取る件数は、取得元ごとに決めてある。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SearchQuery {
     pub title: Option<String>,
     pub author: Option<String>,
-    pub limit: u32,
+}
+
+impl SearchQuery {
+    /// 条件を整えて確かめる。書名・著者は、NFKC にそろえ、前後の空白を除き、連続する空白を 1 つにする
+    /// （空になったものは `None`）。書名も著者もなければ `InvalidQuery`。どちらかが
+    /// `MAX_SEARCH_TERM_CHARS` 文字を超えても `InvalidQuery`。整えたあとの条件を返す（何度通しても同じ）。
+    pub fn validated(&self) -> Result<SearchQuery, SearchError> {
+        let title = self.title.as_deref().and_then(clean_text);
+        let author = self.author.as_deref().and_then(clean_text);
+        if title.is_none() && author.is_none() {
+            return Err(SearchError::InvalidQuery(
+                "書名か著者を入れてください".to_string(),
+            ));
+        }
+        for (label, term) in [("書名", &title), ("著者", &author)] {
+            if term
+                .as_ref()
+                .is_some_and(|t| t.chars().count() > MAX_SEARCH_TERM_CHARS)
+            {
+                return Err(SearchError::InvalidQuery(format!(
+                    "{label}は {MAX_SEARCH_TERM_CHARS} 文字までにしてください"
+                )));
+            }
+        }
+        Ok(SearchQuery { title, author })
+    }
 }
 
 #[async_trait]
@@ -103,11 +132,13 @@ pub trait Provider: Send + Sync {
     fn parse(&self, raw: &RawResponse) -> Result<Option<Candidate>, ParseError>;
 
     /// キーワード検索（任意。フェーズ 3）。既定は未対応。
+    /// 実装は、最初に `query.validated()` で条件を整えて確かめる（`MetadataService::search` も通すが、取得元を直接呼ぶ側のため）。
+    /// 通信は `fetch_raw` と同じレート制限のグループで行う（ISBN の取得と制限を分け合う）。
     async fn search(
         &self,
         _transport: &Transport,
         _query: &SearchQuery,
-    ) -> Result<Vec<Candidate>, SearchError> {
+    ) -> Result<SearchResults, SearchError> {
         Err(SearchError::Unsupported)
     }
 }

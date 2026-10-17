@@ -3,12 +3,40 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { FolderOpenIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { libraryApi } from "@/features/library/api";
 import { Group } from "@/features/settings/fields";
 import { settingsKeys } from "@/features/settings/hooks";
 import { ja } from "@/i18n/ja";
 import { errorMessage } from "@/lib/errors";
 import { ipc } from "@/lib/ipc";
+import { splitUrls } from "@/lib/linkify";
 import { inTauri } from "@/lib/runtime";
+
+/** クレジット表記。文の中の https の URL は、既定のブラウザで開くリンクにする（開けるのは許可したサイトだけ。Rust 側が確かめる）。 */
+function Credit({ text }: { text: string }) {
+  return (
+    <>
+      {splitUrls(text).map((part, index) =>
+        part.kind === "text" ? (
+          <span key={index}>{part.text}</span>
+        ) : (
+          <button
+            key={index}
+            type="button"
+            className="text-primary underline underline-offset-2 hover:opacity-80"
+            onClick={() => {
+              libraryApi.openLink(part.url).catch((error: unknown) => {
+                toast.error(errorMessage(error));
+              });
+            }}
+          >
+            {part.url}
+          </button>
+        ),
+      )}
+    </>
+  );
+}
 
 export function AboutSection() {
   const a = ja.settings.about;
@@ -53,7 +81,9 @@ export function AboutSection() {
       <Group title={a.creditsHeading} description={a.creditsIntro}>
         <ul className="flex list-disc flex-col gap-1 pl-5 text-sm" data-testid="credits">
           {credits.map((credit) => (
-            <li key={credit}>{credit}</li>
+            <li key={credit}>
+              <Credit text={credit} />
+            </li>
           ))}
         </ul>
         <p className="text-sm">{a.ndlNote}</p>

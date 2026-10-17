@@ -4,12 +4,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BookDraft } from "@/bindings/BookDraft";
 import type { FetchMetadataResult } from "@/bindings/FetchMetadataResult";
 import type { NewBookDraft } from "@/bindings/NewBookDraft";
+import type { Origin } from "@/bindings/Origin";
+import type { ProviderId } from "@/bindings/ProviderId";
 import { EditorHost } from "@/features/editor/EditorHost";
 import { ja } from "@/i18n/ja";
 import { useEditorStore } from "@/stores/editorStore";
 import { useSelectionStore } from "@/stores/selectionStore";
 import { makeDetail } from "@/test/detail";
 import { makeRow } from "@/test/factories";
+import { makeHit, makeProviderStatus, makeSearchResult } from "@/test/search";
 
 // Tauri の invoke と isTauri だけを差し替え、ipc.ts のエラー変換も含めて通す
 const invoke = vi.hoisted(() => vi.fn());
@@ -473,6 +476,339 @@ describe("登録・編集フォーム", () => {
       // 直した項目は、そのまま
       expect(input(ja.edit.fields.publisher).value).toBe("自分で入れた出版社");
       expect(calls("fetch_metadata")).toEqual([{ isbn13: "9784003101117" }]);
+    });
+  });
+
+  describe("new: 書名・著者のキーワード検索（探す）", () => {
+    const NDL: Origin = { kind: "provider", name: "ndl" };
+    const ISBN_HIT = makeHit("ndl", {
+      isbn13: "9784003101117",
+      title: "こころ",
+      authors: [{ name: "夏目漱石", kana: null, role: "著" }],
+      publisher: "岩波書店",
+      link: "https://ndlsearch.ndl.go.jp/books/R1-I1",
+    });
+    const NO_ISBN_HIT = makeHit("ndl", {
+      isbn13: null,
+      title: "こころ（私家版）",
+      authors: [{ name: "夏目漱石", kana: null, role: "著" }],
+    });
+
+    /** 検索結果から選んだ 1 件の書誌（`fetch_search_hit` の返答）。 */
+    const fetchedFromHit = (opts: {
+      isbn?: string;
+      title?: string;
+      offline?: boolean;
+    }): FetchMetadataResult => ({
+      merged: { isbn13: opts.isbn ?? "", fields: [] },
+      draft: {
+        fields: {
+          ...(opts.isbn === undefined
+            ? {}
+            : { isbn13: { value: opts.isbn, origin: { kind: "barcode" } as Origin } }),
+          title: { value: opts.title ?? "こころ", origin: NDL },
+          authors: {
+            value: [{ name: "夏目漱石", kana: "ナツメ ソウセキ", role: "著" }],
+            origin: NDL,
+          },
+          publisher: { value: "岩波書店", origin: NDL },
+          pages: { value: 300, origin: NDL },
+          meta_status: {
+            value: opts.offline ? "pending" : "ok",
+            origin: { kind: "provider", name: "bibcontainer" },
+          },
+        },
+        seriesName: null,
+      },
+      reports: [],
+      offline: opts.offline ?? false,
+      coverHash: null,
+    });
+
+    function routeSearch(extra: Record<string, unknown> = {}) {
+      routeInvoke(
+        baseHandlers({
+          create_books_from_drafts: ["new-1"],
+          list_providers: [
+            makeProviderStatus("ndl", { displayName: "NDLサーチ" }),
+            makeProviderStatus("google", { displayName: "Google Books" }),
+            makeProviderStatus("openlibrary", { displayName: "Open Library" }),
+          ],
+          search_metadata: (args: Record<string, unknown> | undefined) =>
+            makeSearchResult(args?.provider as ProviderId, {
+              hits: args?.provider === "ndl" ? [ISBN_HIT, NO_ISBN_HIT] : [],
+              outcome: { kind: args?.provider === "ndl" ? "found" : "notFound" },
+            }),
+          fetch_search_hit: fetchedFromHit({ isbn: "9784003101117" }),
+          ...extra,
+        }),
+      );
+    }
+
+    async function openNewForm() {
+      renderHost();
+      act(() => useEditorStore.getState().openNew({}));
+      await screen.findByLabelText(ja.edit.fields.title, { selector: "input" });
+    }
+
+    const searchDialog = () => screen.getByRole("dialog", { name: ja.edit.search.title });
+    const searchOptions = () => within(searchDialog()).queryAllByRole("option");
+    const openSearch = () =>
+      fireEvent.click(screen.getByRole("button", { name: ja.edit.search.open }));
+    async function openSearchWithResults() {
+      openSearch();
+      await waitFor(() => expect(searchOptions()).toHaveLength(2));
+    }
+    const chooseOption = (index: number) =>
+      fireEvent.doubleClick(searchOptions()[index] as HTMLElement);
+
+    it("「探す」は new のときだけ、書名の横に出る", async () => {
+      routeSearch();
+      await openNewForm();
+      expect(screen.getByRole("button", { name: ja.edit.search.open })).toBeInTheDocument();
+    });
+
+    it("edit には出さない", async () => {
+      routeInvoke(baseHandlers({ get_book_detail: makeDetail({ id: "book-1" }) }));
+      renderHost();
+      act(() => useEditorStore.getState().openEdit("book-1"));
+      await screen.findByLabelText(ja.edit.fields.title, { selector: "input" });
+      expect(screen.queryByRole("button", { name: ja.edit.search.open })).not.toBeInTheDocument();
+    });
+
+    it("draft には出さない", async () => {
+      routeInvoke(baseHandlers());
+      renderHost();
+      act(() => useEditorStore.getState().openDraft({ isbn13: "9784003101117" }, vi.fn()));
+      await screen.findByLabelText(ja.edit.fields.title, { selector: "input" });
+      expect(screen.queryByRole("button", { name: ja.edit.search.open })).not.toBeInTheDocument();
+    });
+
+    it("書名・著者がなければ、探さず書名の欄にフォーカスする。あれば、書名と最初の著者を入れて開き、すぐ探す", async () => {
+      routeSearch();
+      await openNewForm();
+      openSearch();
+      const empty = await screen.findByRole("dialog", { name: ja.edit.search.title });
+      expect(within(empty).getByLabelText(ja.edit.search.titleLabel)).toHaveFocus();
+      expect(calls("search_metadata")).toHaveLength(0);
+      fireEvent.click(within(empty).getByRole("button", { name: ja.edit.search.close }));
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: ja.edit.search.title })).toBeNull(),
+      );
+
+      change(ja.edit.fields.title, " こころ ");
+      change(ja.edit.authors.name(1), "夏目");
+      openSearch();
+      await waitFor(() => expect(searchOptions()).toHaveLength(2));
+      const opened = searchDialog();
+      expect(within(opened).getByLabelText(ja.edit.search.titleLabel)).toHaveValue("こころ");
+      expect(within(opened).getByLabelText(ja.edit.search.authorLabel)).toHaveValue("夏目");
+      expect(calls("search_metadata")[0]).toEqual({
+        provider: "ndl",
+        title: "こころ",
+        author: "夏目",
+      });
+    });
+
+    it("ISBN のある結果を選ぶ: fetch_search_hit に結果を渡し、ISBN を入れ、書名・著者は置き換え、直した出版社は残す", async () => {
+      routeSearch();
+      await openNewForm();
+      change(ja.edit.fields.title, "ここ");
+      change(ja.edit.authors.name(1), "夏目");
+      change(ja.edit.fields.publisher, "自分で入れた出版社");
+      await openSearchWithResults();
+      chooseOption(0);
+
+      await waitFor(() => expect(input(ja.edit.fields.isbn13).value).toBe("9784003101117"));
+      expect(calls("fetch_search_hit")).toEqual([{ hit: ISBN_HIT }]);
+      expect(input(ja.edit.fields.title).value).toBe("こころ");
+      expect(input(ja.edit.authors.name(1)).value).toBe("夏目漱石");
+      expect(input(ja.edit.authors.kana(1)).value).toBe("ナツメ ソウセキ");
+      // 直した項目は、そのまま。直していない項目には、取得結果が入る
+      expect(input(ja.edit.fields.publisher).value).toBe("自分で入れた出版社");
+      expect(input(ja.edit.fields.pages).value).toBe("300");
+      // ダイアログは閉じ、通知を出す
+      expect(screen.queryByRole("dialog", { name: ja.edit.search.title })).toBeNull();
+      expect(toast.success).toHaveBeenCalledWith(ja.edit.search.chosen("こころ"));
+
+      save(ja.edit.actions.create);
+      await waitFor(() => expect(calls("create_books_from_drafts")).toHaveLength(1));
+      const { drafts } = calls("create_books_from_drafts")[0] as { drafts: NewBookDraft[] };
+      const byField = Object.fromEntries(drafts[0]?.changes.map((c) => [c.field, c]) ?? []);
+      // 取得結果で入れた項目は、取得元の由来（置き換えた書名・著者も）
+      expect(byField.title).toEqual({ field: "title", value: "こころ", origin: NDL });
+      expect(byField.authors?.origin).toEqual(NDL);
+      expect(byField.pages).toEqual({ field: "pages", value: 300, origin: NDL });
+      // 直した項目は、手入力
+      expect(byField.publisher).toEqual({
+        field: "publisher",
+        value: "自分で入れた出版社",
+        origin: MANUAL,
+      });
+      // ISBN は取得したものとして数える（取得待ちにしない）
+      expect(byField.isbn13?.value).toBe("9784003101117");
+      expect(byField.meta_status?.value).toBe("ok");
+    });
+
+    it("選んだあと、取得元の値の選び直し（他の取得元の値）が使える", async () => {
+      const fetched = fetchedFromHit({ isbn: "9784003101117" });
+      fetched.merged.fields = [
+        {
+          field: "publisher",
+          chosen: { source: "ndl", value: { type: "text", value: "岩波書店" } },
+          others: [{ source: "openbd", value: { type: "text", value: "岩波書店（openBD）" } }],
+        },
+      ];
+      routeSearch({ fetch_search_hit: fetched });
+      await openNewForm();
+      change(ja.edit.fields.title, "こころ");
+      await openSearchWithResults();
+      chooseOption(0);
+      const trigger = await screen.findByRole("button", {
+        name: ja.edit.source.otherValues(ja.edit.fields.publisher),
+      });
+      fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+      fireEvent.click(await screen.findByRole("menuitem", { name: /岩波書店（openBD）/ }));
+      expect(input(ja.edit.fields.publisher).value).toBe("岩波書店（openBD）");
+    });
+
+    it("ISBN のない結果を選ぶ: 項目は入るが、ISBN の欄はそのまま。保存する下書きに meta_status は付けない", async () => {
+      routeSearch({ fetch_search_hit: fetchedFromHit({ title: "こころ（私家版）" }) });
+      await openNewForm();
+      change(ja.edit.fields.title, "こころ");
+      await openSearchWithResults();
+      chooseOption(1);
+
+      await waitFor(() => expect(input(ja.edit.fields.title).value).toBe("こころ（私家版）"));
+      expect(calls("fetch_search_hit")).toEqual([{ hit: NO_ISBN_HIT }]);
+      expect(input(ja.edit.fields.isbn13).value).toBe("");
+      expect(input(ja.edit.authors.name(1)).value).toBe("夏目漱石");
+      expect(input(ja.edit.fields.publisher).value).toBe("岩波書店");
+
+      save(ja.edit.actions.create);
+      await waitFor(() => expect(calls("create_books_from_drafts")).toHaveLength(1));
+      const { drafts } = calls("create_books_from_drafts")[0] as { drafts: NewBookDraft[] };
+      const fields = drafts[0]?.changes.map((c) => c.field) ?? [];
+      expect(fields).not.toContain("meta_status");
+      expect(fields).not.toContain("isbn13");
+      expect(drafts[0]?.changes.find((c) => c.field === "title")?.origin).toEqual(NDL);
+    });
+
+    it("ISBN を入れてあるとき、ISBN のない結果を選んでも、ISBN は変えず、取得待ち（pending）で保存する", async () => {
+      routeSearch({ fetch_search_hit: fetchedFromHit({ title: "こころ（私家版）" }) });
+      await openNewForm();
+      change(ja.edit.fields.title, "こころ");
+      change(ja.edit.fields.isbn13, "978-4-00-310111-7");
+      await openSearchWithResults();
+      chooseOption(1);
+      await waitFor(() => expect(input(ja.edit.fields.title).value).toBe("こころ（私家版）"));
+      expect(input(ja.edit.fields.isbn13).value).toBe("978-4-00-310111-7");
+
+      save(ja.edit.actions.create);
+      await waitFor(() => expect(calls("create_books_from_drafts")).toHaveLength(1));
+      const { drafts } = calls("create_books_from_drafts")[0] as { drafts: NewBookDraft[] };
+      const byField = Object.fromEntries(drafts[0]?.changes.map((c) => [c.field, c]) ?? []);
+      expect(byField.isbn13?.value).toBe("9784003101117");
+      expect(byField.meta_status?.value).toBe("pending");
+    });
+
+    it("通信できなかった（offline）ときは、取得待ちとして保存する旨を知らせる。値は入り、pending で保存する", async () => {
+      routeSearch({ fetch_search_hit: fetchedFromHit({ isbn: "9784003101117", offline: true }) });
+      await openNewForm();
+      change(ja.edit.fields.title, "こころ");
+      await openSearchWithResults();
+      chooseOption(0);
+
+      await waitFor(() => expect(toast.success).toHaveBeenCalledWith(ja.edit.fetchOffline));
+      expect(input(ja.edit.fields.publisher).value).toBe("岩波書店");
+      expect(input(ja.edit.fields.isbn13).value).toBe("9784003101117");
+
+      save(ja.edit.actions.create);
+      await waitFor(() => expect(calls("create_books_from_drafts")).toHaveLength(1));
+      const { drafts } = calls("create_books_from_drafts")[0] as { drafts: NewBookDraft[] };
+      expect(drafts[0]?.changes.find((c) => c.field === "meta_status")?.value).toBe("pending");
+    });
+
+    it("取得できなかったら、エラーを通知し、フォームは変えない", async () => {
+      routeSearch({
+        fetch_search_hit: () =>
+          rejectWith({ kind: "validation", message: "検索結果が食い違っています" }),
+      });
+      await openNewForm();
+      change(ja.edit.fields.title, "こころ");
+      await openSearchWithResults();
+      chooseOption(0);
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith("検索結果が食い違っています"));
+      expect(input(ja.edit.fields.title).value).toBe("こころ");
+      expect(input(ja.edit.fields.isbn13).value).toBe("");
+      expect(screen.queryByRole("dialog", { name: ja.edit.search.title })).toBeNull();
+    });
+
+    it("取り込み中は、取得中の表示にして、「探す」と「書誌を取得」を押せなくする", async () => {
+      let finish: (result: FetchMetadataResult) => void = () => {};
+      routeSearch({
+        fetch_search_hit: () => new Promise<FetchMetadataResult>((resolve) => (finish = resolve)),
+      });
+      await openNewForm();
+      change(ja.edit.fields.title, "こころ");
+      await openSearchWithResults();
+      chooseOption(0);
+      const fetchButton = await screen.findByRole("button", { name: ja.edit.fetching });
+      expect(fetchButton).toBeDisabled();
+      expect(screen.getByRole("button", { name: ja.edit.search.open })).toBeDisabled();
+      await act(async () => {
+        finish(fetchedFromHit({ isbn: "9784003101117" }));
+        await Promise.resolve();
+      });
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: ja.edit.fetch })).toBeEnabled(),
+      );
+    });
+
+    it("Esc は検索ダイアログだけを閉じる。フォームは開いたままで、破棄の確認も出さない", async () => {
+      routeSearch();
+      await openNewForm();
+      change(ja.edit.fields.title, "こころ"); // 変更あり（フォームの Esc なら、破棄の確認が出る）
+      await openSearchWithResults();
+      fireEvent.keyDown(within(searchDialog()).getByLabelText(ja.edit.search.titleLabel), {
+        key: "Escape",
+      });
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: ja.edit.search.title })).toBeNull(),
+      );
+      expect(screen.getByRole("dialog", { name: ja.edit.titles.new })).toBeInTheDocument();
+      expect(screen.queryByText(ja.edit.discard.title)).not.toBeInTheDocument();
+      expect(useEditorStore.getState().request).not.toBeNull();
+      expect(input(ja.edit.fields.title).value).toBe("こころ");
+    });
+
+    it("検索ダイアログの Enter・⌘Enter は、フォームの保存や Enter の抑止に取られない", async () => {
+      routeSearch();
+      await openNewForm();
+      change(ja.edit.fields.title, "こころ");
+      await openSearchWithResults();
+      const titleInput = within(searchDialog()).getByLabelText(ja.edit.search.titleLabel);
+      const before = calls("search_metadata").length;
+      fireEvent.keyDown(titleInput, { key: "Enter" });
+      await waitFor(() => expect(calls("search_metadata").length).toBeGreaterThan(before));
+      fireEvent.keyDown(titleInput, { key: "Enter", metaKey: true });
+      fireEvent.keyDown(titleInput, { key: "Enter", ctrlKey: true });
+      expect(calls("create_books_from_drafts")).toHaveLength(0);
+      expect(useEditorStore.getState().request).not.toBeNull();
+    });
+
+    it("検索ダイアログの外側のクリックでは閉じない。結果のリンクは open_link を呼び、行は選ばない", async () => {
+      routeSearch({ open_link: null });
+      await openNewForm();
+      change(ja.edit.fields.title, "こころ");
+      await openSearchWithResults();
+      fireEvent.pointerDown(document.body);
+      expect(screen.getByRole("dialog", { name: ja.edit.search.title })).toBeInTheDocument();
+      fireEvent.click(
+        within(searchDialog()).getByRole("button", { name: ja.edit.search.viewOn.ndl }),
+      );
+      await waitFor(() => expect(calls("open_link")).toEqual([{ url: ISBN_HIT.link }]));
+      expect(calls("fetch_search_hit")).toHaveLength(0);
     });
   });
 

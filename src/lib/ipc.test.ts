@@ -138,6 +138,45 @@ describe("ipc", () => {
       ]);
     });
 
+    it("キーワード検索: 取得元・書名・著者で検索し、選んだ 1 件の下書きを作る。リンクは URL だけ渡す", async () => {
+      const hit = {
+        provider: "ndl" as const,
+        isbn13: null,
+        candidate: {
+          provider: "ndl" as const,
+          isbn13: "",
+          title: "こころ",
+          subtitle: null,
+          titleKana: null,
+          authors: [],
+          publisher: null,
+          publishedOn: null,
+          listPrice: null,
+          refPriceIncl: null,
+          cCode: null,
+          ndc: null,
+          pages: null,
+          sizeText: null,
+          language: null,
+          description: null,
+          series: null,
+          volume: null,
+          covers: [],
+        },
+        link: null,
+      };
+      await ipc.searchMetadata("ndl", "こころ", null);
+      await ipc.searchMetadata("google", null, "夏目漱石");
+      await ipc.fetchSearchHit(hit);
+      await ipc.openLink("https://openlibrary.org/books/OL1M");
+      expect(invoke.mock.calls).toEqual([
+        ["search_metadata", { provider: "ndl", title: "こころ", author: null }],
+        ["search_metadata", { provider: "google", title: null, author: "夏目漱石" }],
+        ["fetch_search_hit", { hit }],
+        ["open_link", { url: "https://openlibrary.org/books/OL1M" }],
+      ]);
+    });
+
     it("書影のバイト列は、Uint8Array ならそのまま（バイナリ）、数値の配列なら { bytes } で渡す", async () => {
       const bytes = new Uint8Array([0xff, 0xd8, 0xff]);
       await ipc.importCoverBytes(bytes);

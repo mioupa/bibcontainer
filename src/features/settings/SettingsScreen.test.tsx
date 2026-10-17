@@ -212,6 +212,7 @@ function route(extra: Record<string, unknown> = {}) {
       preRestorePath: "/data/backups/pre-restore-1.sqlite3",
     },
     open_backup_dir: null,
+    open_link: null,
     open_logs_dir: null,
     // 同期のコマンドは、モックの同期（状態を切り替えられる）につなぐ
     ...syncInvokeHandlers,
@@ -1183,6 +1184,54 @@ describe("このアプリについて（FR-CONF-07、9.4、10.6）", () => {
     expect(credits).toHaveTextContent("Google Books");
     expect(credits).toHaveTextContent("Open Library (https://openlibrary.org/)");
     expect(screen.getByText(ja.settings.about.ndlNote)).toBeInTheDocument();
+  });
+
+  it("クレジットの URL はリンクで、押すとその URL で open_link を呼ぶ。リンクにしても文面は変わらない", async () => {
+    renderSettings("about");
+    const credits = await screen.findByTestId("credits");
+    const link = await within(credits).findByRole("button", {
+      name: "https://ndlsearch.ndl.go.jp/",
+    });
+    expect(credits).toHaveTextContent(
+      "書誌情報: 国立国会図書館サーチ API (https://ndlsearch.ndl.go.jp/)",
+    );
+    fireEvent.click(link);
+    await waitFor(() => expect(calls("open_link")).toHaveLength(1));
+    expect(calls("open_link")[0]?.[1]).toEqual({ url: "https://ndlsearch.ndl.go.jp/" });
+    // 取得元ごとに 1 つ（openBD・Google Books・Open Library も）
+    expect(
+      within(credits)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual([
+      "https://openbd.jp/",
+      "https://ndlsearch.ndl.go.jp/",
+      "https://books.google.com/",
+      "https://openlibrary.org/",
+    ]);
+  });
+
+  it("リンクを開けなかったときは、通知で理由を出す", async () => {
+    handlers.open_link = () => {
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      return Promise.reject({ kind: "validation", message: "このリンクは開けません" });
+    };
+    renderSettings("about");
+    const credits = await screen.findByTestId("credits");
+    fireEvent.click(await within(credits).findByRole("button", { name: "https://openbd.jp/" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("このリンクは開けません"));
+  });
+
+  it("ブラウザ（Tauri の外）でも、固定のクレジットの URL は押せて、新しいタブで開く", () => {
+    isTauri.mockReturnValue(false);
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    renderSettings("about");
+    fireEvent.click(
+      within(screen.getByTestId("credits")).getByRole("button", { name: "https://openbd.jp/" }),
+    );
+    expect(open).toHaveBeenCalledWith("https://openbd.jp/", "_blank", "noopener");
+    expect(calls("open_link")).toHaveLength(0);
+    open.mockRestore();
   });
 
   it("ログフォルダを開く", async () => {

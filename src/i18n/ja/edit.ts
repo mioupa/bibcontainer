@@ -155,6 +155,49 @@ export const edit = {
   fetched: "書誌を取得しました。まだ直していない項目に入れました",
   fetchOffline: "通信できませんでした。取得待ちとして保存すると、あとで自動で取得します",
 
+  // 書名・著者のキーワード検索（登録フォームの書名の横の「探す」。FR-META-12）
+  search: {
+    open: "探す",
+    openHint: "書名・著者から、取得元の書誌を探します",
+    title: "書名・著者から探す",
+    description:
+      "書名か著者を入れて探し、見つかった本を選ぶと、書誌がフォームに入ります（まだ直していない項目だけ。書名と著者は置き換わります）。",
+    searchLabel: "書名・著者で探す",
+    titleLabel: "書名",
+    authorLabel: "著者",
+    submit: "探す",
+    choose: "入れる",
+    close: "閉じる",
+    resultsLabel: "検索結果",
+    loadingProviders: "読み込み中…",
+    noProviders: "キーワード検索できる取得元がありません（設定の「取得元」で有効にできます）",
+    idle: "書名か著者を入れて、「探す」を押してください",
+    untitled: "（書名なし）",
+    noIsbn: "ISBN なし",
+    volume: (volume: string) => `巻次 ${volume}`,
+    // 取得元ごとの見出し。Google Books は、規約に合わせて「Google Books の検索結果」と出す
+    googleHeading: "Google Books の検索結果",
+    poweredByGoogle: "Powered by Google",
+    // 取得元ごとの状態
+    searching: "探しています…",
+    count: (shown: number) => `${shown} 件`,
+    countOfTotal: (total: number, shown: number) => `全 ${total} 件のうち ${shown} 件`,
+    notFound: "見つかりませんでした",
+    networkError: "通信できませんでした",
+    httpError: (status: number) => `取得元がエラーを返しました（HTTP ${status}）`,
+    parseError: "応答を読めませんでした",
+    noKey: "API キーがないので探していません（設定の「取得元」で入れられます）",
+    // 結果の行のリンク（取得元のサイトの、その本のページ）
+    viewOn: {
+      google: "Google Books で見る",
+      ndl: "NDL サーチで見る",
+      openlibrary: "Open Library で見る",
+      openbd: "openBD で見る",
+    },
+    chosen: (title: string) =>
+      title === "" ? "書誌を入れました" : `「${title}」の書誌を入れました`,
+  },
+
   errors: {
     titleRequired: "書名を入力してください（ISBN がない本は、書名が必要です）",
     isbn: "13 桁でチェックデジットが正しい ISBN を入力してください（ISBN-10 も使えます）",

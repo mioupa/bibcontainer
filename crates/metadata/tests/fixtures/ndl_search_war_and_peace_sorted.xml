@@ -1,0 +1,1135 @@
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+  <version>1.2</version>
+  <numberOfRecords>1791</numberOfRecords>
+  <nextRecordPosition>6</nextRecordPosition>
+  <extraResponseData>
+    <facets>
+      <lst name="REPOSITORY_NO">
+        <int name="R100000002">1791</int>
+      </lst>
+      <lst name="NDC">
+        <int name="1">3</int>
+        <int name="2">5</int>
+        <int name="3">19</int>
+        <int name="5">2</int>
+        <int name="6">1</int>
+        <int name="7">2</int>
+        <int name="9">1</int>
+      </lst>
+      <lst name="ISSUED_DATE">
+        <int name="1703">1</int>
+        <int name="1800">1</int>
+        <int name="1840">1</int>
+        <int name="1852">3</int>
+        <int name="1858">1</int>
+        <int name="1861">2</int>
+        <int name="1862">1</int>
+        <int name="1867">1</int>
+        <int name="1875">1</int>
+        <int name="1878">1</int>
+        <int name="1884">1</int>
+        <int name="1886">2</int>
+        <int name="1893">1</int>
+        <int name="1896">1</int>
+        <int name="1897">1</int>
+        <int name="1899">1</int>
+        <int name="1900">2</int>
+        <int name="1901">5</int>
+        <int name="1902">2</int>
+        <int name="1903">4</int>
+        <int name="1904">3</int>
+        <int name="1905">4</int>
+        <int name="1906">4</int>
+        <int name="1907">1</int>
+        <int name="1908">4</int>
+        <int name="1909">6</int>
+        <int name="1910">3</int>
+        <int name="1911">2</int>
+        <int name="1912">6</int>
+        <int name="1913">5</int>
+        <int name="1914">8</int>
+        <int name="1915">11</int>
+        <int name="1916">17</int>
+        <int name="1917">14</int>
+        <int name="1918">16</int>
+        <int name="1919">19</int>
+        <int name="1920">6</int>
+        <int name="1921">12</int>
+        <int name="1922">13</int>
+        <int name="1923">23</int>
+        <int name="1924">5</int>
+        <int name="1926">3</int>
+        <int name="1927">11</int>
+        <int name="1928">20</int>
+        <int name="1929">9</int>
+        <int name="1930">12</int>
+        <int name="1931">9</int>
+        <int name="1932">6</int>
+        <int name="1933">4</int>
+        <int name="1934">5</int>
+      </lst>
+      <lst name="LIBRARY">
+        <int name="国立国会図書館">1791</int>
+        <int name="東京都立中央図書館">147</int>
+        <int name="福岡市総合図書館">26</int>
+        <int name="横浜市立図書館">24</int>
+        <int name="札幌市中央図書館">21</int>
+        <int name="大阪府立中央図書館">20</int>
+        <int name="長崎県立長崎図書館">20</int>
+        <int name="群馬県立図書館">18</int>
+        <int name="奈良県立図書情報館">17</int>
+        <int name="福岡県立図書館">17</int>
+        <int name="さいたま市立中央図書館">16</int>
+        <int name="京都府立図書館">16</int>
+        <int name="広島県立図書館">16</int>
+        <int name="大阪市立図書館">15</int>
+        <int name="岡山県立図書館">15</int>
+        <int name="愛知県図書館">15</int>
+        <int name="香川県立図書館">15</int>
+        <int name="三重県立図書館">14</int>
+        <int name="北海道立図書館">14</int>
+        <int name="埼玉県立熊谷図書館">14</int>
+        <int name="広島市立中央図書館">14</int>
+        <int name="神奈川県立図書館">14</int>
+        <int name="鳥取県立図書館">14</int>
+        <int name="岐阜県図書館">13</int>
+        <int name="徳島県立図書館">13</int>
+        <int name="滋賀県立図書館">13</int>
+        <int name="沖縄県立図書館">12</int>
+        <int name="静岡市立中央図書館">12</int>
+        <int name="佐賀県立図書館">11</int>
+        <int name="兵庫県立図書館">11</int>
+        <int name="堺市立中央図書館">11</int>
+        <int name="大分県立図書館">11</int>
+        <int name="山形県立図書館">11</int>
+        <int name="新潟県立図書館">11</int>
+        <int name="石川県立図書館">11</int>
+        <int name="茨城県立図書館">11</int>
+        <int name="富山県立図書館">10</int>
+        <int name="山口県立山口図書館">10</int>
+        <int name="山梨県立図書館">10</int>
+        <int name="川崎市立図書館">10</int>
+        <int name="栃木県立図書館">10</int>
+        <int name="福井県立図書館">10</int>
+        <int name="高知県立図書館">10</int>
+        <int name="鹿児島県立図書館">10</int>
+        <int name="千葉市中央図書館">9</int>
+        <int name="名古屋市図書館">9</int>
+        <int name="東京都立多摩図書館">9</int>
+        <int name="福島県立図書館">9</int>
+        <int name="秋田県立図書館">9</int>
+        <int name="青森県立図書館">9</int>
+      </lst>
+    </facets>
+  </extraResponseData>
+  <records>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034461200">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>rda</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>211</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034461200#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034461200#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/034461200"/>
+            <rdfs:seeAlso rdf:resource="http://www.worldcat.org/oclc/1588664795"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/OCLCNO">1588664795</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">034461200</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9781538188392"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/1538188392"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9781538188392</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">1538188392</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ErrorISBN">9798765159941</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ErrorISBN">9798765165027</dcterms:identifier>
+            <dcterms:title>Why are we in Okinawa? : a history of violence</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>Why are we in Okinawa? : a history of violence</rdf:value>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>[Asian Voices]</rdf:value>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcndl:uniformTitle>
+              <rdf:Description>
+                <rdf:value>Asian voices</rdf:value>
+              </rdf:Description>
+            </dcndl:uniformTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/001186930">
+                <foaf:name>Mitchell, Jon, 1974-</foaf:name>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>Jon Mitchell</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>Bloomsbury Academic</foaf:name>
+                <dcndl:location>New York</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">US</dcndl:publicationPlace>
+            <dcterms:date>2026</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2026</dcterms:issued>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Foreword. Challenging the projects of empires</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>An introduction</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>The Ryukyu kingdom : a bridge of nations</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Disposal, discrimination, and diaspora</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>The storm of iron</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Forgotten island</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Showcases of democracy</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>The Vietnam War in Okinawa</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Reversion</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Broken promises</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Relieving the burden</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>All Okinawa vs. Japan and the United States</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Islands of peace? – Coda. So why are we really in Okinawa?</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcterms:abstract>"In this compelling history, award-winning journalist, Jon Mitchell, traces how the islands of Okinawa have been annexed by Japan, occupied by the United States and now menaced by China. In response, Okinawans have developed one of the world's most resilient - yet overlooked - pacifist movements. Once a wealthy kingdom, Okinawa was seized by Japan in the late-19th century and, after World War II, abandoned to US colonial rule. For twenty-seven years, residents were denied civil and labor rights, but their non-violent resistance grew so strong that, in 1972, they forced the return of the islands to Japanese control. Today, thirty-one US bases dominate a land mass smaller than Rhode Island and Okinawans remain Japan's poorest people. Tensions are rising as China questions Japan's control of Okinawa and fires missiles into nearby seas. Angry at being pawns in the play of greater powers, islanders resist through mass protests, music, comedy and art. Okinawa offers an inspirational model of grassroots democracy and civic engagement for the rest of Japan and beyond."--(Provided by publisher)</dcterms:abstract>
+            <dcterms:description>コレクション : 日本関係外国語図書</dcterms:description>
+            <dcterms:description>表現種別 : text</dcterms:description>
+            <dcterms:description>機器種別 : unmediated</dcterms:description>
+            <dcterms:description>キャリア種別 : volume</dcterms:description>
+            <dcterms:description>ISBN : 9781538188392（(hardcover)）</dcterms:description>
+            <dcterms:description>ISBN : 1538188392（(hardcover)）</dcterms:description>
+            <dcterms:description>ISBN（エラーコード） : 9798765159941（(ePub)）</dcterms:description>
+            <dcterms:description>ISBN（エラーコード） : 9798765165027（(ePDF)）</dcterms:description>
+            <dcterms:description>Includes bibliographical references and index</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Military bases, American--Japan--Okinawa-ken</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Bases militaires américaines--Japon--Okinawa (Ken)</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Okinawa Island (Japan)--Relations--United States</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Okinawa Island (Japan)--History</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>United States--Relations--Japan--Okinawa Island</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Okinawa (Japon : Île)--Relations--États-Unis</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Okinawa (Japon : Île)--Histoire</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/GC311"/>
+            <dcterms:subject rdf:resource="http://dewey.info/class/952.29/about"/>
+            <dc:subject rdf:datatype="http://purl.org/dc/terms/LCC">DS894.99.O3795</dc:subject>
+            <dc:subject rdf:datatype="http://purl.org/dc/terms/LCC">DS894.99.O3742</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">eng</dcterms:language>
+            <dcterms:extent>xii, 275 pages : illustrations, maps ; 24 cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034461200"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034461200#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034461200#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970308389703431505#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>1</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034446335">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>rda</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>211</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034446335#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034446335#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/034446335"/>
+            <rdfs:seeAlso rdf:resource="http://lccn.loc.gov/2025038354"/>
+            <rdfs:seeAlso rdf:resource="http://www.worldcat.org/oclc/1543337390"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/USMARCNO">2025038354</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/OCLCNO">1543337390</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">034446335</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9798896166658"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9798896166672"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9798896166658</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9798896166672</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ErrorISBN">9798896166665</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ErrorISBN">9798896166689</dcterms:identifier>
+            <dcterms:title>The Russo-Ukrainian War : follies of empire</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>The Russo-Ukrainian War : follies of empire</rdf:value>
+              </rdf:Description>
+            </dc:title>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>Sakwa, Richard</foaf:name>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>Richard Sakwa</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>Lynne Rienner Publishers, Inc.</foaf:name>
+                <dcndl:location>Boulder, Colorado</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">US</dcndl:publicationPlace>
+            <dcterms:date>2026</dcterms:date>
+            <dcterms:date>©2026</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2026</dcterms:issued>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>In the Crosshairs of History</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Unbalancing Ukraine</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>From Crimea to Minsk</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>The Road to War</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>The Crisis Matures</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>War and Peace</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Warfare Old and New</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Proxy War</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Ukraine at War</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Russia at War</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>The War and the World</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Painful Compromises</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>The Global Disorder</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcterms:abstract>"Sakwa meticulously explores the origins, course, and consequences of the catastrophic Russo-Ukrainian war in the sweeping context of global and domestic politics since 1945"-- Provided by publisher</dcterms:abstract>
+            <dcterms:description>表現種別 : text</dcterms:description>
+            <dcterms:description>機器種別 : unmediated</dcterms:description>
+            <dcterms:description>キャリア種別 : volume</dcterms:description>
+            <dcterms:description>ISBN : 9798896166658（hardback）</dcterms:description>
+            <dcterms:description>ISBN : 9798896166672（paperback）</dcterms:description>
+            <dcterms:description>ISBN（エラーコード） : 9798896166665（ebook）</dcterms:description>
+            <dcterms:description>ISBN（エラーコード） : 9798896166689（ebook other）</dcterms:description>
+            <dcterms:description>Includes bibliographical references and index</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>North Atlantic Treaty Organization</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Russo-Ukrainian War, 2014---Causes</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Russian Invasion of Ukraine, 2022--Causes</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>International relations</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Strategic aspects of individual places</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Ukraine--Strategic aspects</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Russia (Federation)--Relations--Western countries</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Western countries--Relations--Russia (Federation)</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Occident--Relations--Russie</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Russia (Federation)</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Ukraine</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Western countries</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/A99-R6U5"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/A99-U5R6"/>
+            <dcterms:subject rdf:resource="http://dewey.info/class/947.706/21/about"/>
+            <dc:subject rdf:datatype="http://purl.org/dc/terms/LCC">DK5417</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">eng</dcterms:language>
+            <dcterms:extent>ix, 469 pages : map ; 24 cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034446335"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034446335#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034446335#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>2</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034746719">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>rda</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>211</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034746719#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034746719#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/034746719"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">034746719</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9783032231079"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9783032231086"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/3032231086"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9783032231093"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9783032231109"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/3032231078"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9783032231079</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9783032231086</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">3032231086</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9783032231093</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9783032231109</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">3032231078</dcterms:identifier>
+            <dcterms:title>The 'pacifist principle' in the Italian and Japanese constitutions in the wake of the war in Ukraine</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>The 'pacifist principle' in the Italian and Japanese constitutions in the wake of the war in Ukraine</rdf:value>
+              </rdf:Description>
+            </dc:title>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>Cavaggion, Giovanni</foaf:name>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>Giovanni Cavaggion, editor</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>Springer</foaf:name>
+                <dcndl:location>Cham, Switzerland</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">CH</dcndl:publicationPlace>
+            <dcterms:date>[2026]</dcterms:date>
+            <dcterms:date>©2026</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2026</dcterms:issued>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>1. Introduction</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>ITALY</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>2. The ‘Pacifist Principle' and the ‘Use of Force' in the Italian Constitution</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>3. From “Vapid Pacifism" to “Aggressive Pacifism". Themes, Languages, Organisational Forms of Pacifist Culture from the Post-War Period to the End of the Short Century</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>4. The Pacifist Principles of Conscientious Objection</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>5. Italian Scientists for Nuclear Arms Control in the Cold War: A Concise Testimony</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>6. The Tension of the Italian Constitutional Pacifist Principle in the Wake of the War in Ukraine</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>JAPAN</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>7. Six Faces of Article 9: Japan's Constitutional Pacifism and the World Order</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>8. E. H. Norman, C. L. Kades and the “Feudal Remnants" in Postwar Japan</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>9. Whither Pacifism in Cold War Japan? An Interpretive Path (1947-1990)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>10. Japanese Rearmament and the Constitution: A Misalignment</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>11. The “Pacifist Integralism" Myth: Japan's Evolving National Security Approach Since the 1992 Peacekeeping Law and the Japan Socialist Party's Narrative and Political Shift</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>12. The Tragic Demise of Japan's Constitutional War Constraints</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>THE COMPARATIVE AND TRANSNATIONAL PERSPECTIVE</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>13. The Constitutions of Japan, Italy and Germany Reject War: and the Current Non-Wars?</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>14. Umberto Campagnolo, the European Society of Culture and the Atomic Threat: A Peace Proposal from Intellectuals during the Cold War</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>15. War and Peace in Poland's Constitutional Framework: Past and Present</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>16. The Pacifist Principle in Germany: Between Established Constitutional Constants and Unprecedented Military Expansionism</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>17. Pacifist Clauses, Euro-Atlantic Integration Clauses and Neutrality in the Constitutions of the Former Soviet Republics of Ukraine, Georgia and Moldova</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>THE PHILOSOPHICAL AND POLITICAL PERSPECTIVE</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>18. Contingent or Principled? On the Philosophical Distinctiveness of Pacifism</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>19. Political Philosophy and the Problem of War: Mapping the Battlefield</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>20. Democracies at Peace (or at War)? The Rise and Fall of the Democratic Peace Theory</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcterms:abstract>The book explores the evolution of the debate on the scope and meaning of the constitutional “pacifist principles” (or “pacifist clauses”) in Italy (article 11 of the Italian Constitution) and Japan (article 9 of the Japanese Constitution) generated by the war in Ukraine. The “pacifist principle” is a fundamental principle of both the Italian and Japanese Constitutions. Article 11 of the Constitution of Italy provides that “Italy rejects war as an instrument of aggression against the freedom of other peoples and as a means for the settlement of international disputes”. Article 9 of the Constitution of Japan provides that “Aspiring sincerely to an international peace based on justice and order, the Japanese people forever renounce war as a sovereign right of the nation and the threat or use of force as means of settling international disputes”. The actual scope of these provisions has historically been the object of a heated legal and political debate in the Italian and Japanese societies alike. It is not controversial that the “pacifist clauses” allow (and even oblige) Italy and Japan to recourse to “war” as a means of self-defence of last resort, to ensure the survival of the democratic constitutional system when faced with an existential threat (a “war” of invasion/annexation). Scholars, however, disagree on whether (and to what extent) these provisions allow Italy and Japan to provide aid to a third Country engaged in a war of their own. The book explores this dilemma from an interdisciplinary perspective, drawing on legal, historical, philosophical, and comparative approaches</dcterms:abstract>
+            <dcterms:description>コレクション : 日本関係外国語図書</dcterms:description>
+            <dcterms:description>表現種別 : text</dcterms:description>
+            <dcterms:description>機器種別 : unmediated</dcterms:description>
+            <dcterms:description>キャリア種別 : volume</dcterms:description>
+            <dcterms:description>ISBN : 9783032231086（(electronic bk.)）</dcterms:description>
+            <dcterms:description>ISBN : 3032231086（(electronic bk.)）</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Renunciation of war--Italy</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Renunciation of war--Japan</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Russo-Ukrainian War, 2014-</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Renunciation of war</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Italy</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Japan</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/AI9-211"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/AZ-213"/>
+            <dcterms:subject rdf:resource="http://dewey.info/class/342.45023/about"/>
+            <dc:subject rdf:datatype="http://purl.org/dc/terms/LCC">KKH2305</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">eng</dcterms:language>
+            <dcterms:extent>ix, 400 pages ; 25 cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034746719"/>
+            <dcterms:relation rdf:resource="https://doi.org/10.1007/978-3-032-23108-6"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034746719#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034746719#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>3</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034746941">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>rda</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>211</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034746941#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034746941#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/034746941"/>
+            <rdfs:seeAlso rdf:resource="http://www.worldcat.org/oclc/1581195579"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/OCLCNO">1581195579</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">034746941</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9781843848196"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/1843848198"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/issn/20438230"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9781843848196</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">1843848198</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISSN">2043-8230</dcterms:identifier>
+            <dcterms:title>Medievalism in Japanese manga : from Vikings to Samurai</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>Medievalism in Japanese manga : from Vikings to Samurai</rdf:value>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>Medievalism ; volume 33</rdf:value>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcndl:uniformTitle>
+              <rdf:Description>
+                <rdf:value>Medievalism (Series) ; volume 33</rdf:value>
+              </rdf:Description>
+            </dcndl:uniformTitle>
+            <dcterms:creator>
+              <foaf:Agent>
+                <foaf:name>Su, Minjie</foaf:name>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>edited by Minjie Su</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>D.S. Brewer</foaf:name>
+                <dcndl:location>Cambridge</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">GB</dcndl:publicationPlace>
+            <dcterms:date>2026</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2026</dcterms:issued>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Introduction: Medieval, Medievalism, and Manga / Minjie Su and Maxime Danesin</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>The Translation Movement of Medieval Icelandic Literature in Post-War Japan: From Shizuka Yamamuro to the Present / Minoru Ozawa</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Rewriting Norse Myths and Culture in Japanese Manga: The Viking's Violence in ONE PIECE and Vinland Saga / Sayaka Matsumoto</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>War, Peace, and Performance in Jómsvíkinga saga and Vinland Saga / Þórdís Edda Jóhannesdóttir</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Go Beyond Iceland to the End of the Edge of the World: The Genuine Adventurer Thorfinn Thorsson / Makoto Yukimura, translated by Yao Sun</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>The Valkyries and Fenrir in the Mangaesque Imaginationscape / Maxime Danesin</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>'Ymir's Wicked Blood': About the Uses of Nordic Medievalism in Attack on Titan / Gaïa Perreaut</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>A Berserkr in Shining Armour: Berserk Fury, Werewolf, and Mental Trauma in Kentaro Miura's Manga Berserk / Minjie Su</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Berserker Knight and the Problem of Anger in Fate / John Lance Griffith</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Arthurian Legends and Gawain's Reception in Japan / Hiroki Okamoto</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Die Like a Warrior in Vain? The Limits of Medievalisation, Counter-Gentlemanification, and the Reinscription of Bushidō Baseball in Samurai Giants / Chiharu Hasegawa</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcterms:abstract>"While the modern fascination with the Middle Ages has long been observed and discussed in medieval and medievalism studies, the medium of Japanese manga has only recently begun to attract scholarly attention as a rich repertoire of (neo)medievalist imaginative worlds. Given Japan's geographical, cultural, and historical distance from medieval Europe, this phenomenon raises several questions. What allure does the era hold for Japanese pop culture creators - and why? And in what ways are the Middle Ages reimagined to resonate with different audiences? This volume addresses these questions through close readings of a selection of globally popular and influential manga and related media, including Vinland Saga, Berserk, ONE PIECE, Attack on Titan, and Fate. Beginning with manga inspired by Old Norse-Icelandic materials, the essays then move on to examine those incorporating medieval(ist) motifs in a broader sense and those merging medieval(ist) Europe with the so-called "medieval" Japan. In doing so, this volume not only examines how individual stories or elements from the Middle Ages are adopted and adapted within Japanese manga media, but also contextualises them within the reception history of the Middle Ages in Japan, highlighting its far-reaching impact on Japan's perception of its own past."--Back cover</dcterms:abstract>
+            <dcterms:description>コレクション : 日本関係外国語図書</dcterms:description>
+            <dcterms:description>表現種別 : text</dcterms:description>
+            <dcterms:description>表現種別 : still image</dcterms:description>
+            <dcterms:description>機器種別 : unmediated</dcterms:description>
+            <dcterms:description>キャリア種別 : volume</dcterms:description>
+            <dcterms:description>Includes bibliographical references and index</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Comic books, strips, etc.--Japan--History and criticism</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Manga (Comic books)--History and criticism</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Medievalism in literature</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Civilization, Medieval</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Médiévisme dans la littérature</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Civilisation médiévale</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/KC486"/>
+            <dc:subject rdf:datatype="http://purl.org/dc/terms/LCC">PN8291</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">eng</dcterms:language>
+            <dcterms:extent>xi, 219 pages : illustrations (black and white) ; 25 cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034746941"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034746941#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034746941#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1970309551350536973#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>4</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034447685">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>rda</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>211</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034447685#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034447685#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/034447685"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">034447685</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9789819533275"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9789819533282"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9819533287"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9789819533299"/>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9789819533305"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9789819533275</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9789819533282</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9819533287</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9789819533299</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">9789819533305</dcterms:identifier>
+            <dcterms:title>Beyond the San Francisco system</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>Beyond the San Francisco system</rdf:value>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:uniformTitle>
+              <rdf:Description>
+                <rdf:value>Political Science and International Studies</rdf:value>
+              </rdf:Description>
+            </dcndl:uniformTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/00175350">
+                <foaf:name>金, 泳鎬, 1940-</foaf:name>
+                <dcndl:transcription>キム, ヨンホ, 1940-</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>Young-Ho Kim, Tae-Jin Yi, Wada Haruki, Dekun Hu, Alexis Dudden, editors</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>Springer</foaf:name>
+                <dcndl:location>Singapore</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">SG</dcndl:publicationPlace>
+            <dcterms:date>[2026]</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2026</dcterms:issued>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 1. Explanation: The Formation, Process and Results of the San Francisco system (Kim)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Part I. The San Francisco System in the Postwar World Order</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 2. Clientelism For Ever?- Contemplating the San Francisco Peace Treaty Settlement 72 Years On (MaCormack)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 3. The Core Values of Cairo Declaration and an Exit Strategy to Overcome the Limitations of the San Francisco Peace Treaty (Jang-Hie)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 4. A Case for the Modifiability of the San Francisco Peace Treaty: Examining the Varying Positions of the U.S. and Britain over South Korean Participation (Yi)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 5. Challenges to the Post-war Asia-Pacific International Order (Amstrong)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 6. Hasty Peace, Nasty Greed: Analyzing the Defects of the 1951 Treaty of San Francisco in Comparison with the 1919 Treaty of Versailles (Won)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Part 2. Japanese Historical Position and the San Francisco system</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 7. The Political Situation Surrounding the "Trans-war Phenomenon" in Postwar Japan and the San Francisco Peace Treaty (Yi)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 8. A Study on Modern Japanese Colonialism and Ryukyu Restoration (Yong) Chapter 9. What the Treaty of Peace with Japan(1951) Repudiates: The Discourse of Civilization during the First Sino-Japanese War as the Beginning of 'Violence and Greed' (Oh)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 10. Japanese Second World War Memory and San Francisco Peace Treaty (Yang)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Part 3. Unsolved Problems in the San Francisco System</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 11. Beyond the San Francisco System: An Inspiration from Canada (Hara)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 12. Transcending the San Francisco System requires the elimination of colonial remnants: with a focus on post-war territorial disputes in Northeast Asia (Dekun)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 13. The San Francisco Peace Treaty and Territorial Issues: Information Pamphlets on Territorial Issues from the Japanese Ministry of Foreign Affairs and Their Impact (JUNG)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Part 4. The San Francisco System and The Human Right</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 14. Unlawfulness of Japan's Colonization of Korean Peninsula-Korea' Declaration of January 21, 1904 and Japan's Violation of International Law / (Totsuka)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 15. Remedies for the Victims of Crimes against Humanity: The Case of Comfort Woman and Forced Labor (Baik)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 16. The Continuity of Statehood and Peoplehood in Modern Korea: How the Republic of Korea Defined its Citizenry (Lee) Chapter 17. Righting the Wrongs of the Past between the Republic of Korea and Japan as a Retrial of the 'San Francisco System' (Kim)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Part 5. Beyond the San Francisco System</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 18. Beyond the San Francisco System: A Japanese View (Haruki)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 19. Beyond the San Francisco System, to Where? Contending Visions for the Region-Building in East Asia (Won)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 20. Trouble Among East Asian Allies? America's Troubling Past (Dudden)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcndl:partInformation>
+              <rdf:Description>
+                <dcterms:title>Chapter 21. From the Joint Statement by Korean and Japanese Intellectuals to the End of the San Francisco System Evaluation Conferences : Toward a Durban Conference of East-Asian Intellectuals (Kim)</dcterms:title>
+              </rdf:Description>
+            </dcndl:partInformation>
+            <dcterms:abstract>This book, a eight-year interdisciplinary collaboration involving experts in international politics, law, economics, and history from six countries, meticulously analyzes the San Francisco Peace Treaty System and its profound implications. It critically examines how this system reflected the victim-centric approach of the United Nations while offering a crucial counter perspective from colonial and semi-colonial nations such as Korea and China, notably excluded from its initial formulation. The study specifically re-evaluates the treaty's impact through the crucial lens of human rights, addressing issues such as Japanese military sexual slavery and the Okinawa problem. In addition, the book meticulously tracks the subsequent 72-year evolution of this system in direct relation to the significant economic development and dynamic growth of civil society across East Asian regions. It compellingly argues that the ongoing Indo-Pacific collective security regime, strategically encircling China, represents a contemporary iteration, referred to as San Francisco System 2.0, drawing a clear distinction from its predecessor, San Francisco System 1.0. Ultimately, the focus is on an extensive exploration of the essential conditions required for establishing a truly genuine and lasting system of peace in the region</dcterms:abstract>
+            <dcterms:description>コレクション : 日本関係外国語図書</dcterms:description>
+            <dcterms:description>表現種別 : text</dcterms:description>
+            <dcterms:description>機器種別 : unmediated</dcterms:description>
+            <dcterms:description>キャリア種別 : volume</dcterms:description>
+            <dcterms:description>ISBN : 9789819533282（(electronic bk.)）</dcterms:description>
+            <dcterms:description>ISBN : 9819533287（(electronic bk.)）</dcterms:description>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Peace treaties</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Traités de paix</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Diplomatic relations.</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Peace treaties.</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>Politics and government.</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>East Asia--Foreign relations</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>East Asia--Politics and government--1945-</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject>
+              <rdf:Description>
+                <rdf:value>East Asia.</rdf:value>
+              </rdf:Description>
+            </dcterms:subject>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/A76"/>
+            <dcterms:subject rdf:resource="http://dewey.info/class/327.5/about"/>
+            <dc:subject rdf:datatype="http://purl.org/dc/terms/LCC">DS514.3</dc:subject>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">eng</dcterms:language>
+            <dcterms:extent>xiv, 398 pages : illustrations ; 25 cm</dcterms:extent>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034447685"/>
+            <dcterms:relation rdf:resource="https://doi.org/10.1007/978-981-95-3328-2"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034447685#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034447685#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000136-I1971997317040822800#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>5</recordPosition>
+    </record>
+  </records>
+</searchRetrieveResponse>

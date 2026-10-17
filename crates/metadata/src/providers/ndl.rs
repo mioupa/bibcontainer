@@ -14,20 +14,44 @@
 //!   英字だけの責任表示（`Robert C. Martin ... [et al.] ; foreword by James O. Coplien`）は、空白で人を分けられないので、
 //!   構造化された人名（`dcterms:creator` の `foaf:name`、`Martin, Robert C.`）を使い、役割だけ責任表示から読む
 //!   （`normalize::parse_latin_statement_authors`）。
+//!
+//! # キーワード検索（フェーズ 3）
+//!
+//! `GET /api/sru?operation=searchRetrieve&version=1.2&recordSchema=dcndl&recordPacking=xml&onlyBib=true&maximumRecords=50&query=<CQL>`
+//!
+//! CQL は `title = "<書名>" AND creator = "<著者>" AND mediatype = "books" AND dpid = "iss-ndl-opac" AND sortBy = "issued_date/sort.descending"`
+//! （書名・著者はあるものだけ。`search_cql`）。2026-10-17 に実際の応答で確かめた点:
+//!
+//! - `title`・`creator` は部分一致で、1 つの値に複数の語があれば AND。複数の語は引用符で囲む。値の中の `"` と `\` は
+//!   CQL を壊すので、空白に置き換える。`=` の前後の空白と引用符があれば、`organic`・`andy` のように語の途中に
+//!   `AND`・`OR` が入っていても、`war and peace` のように語として入っていても、エラーにならない
+//!   （仕様書の 3 章は、`=` の前後に空白を付けるよう案内している）。演算子と同じ綴りの語（`AND`・`OR`・`NOT`）は、
+//!   小文字にして入れる（大文字の語を引用符の中に入れたときの動きは、確かめていない）。
+//! - `mediatype = "books"` は図書、`dpid = "iss-ndl-opac"` は NDL 自身の書誌（CiNii・公共図書館の MARC などの重複を除く）。
+//! - サーバー側の並べ替え（刊行年の新しい順）は、`sortBy` を**問い合わせの末尾に付けると**値に巻き込まれて
+//!   エラーや 0 件になるが、**`AND sortBy = "issued_date/sort.descending"` と、ほかの条件と同じ形で連ねる**と効く
+//!   （`version=1.2` のとき）。何も付けないときの順は、書名・刊行年と無関係で、先頭の 50 件が当てにならない。
+//!   念のため、応答も刊行年の新しい順に並べ直す（日付のないものは最後。同じ日付は応答の順のまま）。
+//! - 該当なしは、ISBN の取得と同じ（`Record does not exist`、または 0 件）。
+//!
+//! 結果 1 件は、レコードのデータ側の書誌（書名のある `BibResource`）から、`candidate_from`（ISBN の取得と共有）で候補にする。
+//! ISBN は、型が `ISBN` の識別子の最初の、チェックデジットが合うもの（ISBN-10 は 13 桁に直す）。ISBN が `MAX_ISBNS_PER_BOOK`
+//! 個を超える（シリーズ全体のレコード）か、ISBN がない（古い本）ときは `None`。同じ ISBN は先のものだけ。
+//! 本のページ（`link`）は、書誌の `rdf:about`（`…/books/R100000002-I…#material`）の `#` より前。
 
 use async_trait::async_trait;
 
-use crate::error::{FetchError, ParseError};
-use crate::http::HttpRequest;
+use crate::error::{FetchError, ParseError, SearchError};
+use crate::http::{HttpRequest, percent_encode};
 use crate::isbn::to_isbn13;
 use crate::normalize::{
     attach_kana, clean_text, clean_volume_binding, has_kana, latin_reference_names, normalize_date,
     normalize_language, parse_authors, parse_extent, parse_latin_statement_authors, parse_price,
     restore_latin_name_spacing, split_title, strip_binding_suffix,
 };
-use crate::provider::{Provider, ProviderAuth, ProviderInfo, RawResponse};
+use crate::provider::{Provider, ProviderAuth, ProviderInfo, RawResponse, SearchQuery};
 use crate::transport::{ProviderRateLimit, Transport};
-use crate::types::{Candidate, MetaField, ProviderId};
+use crate::types::{Candidate, MetaField, ProviderId, SearchHit, SearchResults};
 use crate::xml::{Node, parse_document};
 
 pub const DEFAULT_BASE_URL: &str = "https://ndlsearch.ndl.go.jp";
@@ -45,6 +69,12 @@ const FOAF: &str = "http://xmlns.com/foaf/0.1/";
 const NDL_OWN_CATEGORY: &str = "R100000002";
 /// ISBN がこの数を超えるレコードは、シリーズ全体をまとめたレコードとみなす。
 const MAX_ISBNS_PER_BOOK: usize = 4;
+/// キーワード検索で 1 回に取る件数（SRU の上限は 500）。
+const SEARCH_MAX_RECORDS: u32 = 50;
+/// キーワード検索の並び順（刊行年の新しい順）。
+const SEARCH_SORT: &str = "issued_date/sort.descending";
+/// 本のページとして使える URL の先頭。
+const SITE_PREFIX: &str = "https://ndlsearch.ndl.go.jp/";
 
 pub struct Ndl {
     base_url: String,
@@ -68,6 +98,16 @@ impl Ndl {
         Ndl {
             base_url: base_url.trim_end_matches('/').to_string(),
         }
+    }
+
+    /// キーワード検索の URL。`cql` は `search_cql` の結果。
+    fn search_url(&self, cql: &str) -> String {
+        format!(
+            "{}/api/sru?operation=searchRetrieve&version=1.2&recordSchema=dcndl&recordPacking=xml&onlyBib=true&maximumRecords={}&query={}",
+            self.base_url,
+            SEARCH_MAX_RECORDS,
+            percent_encode(cql)
+        )
     }
 
     /// NDL は同時接続 1、1 秒に 1 件（FR-META-08、11.2）。
@@ -106,7 +146,7 @@ impl Provider for Ndl {
             rate_limit: Self::rate_limit(),
             credit: "書誌情報: 国立国会図書館サーチ API (https://ndlsearch.ndl.go.jp/)".to_string(),
             supports_batch: false,
-            supports_search: false,
+            supports_search: true,
             needs_network: true,
         }
     }
@@ -133,6 +173,74 @@ impl Provider for Ndl {
     fn parse(&self, raw: &RawResponse) -> Result<Option<Candidate>, ParseError> {
         parse_sru(&raw.isbn13, &raw.body)
     }
+
+    async fn search(
+        &self,
+        transport: &Transport,
+        query: &SearchQuery,
+    ) -> Result<SearchResults, SearchError> {
+        let url = self.search_url(&search_cql(query)?);
+        let resp = transport
+            .get_ok(&Self::rate_limit(), HttpRequest::get(url))
+            .await?;
+        parse_sru_search(&resp.text()).map_err(|e| FetchError::Parse(e.0).into())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// キーワード検索の問い合わせ
+// ---------------------------------------------------------------------------
+
+/// 利用者の語を、CQL の引用符の中に入れられる形にする。`"` と `\` は CQL の文字列を壊すので空白にして、空白を整える。
+/// 演算子と同じ綴りの語（`AND`・`OR`・`NOT`）は、小文字にする（仕様書は、演算子を大文字で書くとしている。小文字の
+/// `war and peace` は、2026-10-17 に実際のサーバーでエラーにならなかった）。空になれば `None`。
+fn cql_term(term: &str) -> Option<String> {
+    let replaced: String = term
+        .chars()
+        .map(|c| if matches!(c, '"' | '\\') { ' ' } else { c })
+        .collect();
+    let cleaned = clean_text(&replaced)?;
+    Some(
+        cleaned
+            .split(' ')
+            .map(|word| {
+                if ["and", "or", "not"]
+                    .iter()
+                    .any(|op| word.eq_ignore_ascii_case(op))
+                {
+                    word.to_ascii_lowercase()
+                } else {
+                    word.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" "),
+    )
+}
+
+/// キーワード検索の CQL。書名・著者のうち、あるものを `AND` で連ね、図書・NDL 自身の書誌に絞り、
+/// 刊行年の新しい順を付ける（ファイル先頭の説明）。条件が正しくなければ `InvalidQuery`。
+pub(crate) fn search_cql(query: &SearchQuery) -> Result<String, SearchError> {
+    let query = query.validated()?;
+    let title = query.title.as_deref().and_then(cql_term);
+    let author = query.author.as_deref().and_then(cql_term);
+    // 引用符などを除いたら何も残らなかった（`"` だけを入れた、など）
+    if title.is_none() && author.is_none() {
+        return Err(SearchError::InvalidQuery(
+            "書名か著者を入れてください".to_string(),
+        ));
+    }
+    let mut clauses: Vec<String> = Vec::new();
+    if let Some(title) = title {
+        clauses.push(format!("title = \"{title}\""));
+    }
+    if let Some(author) = author {
+        clauses.push(format!("creator = \"{author}\""));
+    }
+    clauses.push("mediatype = \"books\"".to_string());
+    clauses.push("dpid = \"iss-ndl-opac\"".to_string());
+    clauses.push(format!("sortBy = \"{SEARCH_SORT}\""));
+    Ok(clauses.join(" AND "))
 }
 
 // ---------------------------------------------------------------------------
@@ -237,30 +345,43 @@ fn score(rec: &Rec<'_>) -> usize {
     s + present.iter().filter(|p| **p).count()
 }
 
-pub(crate) fn parse_sru(isbn13: &str, body: &str) -> Result<Option<Candidate>, ParseError> {
+/// SRU の応答（`searchRetrieveResponse`）を読む。
+fn parse_sru_root(body: &str) -> Result<Node, ParseError> {
     let root = parse_document(body)
         .map_err(|e| ParseError::new(format!("NDL の応答を読めません: {e}")))?;
     if !root.is(SRW, "searchRetrieveResponse") {
         return Err(ParseError::new("NDL の応答が SRU の形ではありません"));
     }
+    Ok(root)
+}
 
-    let records: Vec<&Node> = root
-        .child(SRW, "records")
+fn sru_records(root: &Node) -> Vec<&Node> {
+    root.child(SRW, "records")
         .map(|r| r.children_named(SRW, "record").collect())
-        .unwrap_or_default();
+        .unwrap_or_default()
+}
 
+/// レコードが 1 つもない応答の読み方。`diagnostics` がないか `Record does not exist` なら該当なし（`Ok`）、
+/// ほかのメッセージ（`illegal query syntax` など）はエラー。
+fn check_empty_response(root: &Node) -> Result<(), ParseError> {
+    let messages: Vec<String> = root
+        .child(SRW, "diagnostics")
+        .into_iter()
+        .flat_map(|d| d.children_named(SRW_DIAG, "diagnostic"))
+        .filter_map(|d| text_of(d.child(SRW_DIAG, "message")))
+        .collect();
+    match messages.first() {
+        None => Ok(()),
+        Some(m) if m == "Record does not exist" => Ok(()),
+        Some(m) => Err(ParseError::new(format!("NDL がエラーを返しました: {m}"))),
+    }
+}
+
+pub(crate) fn parse_sru(isbn13: &str, body: &str) -> Result<Option<Candidate>, ParseError> {
+    let root = parse_sru_root(body)?;
+    let records = sru_records(&root);
     if records.is_empty() {
-        let messages: Vec<String> = root
-            .child(SRW, "diagnostics")
-            .into_iter()
-            .flat_map(|d| d.children_named(SRW_DIAG, "diagnostic"))
-            .filter_map(|d| text_of(d.child(SRW_DIAG, "message")))
-            .collect();
-        return match messages.first() {
-            None => Ok(None),
-            Some(m) if m == "Record does not exist" => Ok(None),
-            Some(m) => Err(ParseError::new(format!("NDL がエラーを返しました: {m}"))),
-        };
+        return check_empty_response(&root).map(|()| None);
     }
 
     // 洋名の綴りの参照（英字の `foaf:name`）。選ばれなかったレコード（CiNii など）の `Martin, Robert C.` も使うので、
@@ -308,6 +429,69 @@ pub(crate) fn parse_sru(isbn13: &str, body: &str) -> Result<Option<Candidate>, P
         .map(|(_, r)| r);
     let Some(best) = best else { return Ok(None) };
     Ok(Some(candidate_from(isbn13, best.bib, &references)))
+}
+
+/// キーワード検索の応答を結果にする。該当なし（`Record does not exist`、0 件）は、空の結果。
+pub(crate) fn parse_sru_search(body: &str) -> Result<SearchResults, ParseError> {
+    let root = parse_sru_root(body)?;
+    let records = sru_records(&root);
+    if records.is_empty() {
+        check_empty_response(&root)?;
+        return Ok(SearchResults {
+            total: Some(0),
+            hits: Vec::new(),
+        });
+    }
+    let total = text_of(root.child(SRW, "numberOfRecords")).and_then(|n| n.parse::<u64>().ok());
+    // 洋名の綴りの参照は、ISBN の取得と同じく、応答のすべてのレコードから集める
+    let references = latin_reference_names(creator_names(&records));
+
+    let mut hits: Vec<SearchHit> = Vec::new();
+    for record in &records {
+        // レコードのデータ側の書誌（書名のある最初の `BibResource`）
+        let Some(bib) = record
+            .child(SRW, "recordData")
+            .and_then(|data| data.children.iter().find(|n| n.is(RDF, "RDF")))
+            .and_then(|rdf| {
+                rdf.children_named(DCNDL, "BibResource")
+                    .find(|b| has_title(b))
+            })
+        else {
+            continue;
+        };
+        let isbns = isbns_of(bib);
+        // ISBN が多いレコードは、シリーズ全体をまとめたもの（1 冊の ISBN ではない）
+        let isbn13 = if isbns.len() <= MAX_ISBNS_PER_BOOK {
+            isbns.first().cloned()
+        } else {
+            None
+        };
+        // 同じ ISBN の本は、先に出たものだけ
+        if let Some(isbn) = &isbn13
+            && hits.iter().any(|h| h.isbn13.as_deref() == Some(isbn))
+        {
+            continue;
+        }
+        let candidate = candidate_from(isbn13.as_deref().unwrap_or(""), bib, &references);
+        hits.push(SearchHit {
+            provider: ProviderId::Ndl,
+            isbn13,
+            candidate,
+            link: page_link(bib),
+        });
+    }
+    // サーバー側の並べ替え（刊行年の新しい順）が効いていても、同じ順にそろえておく。日付のないものは最後。
+    // 日付は `YYYY` / `YYYY-MM` / `YYYY-MM-DD` なので文字列の比較でよく、`sort_by` は安定（同じ日付は応答の順のまま）。
+    hits.sort_by(|a, b| b.candidate.published_on.cmp(&a.candidate.published_on));
+    Ok(SearchResults { total, hits })
+}
+
+/// 書誌の `rdf:about` から、本のページの URL（`#` より前）。NDLサーチのサイトの URL だけ。
+fn page_link(bib: &Node) -> Option<String> {
+    let about = bib.attr(RDF, "about")?;
+    let url = about.split('#').next().unwrap_or(about);
+    (url.starts_with(SITE_PREFIX) && !url.chars().any(|c| c.is_whitespace() || c.is_control()))
+        .then(|| url.to_string())
 }
 
 /// 応答のすべてのレコードの、人名（`dcterms:creator` の `foaf:Agent` の `foaf:name`）。

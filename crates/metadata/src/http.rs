@@ -230,6 +230,19 @@ pub fn mask_url(url: &str) -> String {
     mask_secrets(url)
 }
 
+/// クエリの値のパーセントエンコード（英数字と `-` `_` `.` `~` 以外を、UTF-8 のバイトごとに `%XX` にする）。
+pub(crate) fn percent_encode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -271,6 +284,13 @@ mod tests {
             mask_secrets("error sending request for url (https://x/?q=1&key=SECRET)"),
             "error sending request for url (https://x/?q=1&key=***)"
         );
+    }
+
+    #[test]
+    fn percent_encoding_keeps_only_unreserved_characters() {
+        assert_eq!(percent_encode("abc-_.~XYZ019"), "abc-_.~XYZ019");
+        assert_eq!(percent_encode("a b&c=d\"e"), "a%20b%26c%3Dd%22e");
+        assert_eq!(percent_encode("こころ"), "%E3%81%93%E3%81%93%E3%82%8D");
     }
 
     #[test]

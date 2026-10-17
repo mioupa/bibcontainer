@@ -21,26 +21,44 @@
 //! Open Library はアプリからのリンク（クレジット）を求めている。レート制限は、書誌・書影とも同じグループ
 //! （`openlibrary`、1 秒に 1 件、同時接続 1）。
 //!
+//! # キーワード検索（フェーズ 3）
+//!
+//! `GET /search.json?title=<書名>&author=<著者>&fields=…&limit=20`（あるものだけ）。結果は Open Library の順のまま、
+//! 作品（work）1 件につき 1 件。版は、検索に合った先頭の 1 件（`editions.docs[0]`。`fields` で `editions.*` を頼む）で、
+//! 書名・副書名・著者・出版社・発行日・言語・ISBN・書影をそこから取る（ない項目は作品の `title`・`subtitle`・
+//! `author_name`・`cover_i` で補う。版がなければ作品の項目だけ）。作品全体の `isbn`（ほかの版の ISBN が混ざる）は頼まず、
+//! 使わない。ISBN は版の `isbn` から（13 桁を先に、なければ 10 桁を直す）。本のページ（`link`）は
+//! `https://openlibrary.org<版の key>`（`/books/OL…M`）、版の key がなければ作品の key（`/works/OL…W`）。
+//! 通信は書誌と同じレート制限のグループ（`openlibrary`）。
+//!
 //! 日付は自由な英語の書式（`July 2008`、`Mar 05, 2016`、`c1995`、`[2003]` など）で、`normalize_date` が読む。
 
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
-use crate::error::{FetchError, ParseError};
-use crate::http::HttpRequest;
-use crate::isbn::to_isbn13;
+use crate::error::{FetchError, ParseError, SearchError};
+use crate::http::{HttpRequest, percent_encode};
+use crate::isbn::{is_valid_isbn13, to_isbn13};
 use crate::normalize::{
     clean_description, clean_text, normalize_date, normalize_language, parse_extent, strip_html,
 };
-use crate::provider::{Provider, ProviderAuth, ProviderInfo, RawResponse};
+use crate::provider::{Provider, ProviderAuth, ProviderInfo, RawResponse, SearchQuery};
 use crate::transport::{ProviderRateLimit, Transport, http_error};
-use crate::types::{Candidate, CandidateAuthor, CandidateCover, MetaField, ProviderId};
+use crate::types::{
+    Candidate, CandidateAuthor, CandidateCover, MetaField, ProviderId, SearchHit, SearchResults,
+};
 
 pub const DEFAULT_BASE_URL: &str = "https://openlibrary.org";
 pub const DEFAULT_COVERS_BASE_URL: &str = "https://covers.openlibrary.org";
 
 /// 検索で取る項目。作品の `key`・`title`・`author_name` と、版（`editions`）の項目。
 const SEARCH_FIELDS: &str = "key,title,author_name,editions,editions.key,editions.title,editions.subtitle,editions.author_name,editions.publisher,editions.publish_date,editions.language,editions.cover_i,editions.isbn";
+
+/// キーワード検索で取る項目。作品の `key`・`title`・`subtitle`・`author_name`・`cover_i` と、版（`editions`）の項目。
+/// 作品全体の `isbn` は頼まない（ほかの版の ISBN が混ざっていて、表示する版の ISBN と食い違う）。
+const KEYWORD_FIELDS: &str = "key,title,subtitle,author_name,cover_i,editions,editions.key,editions.title,editions.subtitle,editions.author_name,editions.isbn,editions.publisher,editions.publish_date,editions.language,editions.cover_i";
+/// キーワード検索で 1 回に取る作品の数。
+const KEYWORD_LIMIT: u32 = 20;
 
 pub struct OpenLibrary {
     base_url: String,
@@ -88,6 +106,20 @@ impl OpenLibrary {
             "{}/search.json?isbn={}&fields={}",
             self.base_url, isbn13, SEARCH_FIELDS
         )
+    }
+
+    /// キーワード検索の URL。書名・著者はあるものだけ入れる。
+    fn keyword_url(&self, query: &SearchQuery) -> String {
+        let mut params: Vec<String> = Vec::new();
+        if let Some(title) = &query.title {
+            params.push(format!("title={}", percent_encode(title)));
+        }
+        if let Some(author) = &query.author {
+            params.push(format!("author={}", percent_encode(author)));
+        }
+        params.push(format!("fields={KEYWORD_FIELDS}"));
+        params.push(format!("limit={KEYWORD_LIMIT}"));
+        format!("{}/search.json?{}", self.base_url, params.join("&"))
     }
 
     fn cover_url(&self, id: i64) -> String {
@@ -144,7 +176,7 @@ impl Provider for OpenLibrary {
             rate_limit: Self::rate_limit(),
             credit: "書誌情報・書影: Open Library (https://openlibrary.org/)".to_string(),
             supports_batch: false,
-            supports_search: false,
+            supports_search: true,
             needs_network: true,
         }
     }
@@ -196,6 +228,22 @@ impl Provider for OpenLibrary {
     fn parse(&self, raw: &RawResponse) -> Result<Option<Candidate>, ParseError> {
         self.parse_envelope(&raw.isbn13, &raw.body)
     }
+
+    async fn search(
+        &self,
+        transport: &Transport,
+        query: &SearchQuery,
+    ) -> Result<SearchResults, SearchError> {
+        let query = query.validated()?;
+        let resp = transport
+            .get_ok(
+                &Self::rate_limit(),
+                HttpRequest::get(self.keyword_url(&query)),
+            )
+            .await?;
+        self.parse_keyword_search(&resp.text())
+            .map_err(|e| FetchError::Parse(e.0).into())
+    }
 }
 
 /// 検索の応答の作品の一覧（`docs`）。`docs` がなくても `numFound` が 0 なら、該当なし（空の一覧）として読む。
@@ -212,6 +260,33 @@ fn is_edition_key(key: &str) -> bool {
     key.strip_prefix("/books/OL")
         .and_then(|rest| rest.strip_suffix('M'))
         .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// 記録（作品・版）の `key`。
+fn key_of(record: &Value) -> Option<&str> {
+    record.get("key").and_then(Value::as_str)
+}
+
+/// 作品の key（`/works/OL17618370W`）の形か。URL に入れるので、想定の形だけを通す。
+fn is_work_key(key: &str) -> bool {
+    key.strip_prefix("/works/OL")
+        .and_then(|rest| rest.strip_suffix('W'))
+        .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// 版の `isbn`（10 桁と 13 桁が混ざる）から ISBN-13 を 1 つ。チェックデジットが合う 13 桁を先に、なければ 10 桁を直す。
+fn edition_isbn13(edition: &Value) -> Option<String> {
+    let isbns: Vec<&str> = edition
+        .get("isbn")?
+        .as_array()?
+        .iter()
+        .filter_map(Value::as_str)
+        .collect();
+    isbns
+        .iter()
+        .find(|s| is_valid_isbn13(s))
+        .map(|s| (*s).to_string())
+        .or_else(|| isbns.iter().find_map(|s| to_isbn13(s)))
 }
 
 /// 統合されて別の版に移った記録（`type.key` が `/type/redirect`）か。
@@ -289,6 +364,81 @@ fn positive(v: &Value) -> Option<i64> {
 }
 
 impl OpenLibrary {
+    /// キーワード検索の応答を結果にする。作品 1 件が 1 件の結果で、順番も件数も Open Library のまま。
+    fn parse_keyword_search(&self, body: &str) -> Result<SearchResults, ParseError> {
+        let search: Value = serde_json::from_str(body).map_err(|e| {
+            ParseError::new(format!("Open Library の応答が JSON ではありません: {e}"))
+        })?;
+        let docs = search_docs(&search)
+            .ok_or_else(|| ParseError::new("Open Library の応答に docs がありません"))?;
+        Ok(SearchResults {
+            total: search.get("numFound").and_then(Value::as_u64),
+            hits: docs.iter().map(|work| self.hit_from_work(work)).collect(),
+        })
+    }
+
+    /// 検索の作品 1 件から、結果 1 件を作る。版は検索に合った先頭の 1 件（なければ作品の項目だけ）。
+    fn hit_from_work(&self, work: &Value) -> SearchHit {
+        let edition = work.pointer("/editions/docs/0").filter(|e| e.is_object());
+        let isbn13 = edition.and_then(edition_isbn13);
+        let mut c = Candidate::empty(ProviderId::OpenLibrary, isbn13.as_deref().unwrap_or(""));
+
+        // 書名と副書名は、同じ記録から取る（版、なければ作品）
+        let text =
+            |rec: &Value, key: &str| rec.get(key).and_then(Value::as_str).and_then(clean_text);
+        match edition.and_then(edition_title) {
+            Some(title) => {
+                c.title = Some(title);
+                c.subtitle = edition.and_then(|e| text(e, "subtitle"));
+            }
+            None => {
+                c.title = text(work, "title");
+                c.subtitle = text(work, "subtitle");
+            }
+        }
+        c.authors = names(edition.and_then(|e| e.get("author_name")));
+        if c.authors.is_empty() {
+            c.authors = names(work.get("author_name"));
+        }
+        c.publisher = first_text(edition.and_then(|e| e.get("publisher")));
+        c.published_on = edition
+            .and_then(|e| e.get("publish_date"))
+            .and_then(Value::as_array)
+            .and_then(|dates| {
+                dates
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .find_map(normalize_date)
+            });
+        c.language = edition
+            .and_then(|e| e.pointer("/language/0"))
+            .and_then(Value::as_str)
+            .and_then(normalize_language);
+        let cover_id = edition
+            .and_then(|e| e.get("cover_i"))
+            .and_then(positive)
+            .or_else(|| work.get("cover_i").and_then(positive));
+        if let Some(id) = cover_id {
+            c.covers.push(CandidateCover {
+                provider: ProviderId::OpenLibrary,
+                url: self.cover_url(id),
+            });
+        }
+
+        // ページは、サイトの本物の URL（テストで接続先を変えても、利用者のブラウザで開く先は変わらない）
+        let link = edition
+            .and_then(key_of)
+            .filter(|k| is_edition_key(k))
+            .or_else(|| key_of(work).filter(|k| is_work_key(k)))
+            .map(|k| format!("{DEFAULT_BASE_URL}{k}"));
+        SearchHit {
+            provider: ProviderId::OpenLibrary,
+            isbn13,
+            candidate: c,
+            link,
+        }
+    }
+
     /// 生の応答（検索と版の包み）を候補にする。
     fn parse_envelope(&self, isbn13: &str, body: &str) -> Result<Option<Candidate>, ParseError> {
         let env: Value = serde_json::from_str(body).map_err(|e| {

@@ -39,6 +39,14 @@
 //!
 //! 障害のあいだの 1 冊あたりの通信は、検索・Dynamic Links・volume の 3 回（1 秒ずつあける）。
 //!
+//! # キーワード検索（フェーズ 3）
+//!
+//! `GET /books/v1/volumes?q=<書名 著者>&maxResults=20&printType=books&key=…`（`volumes.list`）。書名と著者を空白でつなぎ、
+//! 修飾子（`intitle:` など）は付けない。結果は Google の返した順・件数のまま渡す（並べ替えも、取捨もしない。
+//! 規約が結果の改変を禁じている）。ISBN は `industryIdentifiers` の `ISBN_13`（なければ `ISBN_10` を 13 桁に直したもの）。
+//! 本のページ（`link`）は `https://books.google.com/books?id=<ID>`。書影は、ISBN の取得の、検索の応答と同じ規則。
+//! 1 項目ぶんの写像は `candidate_from_volume` で、ISBN の取得（`parse_google`）と共有する。
+//!
 //! `parse_google` は、検索の応答（`items`）と、volume 1 件の応答（`kind` が `books#volume`、または最上位に
 //! `volumeInfo`）の両方を読む。書影は、volume 1 件の応答では、`imageLinks` があるとき、最上位の `id` から
 //! `books/content?id=<ID>&printsec=frontcover&img=1&zoom=0`（大きい）と `zoom=1`（128px ほど）を組み立てる。
@@ -48,19 +56,24 @@
 use async_trait::async_trait;
 use serde_json::Value;
 
-use crate::error::{FetchError, ParseError};
-use crate::http::HttpRequest;
+use crate::error::{FetchError, ParseError, SearchError};
+use crate::http::{HttpRequest, percent_encode};
 use crate::isbn::to_isbn13;
 use crate::normalize::{
     clean_description, clean_text, normalize_date, normalize_language, strip_html, upgrade_to_https,
 };
-use crate::provider::{Provider, ProviderAuth, ProviderInfo, RawResponse};
+use crate::provider::{Provider, ProviderAuth, ProviderInfo, RawResponse, SearchQuery};
 use crate::transport::{ProviderRateLimit, Transport, http_error};
-use crate::types::{Candidate, CandidateAuthor, CandidateCover, MetaField, ProviderId};
+use crate::types::{
+    Candidate, CandidateAuthor, CandidateCover, MetaField, ProviderId, SearchHit, SearchResults,
+};
 
 pub const DEFAULT_BASE_URL: &str = "https://www.googleapis.com";
 /// Dynamic Links の接続先（キーを送らない）。
 pub const DEFAULT_DYNAMIC_LINKS_BASE_URL: &str = "https://books.google.com";
+
+/// キーワード検索で 1 回に取る件数（`maxResults` の上限は 40）。
+const SEARCH_MAX_RESULTS: u32 = 20;
 
 pub struct GoogleBooks {
     base_url: String,
@@ -114,6 +127,23 @@ impl GoogleBooks {
             url.push_str(&percent_encode(key));
         }
         url
+    }
+
+    /// キーワード検索の URL。書名と著者を空白でつないだ 1 つの検索語にする。
+    fn search_url(&self, query: &SearchQuery) -> String {
+        let words: Vec<&str> = [query.title.as_deref(), query.author.as_deref()]
+            .into_iter()
+            .flatten()
+            .collect();
+        self.with_key(
+            format!(
+                "{}/books/v1/volumes?q={}&maxResults={}&printType=books",
+                self.base_url,
+                percent_encode(&words.join(" ")),
+                SEARCH_MAX_RESULTS
+            ),
+            true,
+        )
     }
 
     fn request_url(&self, isbn13: &str) -> String {
@@ -192,18 +222,6 @@ impl GoogleBooks {
     }
 }
 
-fn percent_encode(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for b in s.bytes() {
-        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {
-            out.push(b as char);
-        } else {
-            out.push_str(&format!("%{b:02X}"));
-        }
-    }
-    out
-}
-
 #[async_trait]
 impl Provider for GoogleBooks {
     fn id(&self) -> ProviderId {
@@ -232,7 +250,7 @@ impl Provider for GoogleBooks {
             rate_limit: Self::rate_limit(),
             credit: "Powered by Google Books API (https://books.google.com/)".to_string(),
             supports_batch: false,
-            supports_search: false,
+            supports_search: true,
             needs_network: true,
         }
     }
@@ -270,6 +288,24 @@ impl Provider for GoogleBooks {
 
     fn parse(&self, raw: &RawResponse) -> Result<Option<Candidate>, ParseError> {
         parse_google(&raw.isbn13, &raw.body)
+    }
+
+    async fn search(
+        &self,
+        transport: &Transport,
+        query: &SearchQuery,
+    ) -> Result<SearchResults, SearchError> {
+        let query = query.validated()?;
+        let resp = transport
+            .get(
+                &Self::rate_limit(),
+                HttpRequest::get(self.search_url(&query)),
+            )
+            .await?;
+        if !resp.is_success() {
+            return Err(google_http_error(&resp, self.api_key.is_some()).into());
+        }
+        parse_google_search(&resp.text()).map_err(|e| FetchError::Parse(e.0).into())
     }
 }
 
@@ -529,10 +565,68 @@ pub(crate) fn parse_google(isbn13: &str, body: &str) -> Result<Option<Candidate>
             })
         })
         .copied();
-    let Some(info) = chosen.and_then(|i| i.get("volumeInfo")) else {
+    let Some(volume) = chosen else {
         return Ok(None);
     };
+    let Some(info) = volume.get("volumeInfo") else {
+        return Ok(None);
+    };
+    Ok(Some(candidate_from_volume(isbn13, volume, info, single)))
+}
 
+/// 検索の応答（`volumes.list`）を結果にする。順番も件数も、Google の返したまま（`volumeInfo` のない項目だけは、
+/// 見せるものがないので除く）。`totalItems` は Google の概算で、`hits` より多いことがある。
+pub(crate) fn parse_google_search(body: &str) -> Result<SearchResults, ParseError> {
+    let v: Value = serde_json::from_str(body)
+        .map_err(|e| ParseError::new(format!("Google Books の応答が JSON ではありません: {e}")))?;
+    if v.get("error").is_some() {
+        return Err(ParseError::new("Google Books がエラーを返しました"));
+    }
+    let hits = v
+        .get("items")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|item| {
+            let info = item.get("volumeInfo").filter(|i| i.is_object())?;
+            let isbn13 = isbn_of(info);
+            let candidate =
+                candidate_from_volume(isbn13.as_deref().unwrap_or(""), item, info, false);
+            let link = item
+                .get("id")
+                .and_then(Value::as_str)
+                .filter(|id| is_valid_volume_id(id))
+                .map(|id| format!("https://books.google.com/books?id={id}"));
+            Some(SearchHit {
+                provider: ProviderId::Google,
+                isbn13,
+                candidate,
+                link,
+            })
+        })
+        .collect();
+    Ok(SearchResults {
+        total: v.get("totalItems").and_then(Value::as_u64),
+        hits,
+    })
+}
+
+/// `industryIdentifiers` から ISBN-13 を 1 つ。`ISBN_13` を先に、なければ `ISBN_10`（13 桁に直す）。
+/// チェックデジットが合わないものは使わない。
+fn isbn_of(info: &Value) -> Option<String> {
+    let ids = info.get("industryIdentifiers")?.as_array()?;
+    let pick = |kind: &str| {
+        ids.iter()
+            .filter(|i| i.get("type").and_then(Value::as_str) == Some(kind))
+            .filter_map(|i| i.get("identifier").and_then(Value::as_str))
+            .find_map(to_isbn13)
+    };
+    pick("ISBN_13").or_else(|| pick("ISBN_10"))
+}
+
+/// volume 1 件（検索の応答の `items[]` の 1 件、または volume 1 件の応答そのもの）から候補を作る。
+/// `info` は `volume` の `volumeInfo`。`single` は volume 1 件の応答か（書影の組み立てが違う）。
+fn candidate_from_volume(isbn13: &str, volume: &Value, info: &Value, single: bool) -> Candidate {
     let text = |key: &str| info.get(key).and_then(Value::as_str).and_then(clean_text);
     let mut c = Candidate::empty(ProviderId::Google, isbn13);
     c.title = text("title");
@@ -578,7 +672,7 @@ pub(crate) fn parse_google(isbn13: &str, body: &str) -> Result<Option<Candidate>
     // 書影
     if single {
         // volume 1 件の応答: 最上位の id から zoom=0（大きい）、zoom=1 の順
-        c.covers = single_volume_covers(&v, info);
+        c.covers = single_volume_covers(volume, info);
     } else if let Some(links) = info.get("imageLinks") {
         // 検索の応答: thumbnail（zoom=1、幅 128px ほど）と、同じ URL の zoom=0（大きい画像）。大きい方を先にする。
         let pick = |key: &str| links.get(key).and_then(Value::as_str).map(clean_cover_url);
@@ -605,7 +699,7 @@ pub(crate) fn parse_google(isbn13: &str, body: &str) -> Result<Option<Candidate>
             }
         }
     }
-    Ok(Some(c))
+    c
 }
 
 #[cfg(test)]

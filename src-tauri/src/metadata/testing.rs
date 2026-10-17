@@ -50,6 +50,39 @@ pub fn cover_jpeg() -> Vec<u8> {
     out
 }
 
+/// URL のクエリの `name` の値（パーセントエンコードを戻したもの）。なければ空。
+pub fn query_param(url: &str, name: &str) -> String {
+    let Some((_, query)) = url.split_once('?') else {
+        return String::new();
+    };
+    let Some(value) = query
+        .split('&')
+        .find_map(|pair| pair.strip_prefix(&format!("{name}=")))
+    else {
+        return String::new();
+    };
+    let bytes = value.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        match (bytes[i], value.get(i + 1..i + 3)) {
+            (b'%', Some(hex)) if hex.bytes().all(|b| b.is_ascii_hexdigit()) => {
+                out.push(u8::from_str_radix(hex, 16).unwrap_or(b'?'));
+                i += 3;
+            }
+            (b'+', _) => {
+                out.push(b' ');
+                i += 1;
+            }
+            (b, _) => {
+                out.push(b);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 pub fn response(
     status: u16,
     content_type: &str,
@@ -93,6 +126,49 @@ pub fn online_handler() -> Handler {
             let body = std::fs::read_to_string(fixture_path(&format!("ndl_{isbn}.xml")))
                 .unwrap_or_else(|_| fixture("ndl_notfound.xml"));
             return response(200, "text/xml;charset=UTF-8", body.into_bytes());
+        }
+        // キーワード検索（書名・著者。フェーズ 3）。書名の語で、フィクスチャを選ぶ。ほかの語は「該当なし」
+        //   NDL: `スローループ` → 11 冊、`こころ` → 古い本が多い 20 件、`ERROR` → エラーの診断
+        if url.contains("ndlsearch.ndl.go.jp/api/sru") && url.contains("sortBy") {
+            let cql = query_param(url, "query");
+            let file = if cql.contains("ERROR") {
+                "ndl_search_error_diagnostic.xml"
+            } else if cql.contains("スローループ") {
+                "ndl_search_slowloop.xml"
+            } else if cql.contains("こころ") {
+                "ndl_search_kokoro_soseki.xml"
+            } else {
+                "ndl_notfound.xml"
+            };
+            return response(200, "text/xml;charset=UTF-8", fixture(file).into_bytes());
+        }
+        //   Google: キーがなければ 429（ISBN の取得と同じ）。`clean` → 合成の 7 件（6 件が結果になる）
+        if url.contains("googleapis.com/books/v1/volumes?q=") && !url.contains("volumes?q=isbn:") {
+            if !url.contains("key=") {
+                return response(
+                    429,
+                    "application/json",
+                    fixture("google_quota_exceeded.json").into_bytes(),
+                );
+            }
+            let body = if query_param(url, "q").to_lowercase().contains("clean") {
+                fixture("google_synthetic_search_clean_code.json")
+            } else {
+                r#"{"kind":"books#volumes","totalItems":0}"#.to_owned()
+            };
+            return response(200, "application/json; charset=UTF-8", body.into_bytes());
+        }
+        //   Open Library: `clean` → 3 件、`こころ` → 10 件（総数 14）
+        if url.contains("openlibrary.org/search.json?") && !url.contains("search.json?isbn=") {
+            let title = query_param(url, "title").to_lowercase();
+            let body = if title.contains("clean") {
+                fixture("openlibrary_searchkw_clean_code_martin.json")
+            } else if title.contains("こころ") {
+                fixture("openlibrary_searchkw_kokoro.json")
+            } else {
+                r#"{"numFound":0,"start":0,"docs":[]}"#.to_owned()
+            };
+            return response(200, "application/json", body.into_bytes());
         }
         // Google の Dynamic Links（検索が該当なしのときの回避策）。この偽物では、どの ISBN も知らない
         if url.contains("books?bibkeys=ISBN:") {

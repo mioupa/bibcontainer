@@ -1,5 +1,5 @@
 // フォームの 5 つのタブの中身（9.2）。入力欄の並べ方だけを持つ。値・検証・保存は BookEditorForm。
-import { DownloadIcon } from "lucide-react";
+import { DownloadIcon, SearchIcon } from "lucide-react";
 import { useMemo } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -36,15 +36,37 @@ const PURCHASE_COND_OPTIONS: SelectOption[] = [
 interface BasicTabProps {
   /** 新しい本の登録で、書誌を取得して空の項目に入れる操作（ISBN の横のボタン）。 */
   onFetch: (() => void) | null;
+  /** 新しい本の登録で、書名・著者のキーワード検索を開く操作（書名の横のボタン）。 */
+  onSearch: (() => void) | null;
+  /** 書誌を取得している間（ISBN の取得・検索結果の取り込み）。 */
   fetching: boolean;
 }
 
-export function BasicTab({ onFetch, fetching }: BasicTabProps) {
+export function BasicTab({ onFetch, onSearch, fetching }: BasicTabProps) {
   return (
     <div className="grid gap-6 p-1 md:grid-cols-[15rem_minmax(0,1fr)]">
       <CoverField />
       <div className="grid grid-cols-2 content-start gap-x-4 gap-y-4">
-        <TextField name="title" label={ja.edit.fields.title} className="col-span-2" />
+        <TextField
+          name="title"
+          label={ja.edit.fields.title}
+          className="col-span-2"
+          trailing={
+            onSearch !== null ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={fetching}
+                title={ja.edit.search.openHint}
+                onClick={onSearch}
+              >
+                <SearchIcon />
+                {ja.edit.search.open}
+              </Button>
+            ) : undefined
+          }
+        />
         <TextField name="titleKana" label={ja.edit.fields.titleKana} className="col-span-2" />
         <TextField name="subtitle" label={ja.edit.fields.subtitle} className="col-span-2" />
         <AuthorsField className="col-span-2" />

@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use bibcontainer_metadata::{MetaSecondTier, ProviderId};
+use bibcontainer_metadata::{MetaSecondTier, ProviderId, SearchHit};
 use tauri::State;
 use tauri::ipc::{InvokeBody, Request};
 
@@ -13,6 +13,7 @@ use super::fetch::FetchMetadataResult;
 use super::providers::{ProviderStatus, ProviderTestResult};
 use super::refetch::RefetchSummary;
 use super::register::NewBookDraft;
+use super::search::ProviderSearchResult;
 use super::settings::ProviderSettings;
 use super::state::MetadataState;
 use crate::error::AppError;
@@ -84,6 +85,29 @@ pub async fn fetch_metadata(
     state: Metadata<'_>,
 ) -> Result<FetchMetadataResult, AppError> {
     state.fetch_metadata(&isbn13, second_tier).await
+}
+
+/// 書名・著者で、取得元 1 つにキーワード検索する（DB には書かない）。通信の失敗・該当なしは、エラーではなく
+/// 結果の `outcome` で返す。条件が正しくない・取得元が使えない（無効、API キーなし）・検索に対応していない
+/// ときは `validation`。
+#[tauri::command]
+pub async fn search_metadata(
+    provider: ProviderId,
+    title: Option<String>,
+    author: Option<String>,
+    state: Metadata<'_>,
+) -> Result<ProviderSearchResult, AppError> {
+    state.search_metadata(provider, title, author).await
+}
+
+/// 検索結果の 1 件から、登録フォームの下書きを作る（DB には書かない）。ISBN があれば `fetch_metadata` と同じ
+/// 取得で、選んだ取得元が取れなかったときだけ検索結果の値を足す。ISBN がなければ、検索結果の 1 件だけを使う。
+#[tauri::command]
+pub async fn fetch_search_hit(
+    hit: SearchHit,
+    state: Metadata<'_>,
+) -> Result<FetchMetadataResult, AppError> {
+    state.fetch_search_hit(hit).await
 }
 
 /// 下書きから本を作る（全体で 1 トランザクション）。新しい本の ID を渡した順に返す。

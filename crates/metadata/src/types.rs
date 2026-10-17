@@ -322,6 +322,29 @@ impl Candidate {
     }
 }
 
+/// キーワード検索の結果の 1 件。ISBN があれば、`candidate.isbn13` に同じ値が入る（なければ空文字）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SearchHit {
+    pub provider: ProviderId,
+    /// ISBN-13（チェックデジットが合うものだけ。ISBN-10 は 13 桁に直す）。ISBN がない本は null。
+    pub isbn13: Option<String>,
+    pub candidate: Candidate,
+    /// その本の、取得元のサイト上のページ（https のみ）。
+    pub link: Option<String>,
+}
+
+/// キーワード検索の結果。`hits` は取得元が返した順（NDL は新しい順に並べ直してある）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SearchResults {
+    /// 該当の総件数（取得元が教えてくれるとき。`hits` より多いことがある）。
+    pub total: Option<u64>,
+    pub hits: Vec<SearchHit>,
+}
+
 /// 統合結果の 1 項目の値。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", content = "value", rename_all = "camelCase")]

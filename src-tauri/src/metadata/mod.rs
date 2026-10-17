@@ -7,6 +7,7 @@
 //! | `cache` | 生の応答のキャッシュ（`provider_cache`） |
 //! | `state` | `MetadataService` を持つ managed state。設定やキーが変わると作り直す |
 //! | `fetch` | ISBN 1 件の取得（`fetch_metadata`）と、登録フォームの下書き |
+//! | `search` | キーワード検索（`search_metadata`）と、検索結果 1 件からの下書き（`fetch_search_hit`） |
 //! | `draft` | `BookDraft` への写像、取得状態（`meta_status`）の決め方 |
 //! | `register` | 下書きからの書籍の作成（`create_books_from_drafts`） |
 //! | `refetch` | 再取得と、取得待ちの自動再取得 |
@@ -31,9 +32,12 @@ pub mod keychain;
 pub mod providers;
 pub mod refetch;
 pub mod register;
+pub mod search;
 pub mod settings;
 pub mod state;
 
+#[cfg(test)]
+mod search_tests;
 #[cfg(test)]
 mod testing;
 #[cfg(test)]

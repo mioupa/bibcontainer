@@ -1043,11 +1043,15 @@ fn provider_infos_describe_auth_rate_limit_and_credits() {
     assert!(open_library.credit.contains("Open Library"));
     assert!(open_library.credit.contains("https://openlibrary.org/"));
 
-    for info in [openbd, ndl, google, open_library] {
+    for info in [&openbd, &ndl, &google, &open_library] {
         assert!(!info.credit.is_empty());
         assert!(!info.display_name.is_empty());
-        assert!(!info.supports_search, "キーワード検索はフェーズ 3");
     }
+    // キーワード検索（フェーズ 3）に対応しているのは NDL・Google Books・Open Library。openBD は ISBN だけ
+    assert!(!openbd.supports_search);
+    assert!(ndl.supports_search);
+    assert!(google.supports_search);
+    assert!(open_library.supports_search);
 }
 
 #[tokio::test]
@@ -1064,7 +1068,6 @@ async fn search_is_unsupported_by_default() {
             &SearchQuery {
                 title: Some("x".into()),
                 author: None,
-                limit: 5,
             },
         )
         .await

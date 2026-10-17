@@ -1,0 +1,930 @@
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+  <version>1.2</version>
+  <numberOfRecords>11</numberOfRecords>
+  <extraResponseData>
+    <facets>
+      <lst name="REPOSITORY_NO">
+        <int name="R100000002">11</int>
+      </lst>
+      <lst name="NDC">
+        <int name="7">11</int>
+      </lst>
+      <lst name="ISSUED_DATE">
+        <int name="2019">2</int>
+        <int name="2020">1</int>
+        <int name="2021">2</int>
+        <int name="2022">2</int>
+        <int name="2023">1</int>
+        <int name="2024">1</int>
+        <int name="2025">1</int>
+        <int name="2026">1</int>
+      </lst>
+      <lst name="LIBRARY">
+        <int name="国立国会図書館">11</int>
+      </lst>
+    </facets>
+  </extraResponseData>
+  <records>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033979017">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/2018</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033979017#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033979017#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/24098165"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/033979017"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">24098165</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">033979017</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784832296220"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-8322-9622-0</dcterms:identifier>
+            <dcterms:title>スローループ. 10</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>スローループ</rdf:value>
+                <dcndl:transcription>スロー ループ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>10</rdf:value>
+                <dcndl:transcription>10</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>Manga time KR comics. Kirara menu ; 2072</rdf:value>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/001263337">
+                <foaf:name>うちの, まいこ</foaf:name>
+                <dcndl:transcription>ウチノ, マイコ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>うちのまいこ 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>芳文社</foaf:name>
+                <dcndl:transcription>ホウブンシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2025.3</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2025</dcterms:issued>
+            <dcterms:description>表現種別 : テキスト</dcterms:description>
+            <dcterms:description>表現種別 : 静止画</dcterms:description>
+            <dcterms:description>機器種別 : 機器不用</dcterms:description>
+            <dcterms:description>キャリア種別 : 冊子</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>780円</dcndl:price>
+            <dcterms:extent>176 p ; 19 cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033979017"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033979017#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033979017#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I83229622e00000000000#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784832296220#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>1</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034807010">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/2018</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034807010#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034807010#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/24282218"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/034807010"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">24282218</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">034807010</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784832297333"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-8322-9733-3</dcterms:identifier>
+            <dcterms:title>スローループ. 11</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>スローループ</rdf:value>
+                <dcndl:transcription>スロー ループ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>11</rdf:value>
+                <dcndl:transcription>11</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>Manga time KR comics. Kirara menu ; 2183</rdf:value>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/001263337">
+                <foaf:name>うちの, まいこ</foaf:name>
+                <dcndl:transcription>ウチノ, マイコ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>うちのまいこ 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>芳文社</foaf:name>
+                <dcndl:transcription>ホウブンシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2026.7</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2026</dcterms:issued>
+            <dcterms:description>表現種別 : テキスト</dcterms:description>
+            <dcterms:description>表現種別 : 静止画</dcterms:description>
+            <dcterms:description>機器種別 : 機器不用</dcterms:description>
+            <dcterms:description>キャリア種別 : 冊子</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>780円</dcndl:price>
+            <dcterms:extent>164 p ; 19 cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034807010"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I034807010#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I034807010#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I83229733e00000000000#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784832297333#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>2</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I029554538">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/1987</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I029554538#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I029554538#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/23188393"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/029554538"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">23188393</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">029554538</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784832270763"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-8322-7076-3</dcterms:identifier>
+            <dcterms:title>スローループ. 1</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>スローループ</rdf:value>
+                <dcndl:transcription>スローループ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>1</rdf:value>
+                <dcndl:transcription>1</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>Manga time KR comics. Kirara menu ; 1526</rdf:value>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/001263337">
+                <foaf:name>うちの, まいこ</foaf:name>
+                <dcndl:transcription>ウチノ, マイコ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>うちのまいこ 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>芳文社</foaf:name>
+                <dcndl:transcription>ホウブンシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2019.3</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2019</dcterms:issued>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>590円</dcndl:price>
+            <dcterms:extent>173p ; 19cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I029554538"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I029554538#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I029554538#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I83227076e00000000000#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784832270763#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>3</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I029991678">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/1987</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I029991678#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I029991678#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/23286433"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/029991678"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">23286433</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">029991678</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784832271258"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-8322-7125-8</dcterms:identifier>
+            <dcterms:title>スローループ. 2</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>スローループ</rdf:value>
+                <dcndl:transcription>スロー ループ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>2</rdf:value>
+                <dcndl:transcription>2</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>Manga time KR comics. Kirara menu ; 1575</rdf:value>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/001263337">
+                <foaf:name>うちの, まいこ</foaf:name>
+                <dcndl:transcription>ウチノ, マイコ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>うちのまいこ 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>芳文社</foaf:name>
+                <dcndl:transcription>ホウブンシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2019.10</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2019</dcterms:issued>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>630円</dcndl:price>
+            <dcterms:extent>176p ; 19cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I029991678"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I029991678#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I029991678#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I83227125e00000000000#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784832271258#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>4</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I030439833">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/1987</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I030439833#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I030439833#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/23419761"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/030439833"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">23419761</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">030439833</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784832271975"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-8322-7197-5</dcterms:identifier>
+            <dcterms:title>スローループ. 3</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>スローループ</rdf:value>
+                <dcndl:transcription>スロー ループ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>3</rdf:value>
+                <dcndl:transcription>3</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>Manga time KR comics. Kirara menu ; 1647</rdf:value>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/001263337">
+                <foaf:name>うちの, まいこ</foaf:name>
+                <dcndl:transcription>ウチノ, マイコ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>うちのまいこ 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>芳文社</foaf:name>
+                <dcndl:transcription>ホウブンシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2020.6</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2020</dcterms:issued>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>630円</dcndl:price>
+            <dcterms:extent>172p ; 19cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I030439833"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I030439833#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I030439833#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I83227197e00000000000#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784832271975#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>5</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I031198361">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/2018</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I031198361#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I031198361#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/23497010"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/031198361"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">23497010</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">031198361</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784832272415"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-8322-7241-5</dcterms:identifier>
+            <dcterms:title>スローループ. 4</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>スローループ</rdf:value>
+                <dcndl:transcription>スロー ループ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>4</rdf:value>
+                <dcndl:transcription>4</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>Manga time KR comics. Kirara menu ; 1691</rdf:value>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/001263337">
+                <foaf:name>うちの, まいこ</foaf:name>
+                <dcndl:transcription>ウチノ, マイコ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>うちのまいこ 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>芳文社</foaf:name>
+                <dcndl:transcription>ホウブンシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2021.1</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2021</dcterms:issued>
+            <dcterms:description>表現種別 : テキスト</dcterms:description>
+            <dcterms:description>表現種別 : 静止画</dcterms:description>
+            <dcterms:description>機器種別 : 機器不用</dcterms:description>
+            <dcterms:description>キャリア種別 : 冊子</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>630円</dcndl:price>
+            <dcterms:extent>169 p ; 19 cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I031198361"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I031198361#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I031198361#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I83227241e00000000000#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784832272415#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>6</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I031848487">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/2018</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I031848487#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I031848487#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/23628516"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/031848487"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">23628516</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">031848487</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784832273290"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-8322-7329-0</dcterms:identifier>
+            <dcterms:title>スローループ. 5</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>スローループ</rdf:value>
+                <dcndl:transcription>スロー ループ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>5</rdf:value>
+                <dcndl:transcription>5</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>Manga time KR comics. Kirara menu ; 1779</rdf:value>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/001263337">
+                <foaf:name>うちの, まいこ</foaf:name>
+                <dcndl:transcription>ウチノ, マイコ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>うちのまいこ 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>芳文社</foaf:name>
+                <dcndl:transcription>ホウブンシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2021.12</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2021</dcterms:issued>
+            <dcterms:description>表現種別 : テキスト</dcterms:description>
+            <dcterms:description>表現種別 : 静止画</dcterms:description>
+            <dcterms:description>機器種別 : 機器不用</dcterms:description>
+            <dcterms:description>キャリア種別 : 冊子</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>630円</dcndl:price>
+            <dcterms:extent>173 p ; 19 cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I031848487"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I031848487#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I031848487#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I83227329e00000000000#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784832273290#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>7</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I032013272">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/2018</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I032013272#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I032013272#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/23661721"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/032013272"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">23661721</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">032013272</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784832273542"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-8322-7354-2</dcterms:identifier>
+            <dcterms:title>スローループ. 6</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>スローループ</rdf:value>
+                <dcndl:transcription>スロー ループ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>6</rdf:value>
+                <dcndl:transcription>6</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>Manga time KR comics. Kirara menu ; 1804</rdf:value>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/001263337">
+                <foaf:name>うちの, まいこ</foaf:name>
+                <dcndl:transcription>ウチノ, マイコ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>うちのまいこ 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>芳文社</foaf:name>
+                <dcndl:transcription>ホウブンシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2022.3</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2022</dcterms:issued>
+            <dcterms:description>表現種別 : テキスト</dcterms:description>
+            <dcterms:description>表現種別 : 静止画</dcterms:description>
+            <dcterms:description>機器種別 : 機器不用</dcterms:description>
+            <dcterms:description>キャリア種別 : 冊子</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>630円</dcndl:price>
+            <dcterms:extent>174 p ; 19 cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I032013272"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I032013272#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I032013272#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I83227354e00000000000#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784832273542#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>8</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I032470955">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/2018</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I032470955#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I032470955#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/23762443"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/032470955"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">23762443</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">032470955</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784832274167"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-8322-7416-7</dcterms:identifier>
+            <dcterms:title>スローループ. 7</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>スローループ</rdf:value>
+                <dcndl:transcription>スロー ループ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>7</rdf:value>
+                <dcndl:transcription>7</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>Manga time KR comics. Kirara menu ; 1866</rdf:value>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/001263337">
+                <foaf:name>うちの, まいこ</foaf:name>
+                <dcndl:transcription>ウチノ, マイコ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>うちのまいこ 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>芳文社</foaf:name>
+                <dcndl:transcription>ホウブンシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2022.11</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2022</dcterms:issued>
+            <dcterms:description>表現種別 : テキスト</dcterms:description>
+            <dcterms:description>表現種別 : 静止画</dcterms:description>
+            <dcterms:description>機器種別 : 機器不用</dcterms:description>
+            <dcterms:description>キャリア種別 : 冊子</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>660円</dcndl:price>
+            <dcterms:extent>173 p ; 19 cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I032470955"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I032470955#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I032470955#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I83227416e00000000000#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784832274167#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>9</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I032972552">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/2018</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I032972552#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I032972552#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/23874403"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/032972552"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">23874403</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">032972552</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784832274754"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-8322-7475-4</dcterms:identifier>
+            <dcterms:title>スローループ. 8</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>スローループ</rdf:value>
+                <dcndl:transcription>スロー ループ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>8</rdf:value>
+                <dcndl:transcription>8</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>Manga time KR comics. Kirara menu ; 1925</rdf:value>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/001263337">
+                <foaf:name>うちの, まいこ</foaf:name>
+                <dcndl:transcription>ウチノ, マイコ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>うちのまいこ 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>芳文社</foaf:name>
+                <dcndl:transcription>ホウブンシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2023.8</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2023</dcterms:issued>
+            <dcterms:description>表現種別 : テキスト</dcterms:description>
+            <dcterms:description>表現種別 : 静止画</dcterms:description>
+            <dcterms:description>機器種別 : 機器不用</dcterms:description>
+            <dcterms:description>キャリア種別 : 冊子</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>690円</dcndl:price>
+            <dcterms:extent>172 p ; 19 cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I032972552"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I032972552#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I032972552#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I83227475e00000000000#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784832274754#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>10</recordPosition>
+    </record>
+    <record>
+      <recordSchema>info:srw/schema/1/dc-v1.1</recordSchema>
+      <recordPacking>xml</recordPacking>
+      <recordData>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:owl="http://www.w3.org/2002/07/owl#">
+          <dcndl:BibAdminResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033464473">
+            <dcndl:catalogingStatus>C7</dcndl:catalogingStatus>
+            <dcndl:catalogingRule>ncr/2018</dcndl:catalogingRule>
+            <dcterms:description>type : book</dcterms:description>
+            <dcndl:bibRecordCategory>R100000002</dcndl:bibRecordCategory>
+            <dcndl:bibRecordSubCategory>115</dcndl:bibRecordSubCategory>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033464473#material"/>
+          </dcndl:BibAdminResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033464473#material">
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/jpno/23980036"/>
+            <rdfs:seeAlso rdf:resource="http://id.ndl.go.jp/bib/033464473"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/JPNO">23980036</dcterms:identifier>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/NDLBibID">033464473</dcterms:identifier>
+            <rdfs:seeAlso rdf:resource="http://iss.ndl.go.jp/isbn/9784832295476"/>
+            <dcterms:identifier rdf:datatype="http://ndl.go.jp/dcndl/terms/ISBN">978-4-8322-9547-6</dcterms:identifier>
+            <dcterms:title>スローループ. 9</dcterms:title>
+            <dc:title>
+              <rdf:Description>
+                <rdf:value>スローループ</rdf:value>
+                <dcndl:transcription>スロー ループ</dcndl:transcription>
+              </rdf:Description>
+            </dc:title>
+            <dcndl:volume>
+              <rdf:Description>
+                <rdf:value>9</rdf:value>
+                <dcndl:transcription>9</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:volume>
+            <dcndl:seriesTitle>
+              <rdf:Description>
+                <rdf:value>Manga time KR comics. Kirara menu ; 1997</rdf:value>
+              </rdf:Description>
+            </dcndl:seriesTitle>
+            <dcterms:creator>
+              <foaf:Agent rdf:about="http://id.ndl.go.jp/auth/entity/001263337">
+                <foaf:name>うちの, まいこ</foaf:name>
+                <dcndl:transcription>ウチノ, マイコ</dcndl:transcription>
+              </foaf:Agent>
+            </dcterms:creator>
+            <dc:creator>うちのまいこ 著</dc:creator>
+            <dcterms:publisher>
+              <foaf:Agent>
+                <foaf:name>芳文社</foaf:name>
+                <dcndl:transcription>ホウブンシャ</dcndl:transcription>
+                <dcndl:location>東京</dcndl:location>
+              </foaf:Agent>
+            </dcterms:publisher>
+            <dcndl:publicationPlace rdf:datatype="http://purl.org/dc/terms/ISO3166">JP</dcndl:publicationPlace>
+            <dcterms:date>2024.5</dcterms:date>
+            <dcterms:issued rdf:datatype="http://purl.org/dc/terms/W3CDTF">2024</dcterms:issued>
+            <dcterms:description>表現種別 : テキスト</dcterms:description>
+            <dcterms:description>表現種別 : 静止画</dcterms:description>
+            <dcterms:description>機器種別 : 機器不用</dcterms:description>
+            <dcterms:description>キャリア種別 : 冊子</dcterms:description>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndlc/Y84"/>
+            <dcterms:subject rdf:resource="http://id.ndl.go.jp/class/ndc10/726.1"/>
+            <dcterms:language rdf:datatype="http://purl.org/dc/terms/ISO639-2">jpn</dcterms:language>
+            <dcndl:price>690円</dcndl:price>
+            <dcterms:extent>176 p ; 19 cm</dcterms:extent>
+            <dcndl:genre>
+              <rdf:Description rdf:about="http://id.ndl.go.jp/auth/ndlgft/001347325">
+                <rdf:value>漫画</rdf:value>
+                <dcndl:transcription>マンガ</dcndl:transcription>
+              </rdf:Description>
+            </dcndl:genre>
+            <dcndl:materialType rdf:resource="http://ndl.go.jp/ndltype/Book" rdfs:label="図書"/>
+            <dcterms:audience>一般</dcterms:audience>
+            <rdfs:seeAlso rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033464473"/>
+          </dcndl:BibResource>
+          <dcndl:BibResource rdf:about="https://ndlsearch.ndl.go.jp/books/R100000002-I033464473#material">
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000002-I033464473#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I83229547e00000000000#item"/>
+            <dcndl:record rdf:resource="https://ndlsearch.ndl.go.jp/books/R100000137-I9784832295476#item"/>
+          </dcndl:BibResource>
+        </rdf:RDF>
+      </recordData>
+      <recordPosition>11</recordPosition>
+    </record>
+  </records>
+</searchRetrieveResponse>

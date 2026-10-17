@@ -3,7 +3,8 @@
 //! - `provider`・`providers`: 取得元（openBD・NDL・Google Books・Open Library）。生の応答の取得（`fetch_raw`）と解析（`parse`）を分けてある。
 //! - `normalize`: 正規化（NFKC、著者の役割の分離、日付、価格、ページ数と大きさ）。
 //! - `merge`: 項目ごとの優先順位による統合。優先順位は ISBN の区分（和書・洋書など）ごとに持つ。
-//! - `service`: 有効な取得元への並行した問い合わせ、キャッシュ、取得元ごとの状態。
+//! - `service`: 有効な取得元への並行した問い合わせ、キャッシュ、取得元ごとの状態。キーワード検索（書名・著者。
+//!   NDL・Google Books・Open Library）は `MetadataService::search`（取得元 1 つに 1 回。統合もキャッシュもしない）。
 //! - `transport`・`http`: レート制限、リトライ、タイムアウト、User-Agent、ログの URL の伏せ字。
 //! - `cover`: 書影の取得・ダミー画像の判定・JPEG への変換・保存・サムネイル。
 //!
@@ -30,8 +31,8 @@ pub use merge::{
     MetaFieldChoice, MetaMerged, MetaPick, MetaPriorities, MetaPrioritySets, PriorityProfile, merge,
 };
 pub use provider::{
-    CacheEntry, CacheError, MemoryRawCache, Provider, ProviderAuth, ProviderInfo, RawCache,
-    RawResponse, SearchQuery,
+    CacheEntry, CacheError, MAX_SEARCH_TERM_CHARS, MemoryRawCache, Provider, ProviderAuth,
+    ProviderInfo, RawCache, RawResponse, SearchQuery,
 };
 pub use providers::{default_providers, default_rate_limit};
 pub use service::{

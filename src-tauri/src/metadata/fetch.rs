@@ -6,7 +6,8 @@
 
 use bibcontainer_metadata::isbn::to_isbn13;
 use bibcontainer_metadata::{
-    MetaFetchResult, MetaMerged, MetaSecondTier, ProviderId, ProviderReport,
+    Candidate, MetaFetchResult, MetaMerged, MetaSecondTier, ProviderId, ProviderOutcome,
+    ProviderReport, merge,
 };
 use serde::Serialize;
 use ts_rs::TS;
@@ -80,12 +81,63 @@ impl MetadataState {
                 "ISBN として読めません（チェックデジットを確かめてください）: {isbn}"
             ))
         })?;
-        let active = self.active().await?;
-        let req = active.request(&isbn13, second_tier, false);
-        let result = active.service.fetch(&req).await;
-        let cover = self.fetch_cover(&active, &result.merged).await;
-        Ok(assemble(result, &isbn13, &cover))
+        self.fetch_isbn13(&isbn13, second_tier, None).await
     }
+
+    /// ISBN-13 の書誌を取得して、下書きにする（`fetch_metadata` と `fetch_search_hit` の共通の流れ）。
+    ///
+    /// `search_hit` は、キーワード検索で選ばれた 1 件の候補。ISBN での取得で、その取得元が「取れた」にならなかったとき
+    /// （該当なし・通信エラー・取得元が無効、など）だけ、候補に足して統合し直す（`add_candidate`）。
+    pub(super) async fn fetch_isbn13(
+        &self,
+        isbn13: &str,
+        second_tier: Option<MetaSecondTier>,
+        search_hit: Option<Candidate>,
+    ) -> Result<FetchMetadataResult, AppError> {
+        let active = self.active().await?;
+        let req = active.request(isbn13, second_tier.clone(), false);
+        let mut result = active.service.fetch(&req).await;
+        if let Some(candidate) = search_hit {
+            add_candidate(&mut result, &active, candidate, second_tier.as_ref());
+        }
+        let cover = self.fetch_cover(&active, &result.merged).await;
+        Ok(assemble(result, isbn13, &cover))
+    }
+}
+
+/// 取得結果に、検索結果の候補を足して、同じ優先順位で統合し直す。候補の取得元が、この取得で「取れた」なら、
+/// その取得元の候補（ISBN での取得のほうが項目が多い）を使い、何もしない。オフラインの判定（`offline`）は変えない。
+/// 取得の報告（`reports`）は、候補の取得元が「該当なし」だったときだけ「取れた」に直す（その取得元の値を使うので。
+/// 直さないと、どの取得元も ISBN では見つからなかった本が、値があるのに `failed` になる）。通信・HTTP・解析の
+/// 失敗はそのまま残す（`pending`・`partial` にして、あとで取り直させるため）。
+fn add_candidate(
+    result: &mut MetaFetchResult,
+    active: &Active,
+    candidate: Candidate,
+    second_tier: Option<&MetaSecondTier>,
+) {
+    let found = result
+        .reports
+        .iter()
+        .any(|r| r.provider == candidate.provider && r.outcome == ProviderOutcome::Found);
+    if found {
+        return;
+    }
+    for report in &mut result.reports {
+        if report.provider == candidate.provider && report.outcome == ProviderOutcome::NotFound {
+            report.outcome = ProviderOutcome::Found;
+        }
+    }
+    result
+        .candidates
+        .retain(|c| c.provider != candidate.provider);
+    result.candidates.push(candidate);
+    let priorities = active
+        .settings
+        .priorities
+        .for_profile(result.profile)
+        .normalized(result.profile);
+    result.merged = merge(&result.isbn13, &result.candidates, second_tier, &priorities);
 }
 
 /// 取得結果と書影から、返す形を組み立てる。

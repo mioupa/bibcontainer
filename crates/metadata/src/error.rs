@@ -32,6 +32,9 @@ impl ParseError {
 pub enum SearchError {
     #[error("この取得元はキーワード検索に対応していません")]
     Unsupported,
+    /// 検索の条件が正しくない（書名も著者もない、長すぎる）。メッセージは利用者に見せてよい文。
+    #[error("{0}")]
+    InvalidQuery(String),
     #[error(transparent)]
     Fetch(#[from] FetchError),
 }

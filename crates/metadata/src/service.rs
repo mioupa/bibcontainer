@@ -21,12 +21,12 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::cover::{self, MetaCoverResult, StoredCover};
-use crate::error::{CoverError, FetchError};
+use crate::error::{CoverError, FetchError, SearchError};
 use crate::isbn::to_isbn13;
 use crate::merge::{MetaMerged, MetaPrioritySets, PriorityProfile, merge};
-use crate::provider::{CacheEntry, Provider, ProviderInfo, RawCache, RawResponse};
+use crate::provider::{CacheEntry, Provider, ProviderInfo, RawCache, RawResponse, SearchQuery};
 use crate::transport::Transport;
-use crate::types::{Candidate, MetaSecondTier, ProviderId};
+use crate::types::{Candidate, MetaSecondTier, ProviderId, SearchResults};
 
 /// 生の応答の有効期限の既定値（30 日）。
 pub const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(30 * 24 * 60 * 60);
@@ -55,7 +55,8 @@ pub enum ProviderOutcome {
 }
 
 impl ProviderOutcome {
-    fn from_fetch_error(e: FetchError) -> Self {
+    /// 取得・検索の失敗（`FetchError`）を、取得元の状態にする。
+    pub fn from_fetch_error(e: FetchError) -> Self {
         match e {
             FetchError::Network(message) => ProviderOutcome::NetworkError { message },
             FetchError::Http { status, message } => ProviderOutcome::HttpError { status, message },
@@ -243,6 +244,23 @@ impl MetadataService {
     /// 登録されている取得元の能力情報（設定画面・クレジット表示用）。
     pub fn providers_info(&self) -> Vec<ProviderInfo> {
         self.providers.iter().map(|p| p.info()).collect()
+    }
+
+    /// キーワード検索（書名・著者）。指定した取得元に 1 回だけ問い合わせる（取得元どうしの統合も、キャッシュもしない）。
+    /// 通信は ISBN の取得と同じ `Transport`（同じレート制限のグループ）で行う。
+    /// 条件が正しくなければ `InvalidQuery`。取得元が登録されていないか、検索に対応していなければ `Unsupported`。
+    pub async fn search(
+        &self,
+        provider: ProviderId,
+        query: &SearchQuery,
+    ) -> Result<SearchResults, SearchError> {
+        let query = query.validated()?;
+        let provider = self
+            .providers
+            .iter()
+            .find(|p| p.id() == provider && p.info().supports_search)
+            .ok_or(SearchError::Unsupported)?;
+        provider.search(&self.transport, &query).await
     }
 
     /// ISBN 1 件を取得して統合する。

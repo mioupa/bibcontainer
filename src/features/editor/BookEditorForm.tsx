@@ -4,6 +4,7 @@
 //   edit  … 変わった項目だけを `update_book`（手で直した項目は origin: manual）
 //   new   … 下書き・先に入れる値・フォームの内容から `NewBookDraft` を作り `create_books_from_drafts`
 //   draft … 保存せず、`onDone(NewBookDraft)` を呼んで閉じる（連続登録の一覧の 1 行を直す）
+// 書誌は、ISBN の横の「書誌を取得」と、書名の横の「探す」（new のみ。キーワード検索のダイアログから 1 件を選ぶ）で入れる。
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -22,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { FetchMetadataResult } from "@/bindings/FetchMetadataResult";
 import type { MetaMerged } from "@/bindings/MetaMerged";
 import type { PriceSettings } from "@/bindings/PriceSettings";
+import type { SearchHit } from "@/bindings/SearchHit";
 import { buildNewBookDraft, buildEditPlan } from "@/features/editor/changes";
 import type { FieldCandidate } from "@/features/editor/candidates";
 import {
@@ -32,17 +34,19 @@ import {
 } from "@/features/editor/draftBase";
 import { DuplicatePanel } from "@/features/editor/DuplicatePanel";
 import { EditorContext, type EditorContextValue } from "@/features/editor/editorContext";
+import { SEARCH_REPLACED_KEYS, keysToFill } from "@/features/editor/fetchApply";
 import {
   EDITOR_TABS,
   FIELDS,
   fieldDef,
-  isFieldChanged,
+  normalizeAuthors,
   parseIsbnInput,
   type BookFormValues,
   type EditorTab,
   type FormKey,
 } from "@/features/editor/formValues";
 import { bookFormSchema, parseServerValidation } from "@/features/editor/schema";
+import { KeywordSearchDialog } from "@/features/editor/search/KeywordSearchDialog";
 import { saveEdit, saveNew } from "@/features/editor/save";
 import { originSourceName, type Picks } from "@/features/editor/sources";
 import {
@@ -61,7 +65,7 @@ import { errorMessage } from "@/lib/errors";
 import { IpcError } from "@/lib/ipc";
 import { toIsbn13 } from "@/lib/isbn";
 import { cn } from "@/lib/utils";
-import type { EditorRequest } from "@/stores/editorStore";
+import type { EditorRequest, NewBookSource } from "@/stores/editorStore";
 import { useSelectionStore } from "@/stores/selectionStore";
 import type { CCodeTable, Location } from "@/types/contracts";
 
@@ -206,7 +210,41 @@ export function BookEditorForm(props: BookEditorFormProps) {
     ],
   );
 
-  // ---- 書誌を取得して、まだ直していない項目に入れる（new のみ） ----
+  // ---- 書誌の取得結果を、まだ直していない項目に入れる（new・draft。ISBN の取得と、検索結果の選択で共通） ----
+  // `isbn` は取得の元にした ISBN（検索結果に ISBN がなければ null。元のデータの ISBN のまま）。
+  // `replace` の項目は、直してあっても取得結果に値があれば置き換える。
+  const applyFetched = (
+    source: NewBookSource,
+    fetched: FetchMetadataResult,
+    options: { isbn: string | null; replace?: readonly FormKey[] },
+  ) => {
+    // 取得した値を土台に、先に入れておく値・下書きが重なる
+    const base = buildDraftBase({ ...source, isbn13: options.isbn ?? source.isbn13, fetched });
+    const next = valuesFromBase(base);
+    const keys = keysToFill({
+      initial: basis.initial,
+      current: form.getValues(),
+      next,
+      replace: options.replace,
+    });
+    for (const key of keys) {
+      form.setValue(key, next[key], { shouldDirty: true, shouldValidate: true });
+    }
+    const sources: Record<string, string | null> = {};
+    for (const [op, field] of base.fields) sources[op] = originSourceName(field.origin);
+    if (base.seriesName) sources.series_id = originSourceName(base.seriesName.origin);
+    setBasis({
+      initial: next,
+      sources,
+      base,
+      // ISBN のない検索結果は、取得したことにしない（ISBN を入れれば取得待ちで保存し、書名の似た本の確認も続く）
+      fetchState: options.isbn === null ? "none" : fetchStateOf({ fetched }),
+    });
+    setFetchedMerged(fetched.merged);
+    setPicks({});
+  };
+
+  // ---- 書誌を取得して、まだ直していない項目に入れる（new・draft。ISBN の横のボタン） ----
   const fetchMetadata = async () => {
     const isbn = toIsbn13(form.getValues("isbn13"));
     if (isbn === null || request.mode === "edit") {
@@ -215,34 +253,45 @@ export function BookEditorForm(props: BookEditorFormProps) {
     }
     setFetching(true);
     try {
-      const fetched: FetchMetadataResult = await libraryApi.fetchMetadata(isbn);
-      const base = buildDraftBase({
-        ...request.source,
-        isbn13: isbn,
-        fetched,
-        // 取得した値を土台に、先に入れておく値・下書きが重なる
-      });
-      const next = valuesFromBase(base);
-      const current = form.getValues();
-      for (const def of FIELDS) {
-        if (def.key === "isbn13") continue;
-        // 直していない項目（空のまま、または前の取得のまま）だけを、新しい値にする
-        if (isFieldChanged(def.key, basis.initial, current)) continue;
-        if (!isFieldChanged(def.key, basis.initial, next)) continue;
-        form.setValue(def.key, next[def.key], { shouldDirty: true, shouldValidate: true });
-      }
-      const sources: Record<string, string | null> = {};
-      for (const [op, field] of base.fields) sources[op] = originSourceName(field.origin);
-      if (base.seriesName) sources.series_id = originSourceName(base.seriesName.origin);
-      setBasis({
-        initial: next,
-        sources,
-        base,
-        fetchState: fetchStateOf({ fetched }),
-      });
-      setFetchedMerged(fetched.merged);
-      setPicks({});
+      const fetched = await libraryApi.fetchMetadata(isbn);
+      applyFetched(request.source, fetched, { isbn });
       toast.success(fetched.offline ? ja.edit.fetchOffline : ja.edit.fetched);
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  // ---- キーワード検索（new のみ）。書名の横の「探す」で、今の書名と最初の著者を入れたダイアログを開く ----
+  const [searchPrefill, setSearchPrefill] = useState<{ title: string; author: string } | null>(
+    null,
+  );
+  const openSearch = () => {
+    const values = form.getValues();
+    setSearchPrefill({
+      title: values.title.trim(),
+      author: normalizeAuthors(values.authors)[0]?.name ?? "",
+    });
+  };
+
+  // 検索結果から選んだ 1 件の書誌を入れる。ISBN のある結果は、その ISBN を入れる（取得したものとして数える）。
+  // 書名と著者は、検索語として入れたものなので、直してあっても取得結果の値で置き換える。ほかは、直した項目を変えない
+  const chooseHit = async (hit: SearchHit) => {
+    setSearchPrefill(null);
+    if (request.mode === "edit") return;
+    setFetching(true);
+    try {
+      const fetched = await libraryApi.fetchSearchHit(hit);
+      if (hit.isbn13 !== null) {
+        form.setValue("isbn13", hit.isbn13, { shouldDirty: true, shouldValidate: true });
+      }
+      applyFetched(request.source, fetched, { isbn: hit.isbn13, replace: SEARCH_REPLACED_KEYS });
+      toast.success(
+        fetched.offline
+          ? ja.edit.fetchOffline
+          : ja.edit.search.chosen(form.getValues("title").trim()),
+      );
     } catch (error) {
       toast.error(errorMessage(error));
     } finally {
@@ -399,6 +448,7 @@ export function BookEditorForm(props: BookEditorFormProps) {
                 {id === "basic" && (
                   <BasicTab
                     onFetch={canFetch ? () => void fetchMetadata() : null}
+                    onSearch={mode === "new" ? openSearch : null}
                     fetching={fetching}
                   />
                 )}
@@ -428,6 +478,15 @@ export function BookEditorForm(props: BookEditorFormProps) {
             </div>
           </DialogFooter>
         </form>
+        {/* <form> の外に置く（ポータルの中の Enter が、フォームの Enter の処理に取られないように） */}
+        {searchPrefill !== null && (
+          <KeywordSearchDialog
+            initialTitle={searchPrefill.title}
+            initialAuthor={searchPrefill.author}
+            onChoose={(hit) => void chooseHit(hit)}
+            onClose={() => setSearchPrefill(null)}
+          />
+        )}
       </FormProvider>
     </EditorContext.Provider>
   );

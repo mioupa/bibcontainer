@@ -23,7 +23,7 @@ use error::AppError;
 pub fn run() {
     // `cover` URI スキーム（書影。0005 §7）は、Builder に登録する
     metadata::register_cover_protocol(tauri::Builder::default())
-        // ファイルの選択・保存先の指定（JS から使う）と、フォルダを OS で開く（open_logs_dir など）
+        // ファイルの選択・保存先の指定（JS から使う）と、フォルダ・リンクを OS で開く（open_logs_dir・open_link。Rust から呼ぶ）
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -124,6 +124,7 @@ pub fn run() {
             // フォルダを開く
             commands::system::open_logs_dir,
             commands::system::open_backup_dir,
+            commands::system::open_link,
             // 書誌取得（0010）
             metadata::commands::get_provider_settings,
             metadata::commands::set_provider_settings,
@@ -133,6 +134,8 @@ pub fn run() {
             metadata::commands::delete_api_key,
             metadata::commands::has_api_key,
             metadata::commands::fetch_metadata,
+            metadata::commands::search_metadata,
+            metadata::commands::fetch_search_hit,
             metadata::commands::create_books_from_drafts,
             metadata::commands::refetch_books,
             metadata::commands::trigger_pending_refetch,

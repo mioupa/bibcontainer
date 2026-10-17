@@ -12,7 +12,7 @@ use bibcontainer_metadata::cover::{
     CoverDownload, download_cover, is_known_placeholder, process_cover,
 };
 use bibcontainer_metadata::http::user_agent;
-use bibcontainer_metadata::provider::Provider;
+use bibcontainer_metadata::provider::{Provider, SearchQuery};
 use bibcontainer_metadata::providers::{GoogleBooks, Ndl, OpenBd, OpenLibrary, default_providers};
 use bibcontainer_metadata::service::{FetchRequest, MetadataService, ProviderOutcome};
 use bibcontainer_metadata::types::*;
@@ -238,4 +238,88 @@ async fn live_full_flow_at10() {
         let r = result.reports.iter().find(|r| r.provider == p).unwrap();
         assert_eq!(r.outcome, ProviderOutcome::Found, "{p:?}");
     }
+}
+
+// ---------------------------------------------------------------------------
+// キーワード検索（フェーズ 3）。どれも通信は 1 回
+// ---------------------------------------------------------------------------
+
+fn keyword(title: Option<&str>, author: Option<&str>) -> SearchQuery {
+    SearchQuery {
+        title: title.map(str::to_string),
+        author: author.map(str::to_string),
+    }
+}
+
+/// NDL（キーなし）。`sortBy` を `AND` で連ねる形（`providers/ndl.rs` の先頭）が効いて、刊行年の新しい順で返ること。
+/// 通信が 1 回なので、NDL の負荷は小さい。
+#[tokio::test]
+#[ignore = "実際のネットワークを使う"]
+async fn live_ndl_keyword_search_is_newest_first() {
+    let t = transport();
+    let r = Ndl::new()
+        .search(&t, &keyword(Some("スローループ"), Some("うちのまいこ")))
+        .await
+        .unwrap();
+    println!("total = {:?}, hits = {}", r.total, r.hits.len());
+    assert!(r.total.is_some_and(|n| n >= 11), "{:?}", r.total);
+    assert!(r.hits.len() >= 11);
+    let dates: Vec<&str> = r
+        .hits
+        .iter()
+        .filter_map(|h| h.candidate.published_on.as_deref())
+        .collect();
+    assert!(dates.windows(2).all(|w| w[0] >= w[1]), "{dates:?}");
+    let first = &r.hits[0];
+    assert!(
+        first
+            .isbn13
+            .as_deref()
+            .is_some_and(|i| i.starts_with("9784"))
+    );
+    assert_eq!(first.candidate.title.as_deref(), Some("スローループ"));
+    assert!(
+        first
+            .link
+            .as_deref()
+            .is_some_and(|l| l.starts_with("https://ndlsearch.ndl.go.jp/books/"))
+    );
+}
+
+/// Open Library（キーなし）。
+#[tokio::test]
+#[ignore = "実際のネットワークを使う"]
+async fn live_open_library_keyword_search() {
+    let t = transport();
+    let r = OpenLibrary::new()
+        .search(&t, &keyword(Some("clean code"), Some("martin")))
+        .await
+        .unwrap();
+    println!("total = {:?}, hits = {}", r.total, r.hits.len());
+    assert!(!r.hits.is_empty());
+    assert!(r.hits.iter().any(|h| h.isbn13.is_some()));
+    assert!(r.hits.iter().all(|h| {
+        h.link
+            .as_deref()
+            .is_some_and(|l| l.starts_with("https://openlibrary.org/"))
+    }));
+}
+
+/// Google Books。API キーが要る（なければ飛ばす）。
+#[tokio::test]
+#[ignore = "実際のネットワークと API キーを使う"]
+async fn live_google_books_keyword_search() {
+    let Some(key) = google_key() else {
+        println!("GOOGLE_BOOKS_API_KEY がないので飛ばす");
+        return;
+    };
+    let t = transport();
+    let r = GoogleBooks::new(Some(key))
+        .search(&t, &keyword(Some("clean code"), Some("martin")))
+        .await
+        .unwrap();
+    println!("total = {:?}, hits = {}", r.total, r.hits.len());
+    assert!(!r.hits.is_empty());
+    assert!(r.hits.iter().any(|h| h.isbn13.is_some()));
+    assert!(r.hits.iter().all(|h| h.candidate.title.is_some()));
 }
