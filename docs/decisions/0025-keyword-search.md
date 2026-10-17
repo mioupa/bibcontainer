@@ -2,7 +2,7 @@
 
 ## 状態
 
-採用（2026-10-17 にユーザーが設計と受け入れ基準の案を承認した（案では AT-36〜AT-40 としたが、並行した 0026 が先に使ったので AT-41〜AT-45 にした）。Google を含め、そのために opener のプラグインで外部のページを開く形も承認済み。jsdom のテストと、偽の HTTP・実際の応答のフィクスチャでのテストまで。Google の実際の検索の応答と、実機での見た目・操作は未確認。要件書は「影響・今後」の案のとおり 0.9 に反映した、2026-10-18）
+採用（2026-10-17 にユーザーが設計と受け入れ基準の案を承認した（案では AT-36〜AT-40 としたが、並行した 0026 が先に使ったので AT-41〜AT-45 にした）。Google を含め、そのために opener のプラグインで外部のページを開く形も承認済み。jsdom のテストと、偽の HTTP・実際の応答のフィクスチャでのテストまで。Google の実際の検索は、ユーザーの環境の live テストで確かめた（2026-10-18）。実機での見た目・操作は未確認。要件書は「影響・今後」の案のとおり 0.9 に反映した、2026-10-18）
 
 ## 日付
 
@@ -130,10 +130,11 @@
 - 11.2〜11.4 に、それぞれのキーワード検索の書式と注意（§2 の表）。
 - 12 章のフェーズ 3 の受け入れ基準に AT-41〜AT-45。
 
-### 未確認（ユーザーの環境で確かめる）
+### 確認したこと・未確認（ユーザーの環境で確かめる）
 
-1. **Google の検索の実際の応答。** フィクスチャは合成。ユーザーのターミナルで、live のテストを実行する（fish。キーがないと飛ばして成功になるので、`--nocapture` で「飛ばす」と出ていないことを見る）:
-   `env GOOGLE_BOOKS_API_KEY=(security find-generic-password -s io.github.mioupa.bibcontainer -a google -w) cargo test -p bibcontainer-metadata --test live -- --ignored --test-threads=1 --nocapture keyword_search`
+1. **（確認済み、2026-10-18）Google の検索の実際の応答。** ユーザーのターミナルで live のテスト 3 件を流し、すべて通った。Google は `clean code`・`martin` で 20 件（`totalItems` 350）が返り、どの結果にも書名があり、ISBN のある結果もあった。NDL は「スローループ」で 11 件、Open Library は 3 件。フィクスチャは合成のまま（実際の応答は保存していない）。手順（fish）:
+   - キーは `set -x GOOGLE_BOOKS_API_KEY (security find-generic-password -s io.github.mioupa.bibcontainer -a google -w)` で読む。macOS の「ターミナル」で流し、キーチェーンの確認の画面で許可する。確認の画面を出せない環境（Claude のアプリのターミナルの欄など）では、`security` が終了コード 36（`errSecInteractionNotAllowed`）で何も返さない。fish の `env 名前=(…)` は、`(…)` が何も出力しないと引数ごと消えるので、エラーにならずに「キーがないので飛ばす」になる。
+   - そのあと `cargo test -p bibcontainer-metadata --test live -- --ignored --test-threads=1 --nocapture keyword_search`。終わったら `set -e GOOGLE_BOOKS_API_KEY`。
 2. 実機での見た目と操作（`docs/acceptance/phase3.md` の確認表）。
 
 ### そのほか

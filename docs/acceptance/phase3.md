@@ -30,7 +30,7 @@
 
 | ID | 確かめ方 | 確認した場所 | 状態 |
 |---|---|---|---|
-| AT-41 | 「探す」を押して書名で探す。取得元ごとの欄、並び、Google の表示 | `KeywordSearchDialog.test.tsx`（欄の順（かな・漢字の有無）、取得元ごとに別々に届く、Google の順のまま・各行のリンク・powered by Google（検索の欄のそばと結果の見出し）、キーのない Google は呼ばずに知らせる、件数「全 X 件のうち N 件」）、`searchModel.test.ts`、`crates/metadata/tests/search.rs`（NDL の実際の応答: 「スローループ」11 件が新しい順、`sortBy` の句、ISBN の取り出し・重複、Google の順とリンク、Open Library の版）、`search_tests.rs`（検索は DB に書かない） | 自動で確認済み。Google の実際の応答と実機は確認待ち |
+| AT-41 | 「探す」を押して書名で探す。取得元ごとの欄、並び、Google の表示 | `KeywordSearchDialog.test.tsx`（欄の順（かな・漢字の有無）、取得元ごとに別々に届く、Google の順のまま・各行のリンク・powered by Google（検索の欄のそばと結果の見出し）、キーのない Google は呼ばずに知らせる、件数「全 X 件のうち N 件」）、`searchModel.test.ts`、`crates/metadata/tests/search.rs`（NDL の実際の応答: 「スローループ」11 件が新しい順、`sortBy` の句、ISBN の取り出し・重複、Google の順とリンク、Open Library の版）、`search_tests.rs`（検索は DB に書かない） | 自動で確認済み。Google・NDL・Open Library の実際の検索は live テストで確認済み（2026-10-18）。実機は確認待ち |
 | AT-42 | ISBN のある結果を選ぶ | `BookEditorDialog.test.tsx`（`fetch_search_hit` に結果を渡し、ISBN が入り、書名・著者は置き換わり、手で直した出版社は残る。他の取得元の値を選び直せる）、`fetchApply.test.ts`、`search_tests.rs`（ふだんの取得と同じ結果、選んだ取得元が ISBN で見つからなければ検索結果の値を足し、`failed` にしない） | 自動で確認済み。実機は確認待ち |
 | AT-43 | ISBN のない結果（古い版など）を選ぶ | `BookEditorDialog.test.tsx`（項目が入り、保存する下書きに取得状態が付かない。ISBN を入れてあれば変えずに取得待ち）、`search_tests.rs`（候補の値だけで、由来はその取得元。書影は取れれば保存し、取れなくても続ける） | 自動で確認済み。実機は確認待ち |
 | AT-44 | 取得元の失敗・オフライン | `KeywordSearchDialog.test.tsx`（欄ごとの「通信できませんでした」「取得元がエラーを返しました（HTTP 503）」・エラーの文、ほかの欄は出る）、`search_tests.rs`（通信・HTTP・解析の失敗はエラーでなく状態、オフラインで選ぶと値が入ったまま `pending`）、`BookEditorDialog.test.tsx`（オフラインの知らせと `pending` での保存） | 自動で確認済み |
