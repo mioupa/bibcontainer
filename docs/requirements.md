@@ -1,6 +1,7 @@
 # 蔵書管理アプリ「bibcontainer」要件定義書
 
-- 版: 0.8（2026-10-18）
+- 版: 0.9（2026-10-18）
+  - 0.9（2026-10-18）: キーワード検索（FR-META-12）の形を決めた（`docs/decisions/0025`）。FR-META-12、9.2、10.6、11.2〜11.4、12 章のフェーズ 3（受け入れ基準 AT-41〜AT-45）を修正
   - 0.8（2026-10-18）: 作品の手動のまとめ・外し（本ごとに作品の判定を上書きする。books の `work_id`）を加えた（`docs/decisions/0026`）。FR-LIST-08、8.2、9.1、12 章のフェーズ 3（受け入れ基準 AT-36〜AT-40）を修正
   - 0.7（2026-10-17）: グリッド表示の形と、巻をまとめた表示（FR-LIST-08。同じ作品の巻を一覧の 1 行に畳む）を加えた（`docs/decisions/0024`）。FR-LIST-07／08、9.1、9.5、12 章のフェーズ 3（受け入れ基準 AT-30〜AT-35）を修正
   - 0.6（2026-10-17）: 楽天ブックスを見送った（`docs/decisions/0023`。規約上の用途と保存の上限が蔵書 DB への保存と合わず、Referer なしで呼ぶには送信元の IP アドレスの登録が要るため）。2 章、6 章の構成図、FR-META-02／04／08、8.2、10.6、11.5、12 章、13 章 #4、付録 C を修正
@@ -320,6 +321,10 @@ Open Library は、Google Books の ISBN 検索が 2026-10 初めから 0 件を
 - **FR-META-10 [MUST]** 取得元の生の応答を、ローカルのキャッシュテーブルに保存する（同期はしない。有効期限は既定 30 日）。マッピングを改良したとき、再ダウンロードせずに作り直せるようにするため。
 - **FR-META-11 [MUST]** タイムアウトとリトライを設ける（タイムアウト 10 秒、指数バックオフで最大 3 回）。取得元の 1 つが落ちていても、ほかの取得元の結果で登録を続ける。
 - **FR-META-12 [SHOULD]** 書名・著者のキーワード検索で候補を一覧表示し、選ぶと登録フォームに反映される（ISBN のない本や、バーコードが読めない本のため）。
+  - 手動登録のフォームで、書名の横の「探す」から開く。探すのは Enter か「探す」を押したときだけ（打つたびには探さない）。
+  - 検索先は、有効な取得元のうち検索できる NDL・Google Books（API キーがあるとき）・Open Library。1 回の検索で、取得元ごとに 1 回問い合わせる。
+  - 結果は取得元ごとに分けて並べる。Google Books の結果は、ほかの結果と混ぜず、並べ替えない（10.6）。
+  - ISBN のある候補を選ぶと、その ISBN でふだんの取得（FR-META-04）をする。ISBN のない候補は、その候補の値だけを入れる。書名・著者は選んだ本の値に置き換え、手で入れたほかの項目は残す。
 - **FR-META-13 [SHOULD]** 登録済みの本を選んで「書誌を再取得」できる（一括も可）。
 
 ### 7.4 書影（FR-COVER）
@@ -628,6 +633,7 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 - タブで分ける: 「基本」（書名、ヨミ、著者、出版社、発行日、シリーズ・巻次、ISBN、Cコード、価格、書影）／「分類・保管」（保管場所、タグ、所有状態）／「読書」／「購入」／「メモ」。
 - 各項目の横に、値の取得元を小さく表示する。他の取得元の値があれば、ドロップダウンで選べる。
 - Cコードは数字と名称を並べて表示する（例: `0193　一般・文庫・日本文学、小説・物語`）。
+- 手動登録では、書名の横に「探す」（FR-META-12）を置く。
 
 ### 9.3 スキャン登録画面
 
@@ -699,6 +705,8 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 
 - 各取得元の利用条件とクレジット表記に従い、「このアプリについて」に表示する（NDLサーチ、openBD、Google Books、Open Library、Amazon）。
 - Open Library は、「このアプリについて」に Open Library へのリンクを置く（書影 API の作法による依頼）。
+- 「このアプリについて」のクレジットの URL は、押すと既定のブラウザで開く。
+- Google Books の検索結果（FR-META-12）には「powered by Google」のロゴを添え、1 件ごとに Google Books のその本のページへのリンクを置く。Google Books を検索する検索欄のそばにも、同じロゴを置く。ほかの取得元の結果と混ぜず、並べ替えない（Google Books のブランドの規約）。
 - アプリを公開する場合は、利用者が自分で各 API の登録・キー入力をする前提にする（作者のキーを同梱しない）。
 
 ### 10.7 配布
@@ -731,6 +739,10 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
   - 応答は XML（DC-NDL 形式）。同じ ISBN で複数のレコードが返ることがあるので、図書のレコードを選ぶ。
   - 使う要素（実装時に実際の応答で確認）: 書名、書名のヨミ（`dcndl:transcription`）、著者、出版社、出版年、価格（`dcndl:price`）、数量（`dcterms:extent`。例: `218p ; 15cm`）、NDC（`dcterms:subject` の NDC9／NDC10）、シリーズ（`dcndl:seriesTitle`）、巻次（`dcndl:volume`）
   - 実際の応答で確認した点（2026-10）: `recordPacking=xml` と `onlyBib=true` を付ける。書名・巻次・シリーズは `rdf:Description/rdf:value` の入れ子、NDC は `dcterms:subject` の `rdf:resource` の URL に入る。シリーズ全体を 1 件にまとめたレコードや、誤登録の ISBN（型が `ErrorISBN`）のレコードも返るので、型が `ISBN` の識別子で一致するものだけを使う。該当なしは HTTP 200 で `Record does not exist`。詳細は `docs/decisions/0007`。
+- キーワード検索（FR-META-12。SRU）: `version=1.2&recordSchema=dcndl&recordPacking=xml&onlyBib=true&maximumRecords=50` で、`query` は `title = "<書名>" AND creator = "<著者>" AND mediatype = "books" AND dpid = "iss-ndl-opac" AND sortBy = "issued_date/sort.descending"`（書名・著者はあるものだけ）。詳細は `docs/decisions/0025`。
+  - `title`・`creator` は部分一致で、値の中の空白は AND になる。`mediatype = "books"` は図書、`dpid = "iss-ndl-opac"` は NDL 自身の書誌。
+  - 語に `AND`・`OR` を含む（`organic` なども）とエラーになるので、`=` の前後に空白を入れ、値を引用符で囲む。利用者の入力の `"` と `\` は除く。
+  - 何も指定しないと、返る順は書名・刊行年と無関係。`sortBy` は、問い合わせの末尾に付けると最後の値に巻き込まれて失敗し、ほかの条件と同じ形で `AND` で連ねると効く（2026-10 確認）。
 - 書影: `https://ndlsearch.ndl.go.jp/thumbnail/{ISBN13}.jpg` は使わない（公式の仕様書に記載がなく、NDL サーチ以外からの参照は 403 になる。FR-META-02 の注記）。
 - 利用条件:
   - 個人や非営利団体で収益がなければ、利用申請は不要。
@@ -746,6 +758,7 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 - 書影 URL が `http://` の場合は `https://` に置き換える。`edge=curl` を外し、`zoom=0` にすると大きい画像が取れる。
 - `q=isbn:` が 0 件のときは、Dynamic Links（`https://books.google.com/books?bibkeys=ISBN:<ISBN>&jscmd=viewapi`、キー不要）で volume ID を得て、`volumes/<ID>` を取る（2026-10 の障害への回避策。`docs/decisions/0018`）。volume の `industryIdentifiers` の ISBN が合うものだけを使う。書影は `books/content?id=<ID>&printsec=frontcover&img=1&zoom=0`（ダミーなら `zoom=1`）。
 - 和書は収録が不揃いで、出版社が空のことが多い。和書では補完用として使う（洋書などでは優先する。FR-META-04）。
+- キーワード検索（FR-META-12）: `volumes?q=<書名> <著者>&maxResults=20&printType=books&key=…`。`intitle:`・`inauthor:` は 2026-10 から 0 件を返すので使わない。表示は 10.6 のとおり（`docs/decisions/0025`）。
 
 ### 11.4 Open Library
 
@@ -755,6 +768,7 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
   2. 版の JSON: `GET https://openlibrary.org/books/<OLID>.json`。ページ数（`number_of_pages`）と内容紹介（`description`。文字列か `{type, value}`）のため。404 と統合された版（`/type/redirect`）は、検索の値だけで続ける。
 - `/isbn/<ISBN>.json`（版の JSON への転送）は、著者が参照（`/authors/…`）だけで名前がなく、作品・著者の JSON が別に要るので使わない。`/api/books` は legacy で、いずれ廃止されうる。
 - 書影: 版の `covers`（`-1` は削除済み）の最初の正の ID から `https://covers.openlibrary.org/b/id/<ID>-L.jpg?default=false`（書影がなければ 404）。ISBN を指定した書影の URL は、IP ごとに 5 分で 100 回までの制限があるので使わない（書影 ID での取得は制限されない）。
+- キーワード検索（FR-META-12）: `search.json?title=…&author=…&limit=20`。`fields` には版（`editions.*`）の項目を指定する。作品ごとに、条件に合う版が 1 つ返る。作品単位の `isbn` は数千件になることがあるので取らない（`docs/decisions/0025`）。
 - 発行日は英語の自由な書式（`July 2008`、`Mar 05, 2016`、`c1995` など）。
 - 利用の作法: 名乗らないリクエストは 1 秒に 1 回（User-Agent にメールか電話番号を入れると 3 回だが、利用者の個人情報を出さないため使わない）。API での大量取得・書影 API のクロールはしない。書影 API は公開のウェブサイトでの表示のためのもので、大量ダウンロード用ではない。Open Library へのリンクを「このアプリについて」などに置くよう依頼されている。
 
@@ -845,6 +859,11 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 | AT-38 | 手動の作品の巻 1 冊と別の本をまとめる。絞り込みで一部の巻を隠して、作品の行と別の本をまとめる。自動で 1 つにまとまる本を、外してからそれぞれまとめて 2 つに分ける | 手動の作品は、選ばなかった巻も含めて 1 つにまとまる。絞り込みを外すと、隠れていた巻も同じ作品に入っている。分けた 2 つは、書名と著者が同じでも別の作品の行になる |
 | AT-39 | 2 台で同期し、一方でまとめる・外す・自動に戻す。同期の前に、2 台で重なる本を別々にまとめる。古い版の端末に上書きが届いたあと、新しい版に上げる | 他方にも同じ形で出る。重なった本は、あとでまとめた方の作品に入り、どちらの端末でも同じ形になる。新しい版に上げると、届いていた上書きが効く |
 | AT-40 | CSV・JSON に書き出す。2 万冊（手動の作品と外した本を含む）でまとめる処理を測る | CSV に「作品（手動）」の列、JSON に `work_id` が出る。まとめる処理は 50ms 未満 |
+| AT-41 | 手動登録で「探す」を押し、書名「スローループ」で探す | 有効な取得元ごとに欄を分けて候補が出る（NDL は新しい巻から）。Google の欄は Google の順のままで、「powered by Google」と各行の Google Books へのリンクが付く。キーのない Google は「API キーがないので探していません」と出て、問い合わせない |
+| AT-42 | ISBN のある候補を選ぶ | ISBN の欄に入り、ふだんの取得で、書誌・書影・他の取得元の値が入る。書名・著者は選んだ本の値になり、手で入れたほかの項目は残る。保存すると、各項目の由来が取得元になる |
+| AT-43 | ISBN のない候補（古い版など）を選ぶ | その候補の値でフォームが埋まる（由来はその取得元。書影があれば入る）。保存した本に取得状態は付かない |
+| AT-44 | 1 つの取得元が通信エラー・HTTP エラーになる。選んだ直後に通信が切れる | ほかの取得元の欄は出て、失敗した欄には理由が出る。選んだあとの取得が通信エラーでも候補の値で埋まり、取得待ちで保存できる |
+| AT-45 | 語に `"`・`AND`・`organic` などを入れる。両方の欄を空にする。キーで操作する | NDL がエラーにならない。空なら探さない。1 回の検索で各取得元に 1 回だけ問い合わせる。Enter で探し、↑↓ で選んで Enter で入れる。Esc は検索だけを閉じる |
 
 ### フェーズ 4: 配布とモバイル
 
