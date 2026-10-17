@@ -1,6 +1,7 @@
 # 蔵書管理アプリ「bibcontainer」要件定義書
 
-- 版: 0.5（2026-10-16）
+- 版: 0.6（2026-10-17）
+  - 0.6（2026-10-17）: 楽天ブックスを見送った（`docs/decisions/0023`。規約上の用途と保存の上限が蔵書 DB への保存と合わず、Referer なしで呼ぶには送信元の IP アドレスの登録が要るため）。2 章、6 章の構成図、FR-META-02／04／08、8.2、10.6、11.5、12 章、13 章 #4、付録 C を修正
   - 0.5（2026-10-16）: 統合の優先順位を ISBN の国番号で和書・洋書などの 2 組にした（`docs/decisions/0020`）。洋書の著者名の正規化（`docs/decisions/0019`）と、Google Books の ISBN 検索の回避策（`docs/decisions/0018`）を反映。FR-META-04／06、FR-CONF-02、11.3 を修正
   - 0.4（2026-10-16）: Open Library を書誌の取得元に加えた（`docs/decisions/0017`。Google Books の ISBN 検索の障害への対応）。2 章、6 章の構成図、FR-META-02（表の途中の注記で表が切れていたのも直した）／04／08、10.6、11 章（11.4 を追加し、楽天・Amazon を 11.5・11.6 に繰り下げ）を修正
   - 0.3（2026-10-15）: フェーズ2の実装時の決定（`docs/decisions/0013`・`0014`・`0016`）に合わせて、FR-SYNC-04／07／13 と 8.3（スナップショットのファイル名と適用のしかた、自分のセグメントの統合）を修正
@@ -72,7 +73,7 @@
 | スマホ | 初版は対象外。将来の iOS／Android 版を見越した設計にする |
 | 管理項目 | 基本項目 + 読書記録 + 購入情報 + 欲しい本リスト・重複チェック（貸出管理は不要） |
 | バーコード入力 | USB／Bluetooth のバーコードリーダー（必須）、PC カメラ（任意） |
-| 書誌取得元 | 標準: NDLサーチ、openBD、Google Books（要キー、無料）、Open Library（洋書の補い、キー不要）／任意: 楽天ブックス（要キー）、Amazon Creators API（要資格） |
+| 書誌取得元 | 標準: NDLサーチ、openBD、Google Books（要キー、無料）、Open Library（洋書の補い、キー不要）／任意: Amazon Creators API（要資格）（楽天ブックスは見送り。`docs/decisions/0023`） |
 | 対象メディア | 書籍のみ（雑誌、CD・DVD・ゲームは対象外） |
 | 規模 | 1,000〜5,000 冊。2 万冊まで快適に動く設計にする |
 | 公開 | 未定。公開しても問題ない作りにする |
@@ -158,7 +159,7 @@
 │  LibraryService ── SQLite（WAL・FTS5）  ※端末ローカルのみ               │
 │      └ すべての変更を Op として outbox テーブルに記録（同一トランザクション）│
 │  BarcodeService ── ISBN／2段目の判定・検証・ペアリング                  │
-│  MetadataService ── Provider: openBD ／ NDL ／ Google ／ Open Library ／ 楽天 ／ Amazon │
+│  MetadataService ── Provider: openBD ／ NDL ／ Google ／ Open Library ／ Amazon │
 │  CoverStore ── 書影（内容ハッシュ名）＋ サムネイルキャッシュ              │
 │  SyncEngine ── SyncTransport（初版は LocalFolder 実装）                  │
 └───────────────────┬────────────────────────────────────────────────────┘
@@ -271,10 +272,11 @@ ISBN 保留（タイムアウト T 秒）
 | NDLサーチ（SRU） | [MUST] | 不要（継続利用は届出を推奨） | 書名とヨミ、著者、出版社、発行年、価格、ページ数・大きさ、**NDC**、シリーズ、巻次 |
 | Google Books | [MUST] | API キー（ユーザーが入力。キーなしでは使えない） | 書名、著者、内容紹介、ページ数、書影、言語 |
 | Open Library | [SHOULD] | 不要 | 書名、著者、出版社、発行日、ページ数、言語、内容紹介、書影（主に洋書。和書はほとんど収録がない） |
-| 楽天ブックス | [SHOULD] | アプリ ID とアクセスキー（ユーザーが入力） | 書名・著者のヨミ、判型、税込価格、内容紹介、大きい書影 |
 | Amazon Creators API | [COULD] | 認証情報（ユーザーが入力）と利用資格 | 書名、著者、書影など。規約上の保存制限に従う（13章） |
 
 NDLサーチの書影 API は使わない。公式の API 仕様書に記載がなく、NDL サーチ自身のページ以外からの参照（Referer）は 403 で拒否されるため（2026-10 確認、ユーザー判断）。
+
+楽天ブックスは使わない。規約とヘルプで、取得した情報の用途が楽天の商品の紹介と商品ページへのリンクに限られ、保存（キャッシュ）も 3 か月までのため、蔵書 DB への保存と合わない。また、Referer を送らずに呼ぶには、送信元の IP アドレスを登録する種別（API/バックエンドサービス）が要る（2026-10 確認、ユーザー判断。`docs/decisions/0023`）。
 
 Open Library は、Google Books の ISBN 検索が 2026-10 初めから 0 件を返す障害を受けて、洋書の書誌と書影を補うために加えた（2026-10 ユーザー判断。`docs/decisions/0017`）。
 
@@ -286,18 +288,18 @@ Open Library は、Google Books の ISBN 検索が 2026-10 初めから 0 件を
 
 | 項目 | 和書（978-4、ISBN なし） | 洋書など（それ以外） |
 |---|---|---|
-| 書名・副書名 | openBD > NDL > 楽天 > Google > Open Library | Google > Open Library > NDL > openBD > 楽天 |
-| 書名のヨミ | NDL > 楽天 | 同じ |
-| 著者（役割付き） | openBD > NDL > 楽天 > Google > Open Library | Google > Open Library > NDL > openBD > 楽天 |
-| 出版社 | openBD > NDL > 楽天 > Google > Open Library | Google > Open Library > NDL > openBD > 楽天 |
-| 発行日 | openBD > 楽天 > NDL > Google > Open Library | Google > Open Library > NDL > openBD > 楽天 |
-| 本体価格 | **2段目** > openBD > NDL（楽天の税込価格は参考値として別に保持） | 同じ |
+| 書名・副書名 | openBD > NDL > Google > Open Library | Google > Open Library > NDL > openBD |
+| 書名のヨミ | NDL | 同じ |
+| 著者（役割付き） | openBD > NDL > Google > Open Library | Google > Open Library > NDL > openBD |
+| 出版社 | openBD > NDL > Google > Open Library | Google > Open Library > NDL > openBD |
+| 発行日 | openBD > NDL > Google > Open Library | Google > Open Library > NDL > openBD |
+| 本体価格 | **2段目** > openBD > NDL（税込で書かれた価格は、参考の税込価格として別に保持） | 同じ |
 | Cコード | **2段目** > openBD | 同じ |
 | NDC | NDL | 同じ |
 | ページ数・大きさ | NDL > openBD > Google > Open Library | 同じ |
-| シリーズ・巻次 | openBD > NDL > 楽天 | NDL > openBD > 楽天 |
-| 内容紹介 | openBD > 楽天 > Google > Open Library | Google > Open Library > openBD > 楽天 |
-| 書影 | openBD > 楽天 > Google > Open Library > Amazon | Google > Open Library > openBD > 楽天 > Amazon |
+| シリーズ・巻次 | openBD > NDL | NDL > openBD |
+| 内容紹介 | openBD > Google > Open Library | Google > Open Library > openBD |
+| 書影 | openBD > Google > Open Library > Amazon | Google > Open Library > openBD > Amazon |
 
 洋書などの組は、NDL（CiNii 由来）の書名が小文字になり、内容紹介・書影もないため、Google と Open Library を先にする（2026-10 ユーザー判断。`docs/decisions/0020`）。
 
@@ -311,7 +313,7 @@ Open Library は、Google Books の ISBN 検索が 2026-10 初めから 0 件を
 
 #### 通信の作法
 
-- **FR-META-08 [MUST]** 取得元ごとにレート制限を守る（既定: NDL・Google・楽天・Open Library は 1 秒に 1 件、NDL は並列リクエストをしない）。openBD は複数 ISBN をカンマ区切りでまとめて取得できる（1 回あたり 100 件程度まで）。
+- **FR-META-08 [MUST]** 取得元ごとにレート制限を守る（既定: NDL・Google・Open Library は 1 秒に 1 件、NDL は並列リクエストをしない）。openBD は複数 ISBN をカンマ区切りでまとめて取得できる（1 回あたり 100 件程度まで）。
 - **FR-META-09 [MUST]** User-Agent に、アプリ名・バージョン・連絡先 URL を入れる（例: `bibcontainer/0.1 (+https://…)`）。連絡先は設定で変更できる。
 - **FR-META-10 [MUST]** 取得元の生の応答を、ローカルのキャッシュテーブルに保存する（同期はしない。有効期限は既定 30 日）。マッピングを改良したとき、再ダウンロードせずに作り直せるようにするため。
 - **FR-META-11 [MUST]** タイムアウトとリトライを設ける（タイムアウト 10 秒、指数バックオフで最大 3 回）。取得元の 1 つが落ちていても、ほかの取得元の結果で登録を続ける。
@@ -459,7 +461,7 @@ CREATE TABLE books (
   c_code             TEXT,                           -- 4 桁
   ndc                TEXT,
   list_price         INTEGER,                        -- 本体価格（税抜・円）
-  ref_price_incl     INTEGER,                        -- 参考の税込価格（楽天など）
+  ref_price_incl     INTEGER,                        -- 参考の税込価格（openBD・NDL の税込の表記など）
   pages              INTEGER,
   size_text          TEXT,                           -- 例: "15cm"
   language           TEXT,
@@ -681,7 +683,7 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 
 ### 10.6 外部サービスの規約とクレジット
 
-- 各取得元の利用条件とクレジット表記に従い、「このアプリについて」に表示する（NDLサーチ、openBD、Google Books、Open Library、楽天ウェブサービス、Amazon）。
+- 各取得元の利用条件とクレジット表記に従い、「このアプリについて」に表示する（NDLサーチ、openBD、Google Books、Open Library、Amazon）。
 - Open Library は、「このアプリについて」に Open Library へのリンクを置く（書影 API の作法による依頼）。
 - アプリを公開する場合は、利用者が自分で各 API の登録・キー入力をする前提にする（作者のキーを同梱しない）。
 
@@ -742,13 +744,13 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 - 発行日は英語の自由な書式（`July 2008`、`Mar 05, 2016`、`c1995` など）。
 - 利用の作法: 名乗らないリクエストは 1 秒に 1 回（User-Agent にメールか電話番号を入れると 3 回だが、利用者の個人情報を出さないため使わない）。API での大量取得・書影 API のクロールはしない。書影 API は公開のウェブサイトでの表示のためのもので、大量ダウンロード用ではない。Open Library へのリンクを「このアプリについて」などに置くよう依頼されている。
 
-### 11.5 楽天ブックス書籍検索 API（任意）
+### 11.5 楽天ブックス書籍検索 API（見送り）
 
-- 2026年5月に新仕様へ移行した。エンドポイントは `openapi.rakuten.co.jp` 系に変わり、アプリケーション ID に加えてアクセスキーが必要になった。旧エンドポイント（`app.rakuten.co.jp`）は 2026-05-13 で停止。
-- 登録したアプリの許可サイトと Referer が合わないとエラーになる、という報告がある。デスクトップアプリからの呼び出しでどう扱われるか、実装時に確認する（13章）。
-- パラメータ: `isbn`、`formatVersion=2` など
-- 使う項目: `title`、`titleKana`、`subTitle`、`seriesName`、`author`、`authorKana`、`publisherName`、`size`、`isbn`、`itemCaption`、`salesDate`、`itemPrice`（税込）、`largeImageUrl`
-- クレジット表記が必要。
+- 使わない（2026-10 確認、ユーザー判断。`docs/decisions/0023`）。確認した内容は次のとおり。
+- エンドポイント: `GET https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404`。2026年5月の新仕様への移行で、アプリケーション ID（`applicationId`）に加えてアクセスキー（`accessKey`。ヘッダーか入力パラメータ）が必要になった。旧エンドポイント（`app.rakuten.co.jp`）は 2026-05-13 で停止。
+- アプリの種別（第三者の記事による。公式の文書に説明がない）: 「Web アプリケーション」は、許可した Web サイトと Referer を照合する（Referer がないと 403）。「API/バックエンドサービス」は、許可した IP アドレス（9 行まで）と送信元を照合する。Referer なしで呼べるのは後者だけ。
+- 書影: `largeImageUrl` は 200×200 ピクセル。
+- 規約・ヘルプ: 取得した情報は、楽天の商品を紹介し、楽天の商品ページへリンクする目的でだけ使え、それ以外の目的での複製・改変は禁止。キャッシュとして保存できるのは、価格・販売可能情報が 24 時間、その他が 3 か月まで。特定の人だけがアクセスできる環境での利用は、許可がなければ禁止。レート制限は 1 アプリ ID につき 1 秒に 1 回。
 
 ### 11.6 Amazon Creators API（任意）
 
@@ -812,7 +814,7 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 
 ### フェーズ 3: 機能拡張
 
-- 楽天ブックス、キーワード検索、一括再取得、スマート本棚、集計、汎用 CSV 取り込み、元に戻す、グリッド表示、PC カメラでの読み取り
+- キーワード検索、一括再取得、スマート本棚、集計、汎用 CSV 取り込み、元に戻す、グリッド表示、PC カメラでの読み取り（楽天ブックスは見送り。`docs/decisions/0023`）
 - Amazon Creators API（利用資格を得て、規約を確認した場合のみ）
 
 ### フェーズ 4: 配布とモバイル
@@ -829,7 +831,7 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 | 1 | 正式なアプリ名とバンドル ID | バンドル ID は `io.github.mioupa.bibcontainer` に決定（フェーズ 0）。アプリ名は未定で、作業名 `bibcontainer` を使う | ユーザー・公開を決めたとき |
 | 2 | Amazon の利用資格 | 直近 30 日で 10 件の紹介販売が必要。満たせなければ実装しない | ユーザー・フェーズ 3 |
 | 3 | Amazon データの保存可否 | 取得データや書影を蔵書 DB に保存してよいか、Creators API の規約で確認する。保存できなければ、リンクと一時表示だけにする | 実装時に確認 |
-| 4 | 楽天 API の Referer 要件 | デスクトップアプリから呼べるか、どのアプリ種別で登録すべきか | 実装時に確認 |
+| 4 | 楽天 API | 使わない。Referer なしで呼べるのは送信元の IP アドレスを登録する種別だけで、規約上の用途（楽天の商品の紹介と商品ページへのリンク）と保存の上限（3 か月）が蔵書 DB への保存と合わない（`docs/decisions/0023`） | 済み（2026-10-17 見送り） |
 | 5 | openBD の継続性 | v1 は終了告知済み。止まった場合は NDL と Google Books で補う | 監視 |
 | 6 | NDLサーチへの届出 | 継続アクセスにあたり、申請フォームで連絡先と用途を伝える | ユーザー・フェーズ 1 |
 | 7 | バーコードリーダーの設定 | 末尾キーは Enter（ユーザー確認済み）。送信速度は実機で確認し、キー間隔の閾値を調整する | ユーザー・フェーズ 1 |
@@ -923,3 +925,4 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 - Amazon Creators API の登録: https://affiliate-program.amazon.com/creatorsapi/docs/en-us/onboarding/register-for-creators-api
 - PA-API v5 から Creators API への移行（第三者の解説）: https://dev.to/th3nate/amazon-pa-api-v5-is-shutting-down-april-30-2026-here-is-what-changes-at-the-auth-layer-22ek
 - 楽天ウェブサービスの新仕様（第三者の解説、2026-05）: https://note.com/appgroup/n/n674f8a098c9f
+- 楽天ウェブサービス規約: https://webservice.rakuten.co.jp/guide/rule ／ ヘルプ: https://webservice.faq.rakuten.net
