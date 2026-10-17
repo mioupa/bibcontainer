@@ -303,6 +303,7 @@ env HOME=$DUMMY_HOME target/release/bundle/macos/bibcontainer.app/Contents/MacOS
 ```
 
 - 引数は `<データフォルダ> [冊数] [書影の種類の数] [乱数の種]`。2 万冊で試すなら `... $DATA_DIR 20000 500`。書影の種類を減らすと、早く作れる（既定は 500）。
+- `--works` を付けると（引数のどこに書いてもよい）、同じ作品の巻（書名が同じで著者も同じ本）を約 3 割作る。巻をまとめた表示（docs/decisions/0024）の確認用。5,000 冊なら 150 作品（2〜40 巻）で、書名に巻の数字を入れた本（`<書名> 3`、`<書名>（3）`）も混ぜる。付けなければ、これまでと同じデータになる。例: `... $DATA_DIR 5000 500 --works`。
 - 開発モードで試すなら、最後の行を `env HOME=$DUMMY_HOME pnpm tauri dev` にする。
 - 終わったら、アプリを閉じて `rm -rf $DUMMY_HOME`（ダミーの DB・ログ・書影・サムネイル・バックアップが消える）。
 - 本物のデータは `~/Library/Application Support/io.github.mioupa.bibcontainer/` にあり、この手順では触れない。ただし、WebKit が自分の管理データ（閲覧統計など）を `~/Library/WebKit/io.github.mioupa.bibcontainer/` に書くのは、`HOME` を変えても止められない（アプリの DB・ログ・書影・設定ではない）。

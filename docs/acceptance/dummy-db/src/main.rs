@@ -1,14 +1,18 @@
 //! 受け入れ確認（AT-14）用に、ダミーの蔵書を入れた DB と書影を作る。
 //!
 //! ```text
-//! dummy-db <アプリのデータフォルダ> [冊数（既定 5000）] [書影の種類の数（既定 500）] [乱数の種（既定 1）]
+//! dummy-db <アプリのデータフォルダ> [冊数（既定 5000）] [書影の種類の数（既定 500）] [乱数の種（既定 1）] [--works]
 //! ```
+//!
+//! `--works`（引数のどこに書いてもよい）を付けると、同じ作品の巻（書名が同じで著者も同じ本）を約 3 割作る。
+//! 巻をまとめた表示の確認用。付けなければ、乱数の流れも含めて、これまでと同じデータになる。
 //!
 //! `<アプリのデータフォルダ>` に `library.sqlite3` と `covers/` を作る（macOS の本物は
 //! `~/Library/Application Support/io.github.mioupa.bibcontainer`）。**すでに `library.sqlite3` が
 //! あるときは何もせず終わる**ので、本物のデータを上書きしない。コアの API（`create_books` など）で作るため、
 //! 操作の記録（Op）・検索の索引・一覧の並べ替えキーは、アプリで登録したときと同じものが入る。
 
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -315,13 +319,237 @@ fn write_cover(covers_dir: &Path, jpeg: &[u8]) -> String {
     hash
 }
 
+const USAGE: &str = "使い方: dummy-db <アプリのデータフォルダ> [冊数（既定 5000）] [書影の種類の数（既定 500）] [乱数の種（既定 1）] [--works]";
+
+/// `--works` で作る「作品」。巻の書名は、この `base` から作る。
+struct Work {
+    /// 巻の表記を除いた書名
+    base: String,
+    kana: String,
+    publisher: &'static str,
+    /// 全巻で同じ著者（`authors` の値）
+    authors: Value,
+    series_id: String,
+}
+
+/// 巻の書き方。
+#[derive(Clone, Copy)]
+enum VolumeStyle {
+    /// 書名は `base`、`volume` は `"{n}"`
+    Plain,
+    /// 書名は `base`、`volume` は `"第{n}巻"`
+    Kan,
+    /// 書名が `"{base} {n}"`（`volume` なし。openBD だけの本のつもり）
+    TitleSpace,
+    /// 書名が `"{base}（{n}）"`（`volume` なし）
+    TitleParen,
+}
+
+/// 作品の 1 冊としての位置。
+struct WorkSlot {
+    work: usize,
+    volume: usize,
+    style: VolumeStyle,
+}
+
+struct WorkPlan {
+    works: Vec<Work>,
+    /// 本の通し番号ごと。作品の巻でない本は `None`
+    slots: Vec<Option<WorkSlot>>,
+}
+
+impl WorkPlan {
+    fn for_book(&self, i: usize) -> Option<(&Work, &WorkSlot)> {
+        self.slots[i]
+            .as_ref()
+            .map(|slot| (&self.works[slot.work], slot))
+    }
+}
+
+/// 1 作品の巻数の上限。
+const MAX_VOLUMES: usize = 40;
+
+fn shuffle<T>(rng: &mut Rng, items: &mut [T]) {
+    for i in (1..items.len()).rev() {
+        items.swap(i, rng.below(i + 1));
+    }
+}
+
+/// 作品ごとの巻数。合計は `count` の 3 割ほどで、長い作品（最大 40 巻）と短い作品（2 巻）が混ざる。
+fn work_sizes(rng: &mut Rng, count: usize) -> Vec<usize> {
+    let target = count * 30 / 100;
+    let n_works = 150.max(target / 20).min(target / 2).min(1000);
+    let mut sizes = vec![2; n_works];
+    let mut remaining = (target - 2 * n_works).min(n_works * (MAX_VOLUMES - 2));
+    while remaining > 0 {
+        // 前のほうの作品に偏らせる
+        let upper = rng.below(n_works) + 1;
+        let w = rng.below(upper);
+        if sizes[w] < MAX_VOLUMES {
+            sizes[w] += 1;
+            remaining -= 1;
+        }
+    }
+    sizes
+}
+
+/// 作品の書名（巻の表記なし）とそのヨミ。
+fn work_title(rng: &mut Rng) -> (String, String) {
+    let a = *rng.pick(TOPICS);
+    let b = *rng.pick(TOPICS);
+    match rng.below(7) {
+        0 => (
+            format!("{}の{}物語", a.0, b.0),
+            format!("{}の{}ものがたり", a.1, b.1),
+        ),
+        1 => (format!("{}戦記", a.0), format!("{}せんき", a.1)),
+        2 => (format!("{}探偵団", a.0), format!("{}たんていだん", a.1)),
+        3 => (
+            format!("{}と{}の日々", a.0, b.0),
+            format!("{}と{}のひび", a.1, b.1),
+        ),
+        4 => (format!("{}の冒険", a.0), format!("{}のぼうけん", a.1)),
+        5 => (format!("{}異聞録", a.0), format!("{}いぶんろく", a.1)),
+        _ => {
+            let s = *rng.pick(SURNAMES);
+            (format!("{}家の{}", s.0, a.0), format!("{}けの{}", s.1, a.1))
+        }
+    }
+}
+
+fn work_author(rng: &mut Rng, role: &str) -> (String, Value) {
+    let (s, sk) = *rng.pick(SURNAMES);
+    let (g, gk) = *rng.pick(GIVEN);
+    let name = format!("{s} {g}");
+    let value = json!({ "name": name, "kana": format!("{sk} {gk}"), "role": role });
+    (name, value)
+}
+
+/// 作品と、どの本がどの作品の何巻かを決める（`--works` のときだけ呼ぶ）。
+fn plan_works(
+    rng: &mut Rng,
+    count: usize,
+    mut create_series: impl FnMut(&str) -> Result<String, String>,
+) -> Result<WorkPlan, String> {
+    let sizes = work_sizes(rng, count);
+    let mut works = Vec::with_capacity(sizes.len());
+    let mut used_titles = HashSet::new();
+    for _ in &sizes {
+        // 作品どうしで書名が重ならないようにする
+        let (base, kana) = loop {
+            let t = work_title(rng);
+            if used_titles.insert(t.0.clone()) {
+                break t;
+            }
+        };
+        // 著者は 1 人が 7 割。2 人のときは原作と作画
+        let authors = if rng.chance(70) {
+            vec![work_author(rng, "著").1]
+        } else {
+            let (first, v1) = work_author(rng, "原作");
+            let v2 = loop {
+                let (name, v) = work_author(rng, "作画");
+                if name != first {
+                    break v;
+                }
+            };
+            vec![v1, v2]
+        };
+        let publisher = *rng.pick(PUBLISHERS);
+        let series_id = create_series(&format!("{base}シリーズ"))?;
+        works.push(Work {
+            base,
+            kana,
+            publisher,
+            authors: json!(authors),
+            series_id,
+        });
+    }
+
+    // 作品の巻にする位置を散らし、巻の番号は位置の順に 1, 2, ... と振る
+    let total: usize = sizes.iter().sum();
+    let mut positions: Vec<usize> = (0..count).collect();
+    shuffle(rng, &mut positions);
+    positions.truncate(total);
+    positions.sort_unstable();
+    let mut owners: Vec<usize> = sizes
+        .iter()
+        .enumerate()
+        .flat_map(|(w, &n)| std::iter::repeat_n(w, n))
+        .collect();
+    shuffle(rng, &mut owners);
+    let mut next_volume = vec![1; sizes.len()];
+    let mut slots: Vec<Option<WorkSlot>> = (0..count).map(|_| None).collect();
+    for (&pos, &work) in positions.iter().zip(&owners) {
+        let volume = next_volume[work];
+        next_volume[work] += 1;
+        // 巻の書き方: 書名に入れる 15%（そのうち「（n）」が 5%）、「第 n 巻」10%、残りは数字だけ
+        let style = match rng.below(100) {
+            0..=9 => VolumeStyle::TitleSpace,
+            10..=14 => VolumeStyle::TitleParen,
+            15..=24 => VolumeStyle::Kan,
+            _ => VolumeStyle::Plain,
+        };
+        slots[pos] = Some(WorkSlot {
+            work,
+            volume,
+            style,
+        });
+    }
+    Ok(WorkPlan { works, slots })
+}
+
+/// 書名・ヨミ・出版社・著者・シリーズ・巻を、作品の値で置き換える（そのほかはランダムなまま）。
+fn apply_work(c: &mut Vec<FieldChange>, work: &Work, slot: &WorkSlot) {
+    c.retain(|f| {
+        !matches!(
+            f.field.as_str(),
+            "title" | "title_kana" | "publisher" | "authors" | "series_id" | "volume"
+        )
+    });
+    let n = slot.volume;
+    let (title, volume) = match slot.style {
+        VolumeStyle::Plain => (work.base.clone(), Some(format!("{n}"))),
+        VolumeStyle::Kan => (work.base.clone(), Some(format!("第{n}巻"))),
+        VolumeStyle::TitleSpace => (format!("{} {n}", work.base), None),
+        VolumeStyle::TitleParen => (format!("{}（{n}）", work.base), None),
+    };
+    c.push(FieldChange::provider("title", json!(title), "openbd"));
+    if let Some(volume) = volume {
+        // ヨミと巻は NDL 由来のつもり（書名に巻を入れた本は openBD だけで、ヨミも巻もない）
+        c.push(FieldChange::provider("title_kana", json!(work.kana), "ndl"));
+        c.push(FieldChange::provider("volume", json!(volume), "ndl"));
+    }
+    c.push(FieldChange::provider(
+        "publisher",
+        json!(work.publisher),
+        "openbd",
+    ));
+    c.push(FieldChange::provider(
+        "authors",
+        work.authors.clone(),
+        "openbd",
+    ));
+    c.push(FieldChange::provider(
+        "series_id",
+        json!(work.series_id),
+        "ndl",
+    ));
+}
+
 struct Catalog {
     series: Vec<String>,
     locations: Vec<String>,
     covers: Vec<String>,
 }
 
-fn dummy_book(rng: &mut Rng, i: usize, cat: &Catalog) -> Vec<FieldChange> {
+/// `work` があれば、ランダムに作ったあとで作品の値に置き換える（乱数の使い方は `work` の有無で変わらない）。
+fn dummy_book(
+    rng: &mut Rng,
+    i: usize,
+    cat: &Catalog,
+    work: Option<(&Work, &WorkSlot)>,
+) -> Vec<FieldChange> {
     let a = *rng.pick(TOPICS);
     let b = *rng.pick(TOPICS);
     let (title, kana): (String, Option<String>) = match rng.below(10) {
@@ -493,10 +721,19 @@ fn dummy_book(rng: &mut Rng, i: usize, cat: &Catalog) -> Vec<FieldChange> {
         };
         c.push(FieldChange::provider("volume", json!(volume), "ndl"));
     }
+    if let Some((work, slot)) = work {
+        apply_work(&mut c, work, slot);
+    }
     c
 }
 
-fn run(data_dir: &Path, count: usize, cover_variants: usize, seed: u64) -> Result<(), String> {
+fn run(
+    data_dir: &Path,
+    count: usize,
+    cover_variants: usize,
+    seed: u64,
+    works: bool,
+) -> Result<(), String> {
     let db_path = data_dir.join("library.sqlite3");
     if db_path.exists() {
         return Err(format!(
@@ -553,12 +790,24 @@ fn run(data_dir: &Path, count: usize, cover_variants: usize, seed: u64) -> Resul
         covers,
     };
 
+    // 作品の巻（`--works` のときだけ。乱数は、ここ以降の本の生成の前に使う）
+    let work_plan = if works {
+        Some(plan_works(&mut rng, count, |name| {
+            library::find_or_create_series(&mut conn, &env, name).map_err(|e| e.to_string())
+        })?)
+    } else {
+        None
+    };
+
     // 本（500 冊ずつ 1 トランザクション）
     let mut all_ids = Vec::with_capacity(count);
     for start in (0..count).step_by(500) {
         let end = (start + 500).min(count);
         let batch: Vec<Vec<FieldChange>> = (start..end)
-            .map(|i| dummy_book(&mut rng, i, &cat))
+            .map(|i| {
+                let work = work_plan.as_ref().and_then(|p| p.for_book(i));
+                dummy_book(&mut rng, i, &cat, work)
+            })
             .collect();
         let ids = library::create_books(&mut conn, &env, &batch).map_err(|e| e.to_string())?;
         all_ids.extend(ids);
@@ -581,15 +830,29 @@ fn run(data_dir: &Path, count: usize, cover_variants: usize, seed: u64) -> Resul
         started.elapsed(),
         db_path.display()
     );
+    if let Some(plan) = &work_plan {
+        let books = plan.slots.iter().flatten().count();
+        println!("  作品: {} 件（巻 {books} 冊）", plan.works.len());
+    }
     Ok(())
 }
 
 fn main() -> ExitCode {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    // `--works` は引数のどこにあってもよい（位置の引数は、それを除いた並びで数える）
+    let mut works = false;
+    let mut args: Vec<String> = Vec::new();
+    for arg in std::env::args().skip(1) {
+        if arg == "--works" {
+            works = true;
+        } else if arg.starts_with("--") {
+            eprintln!("知らないオプションです: {arg}\n{USAGE}");
+            return ExitCode::from(2);
+        } else {
+            args.push(arg);
+        }
+    }
     let Some(dir) = args.first() else {
-        eprintln!(
-            "使い方: dummy-db <アプリのデータフォルダ> [冊数（既定 5000）] [書影の種類の数（既定 500）] [乱数の種（既定 1）]"
-        );
+        eprintln!("{USAGE}");
         return ExitCode::from(2);
     };
     let count = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(5000);
@@ -599,7 +862,7 @@ fn main() -> ExitCode {
         .unwrap_or(500)
         .max(1);
     let seed = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
-    match run(&PathBuf::from(dir), count, cover_variants, seed) {
+    match run(&PathBuf::from(dir), count, cover_variants, seed, works) {
         Ok(()) => ExitCode::SUCCESS,
         Err(msg) => {
             eprintln!("{msg}");
