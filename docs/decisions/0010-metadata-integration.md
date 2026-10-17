@@ -189,7 +189,7 @@ type BookDraft = {
 
 1. サムネイルの大きさに **80**（長辺 80px）を足した。`THUMBNAIL_SIZES` は `[80, 160, 320]`（Rust の `bibcontainer_metadata::cover`。一覧用は `LIST_THUMBNAIL_SIZE`）。`cover` スキームの `size=80`、`ensure_thumbnail(…, 80)` が使える。フロントの `BookCover` は、一覧（`variant="sm"`）が `LIST_COVER_SIZE`（80）、詳細ペインとフォーム（`lg`）が `DETAIL_COVER_SIZE`（320）（`lib/cover.ts`）。160 は使わなくなったが、受け付ける（要件書 FR-COVER-04 の「160 と 320」との互換と、作ったキャッシュを無駄にしないため）。80px は、2 倍の画面の枠（56 × 78px）にちょうど足りる。
 2. 一覧の `<img>` には `decoding="async"` と `loading="lazy"` が付いている（もともと付いていた。`BookCover.test.tsx` で固定した）。
-3. **`size=80` の応答だけ `Cache-Control: no-store`**（ほかの大きさは `immutable` のまま）。
+3. **`size=80` の応答だけ `Cache-Control: no-store`**（ほかの大きさは `immutable` のまま）。→ 2026-10-17 に、サムネイル（80・160・320）はすべて `no-store`、原寸だけ `immutable` にした（グリッド表示が 320 を何千枚も見せるため。0024 §3）。
 
 **WebKit の挙動の確認**（画面から出た画像のデコード済みデータを、WebKit が持ち続けるか）。リリースビルドに計測用のコードを足した scratchpad のコピーを使い、ダミー 5,000 冊（書影のある本は 2,823 冊）の一覧を 1 画面（約 11 行）ずつ送った。画像の読み込みが終わるのを待って次へ進み、書影が 2,500 枚読み込まれたところで止めて、その 5〜12.5 秒後の物理フットプリント（`proc_pid_rusage`、1 秒ごと）を見た。各 3〜4 回。この Mac の画面はロックされていて、WebKit は画面がロックされると描画をやめ、メモリの値が変わる。そのため、計測用のコピーでだけ、WebKit の非公開 API（`WKWebView._setWindowOcclusionDetectionEnabled:`）で「遮蔽されても表示中」として扱わせた（手順は `phase1.md` の 3.5）。
 
