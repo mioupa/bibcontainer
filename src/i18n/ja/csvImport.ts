@@ -1,0 +1,140 @@
+// CSV 取り込みのダイアログの文言（0028）。
+import type { CsvEncoding } from "@/bindings/CsvEncoding";
+import type { ImportTarget } from "@/bindings/ImportTarget";
+import { n } from "./common";
+
+/** 項目の名前。書き出しの CSV の見出しと同じ。 */
+const targets: Record<ImportTarget, string> = {
+  isbn13: "ISBN",
+  title: "書名",
+  title_kana: "書名のヨミ",
+  subtitle: "副書名",
+  series: "シリーズ",
+  volume: "巻次",
+  volume_sort: "巻次（並べ替え用）",
+  authors: "著者",
+  publisher: "出版社",
+  published_on: "発行日",
+  c_code: "Cコード",
+  ndc: "NDC",
+  list_price: "本体価格",
+  ref_price_incl: "参考税込価格",
+  pages: "ページ数",
+  size_text: "大きさ",
+  language: "言語",
+  description: "内容紹介",
+  work_id: "作品（手動）",
+  ownership: "所有状態",
+  wish_priority: "欲しい本の優先度",
+  location: "保管場所",
+  tags: "タグ",
+  read_status: "読書状況",
+  read_started_on: "読み始めた日",
+  read_finished_on: "読了日",
+  rating: "評価",
+  review: "感想",
+  purchased_on: "購入日",
+  purchase_store: "購入店",
+  purchase_price: "購入価格",
+  purchase_cond: "新品・中古",
+  purchase_memo: "購入メモ",
+  memo: "メモ",
+  id: "ID（登録済みかの確認だけ）",
+  trashed: "ゴミ箱（「はい」の行は飛ばす）",
+  created_at: "登録日時",
+};
+
+const groups = {
+  bibliographic: "書誌",
+  classification: "分類・保管",
+  reading: "読書",
+  purchase: "購入",
+  other: "その他",
+} as const;
+
+const encodingName: Record<CsvEncoding, string> = { utf8: "UTF-8", shiftJis: "Shift_JIS" };
+
+export const csvImport = {
+  title: "CSV から取り込む",
+  close: "閉じる",
+  back: "戻る",
+  next: "次へ",
+  targets,
+  groups,
+  mapping: {
+    description: "CSV の列ごとに、取り込む先の項目を選びます。",
+    file: (name: string) => `ファイル: ${name}`,
+    encoding: "文字コード",
+    encodingAuto: (detected: CsvEncoding) => `自動（${encodingName[detected]}）`,
+    encodingAutoPending: "自動",
+    encodingOptions: { utf8: encodingName.utf8, shiftJis: encodingName.shiftJis },
+    hasHeader: "1 行目は見出し",
+    rowCount: (count: number) => `データ ${n(count)} 行`,
+    column: "列",
+    sample: "例",
+    target: "項目",
+    targetOf: (column: string) => `${column}の項目`,
+    columnName: (index: number) => `${index + 1} 列目`,
+    skip: "取り込まない",
+    needTarget: "ISBN か書名のどちらかを、いずれかの列に対応づけてください。",
+    loading: "読み込んでいます…",
+    noSample: "—",
+  },
+  confirm: {
+    checking: "確認しています…",
+    willImport: (count: number) => `取り込む: ${n(count)} 冊`,
+    willFetch: (count: number) =>
+      `うち ISBN のある ${n(count)} 冊は、取り込んだあと書誌と書影を取得します。`,
+    skipped: (count: number) => `飛ばす: ${n(count)} 行`,
+    skipBreakdown: {
+      registeredIsbn: (count: number) => `登録済みの ISBN: ${n(count)} 行`,
+      sameId: (count: number) => `同じ ID の本がある: ${n(count)} 行`,
+      duplicateInFile: (count: number) => `この CSV の前の行と同じ: ${n(count)} 行`,
+      trashedRow: (count: number) => `ゴミ箱の行: ${n(count)} 行`,
+    },
+    errors: (count: number) => `取り込めない: ${n(count)} 行`,
+    warned: (count: number) =>
+      `値を読めなかった行: ${n(count)} 行（その項目は空にして取り込みます）`,
+    newLocations: "新しく作る保管場所",
+    newSeries: "新しく作るシリーズ",
+    more: (count: number) => `ほか ${n(count)}`,
+    issuesHeading: "確認が必要な行",
+    filter: { error: "取り込めない", skip: "飛ばす", warn: "値を読めない" },
+    filterCount: (label: string, count: number) => `${label}（${n(count)}）`,
+    line: "行",
+    content: "ISBN／書名",
+    reason: "理由",
+    lineNumber: (line: number) => `${line} 行目`,
+    moreRows: (count: number) => `ほか ${n(count)} 行`,
+    noIssues: "確認が必要な行はありません。",
+    run: (count: number) => `${n(count)} 冊を取り込む`,
+  },
+  reason: {
+    registeredIsbn: (existingTitle: string) =>
+      existingTitle === "" ? "登録済みの ISBN" : `登録済みの ISBN（${existingTitle}）`,
+    sameId: (trashed: boolean) =>
+      trashed ? "同じ ID の本がある（ゴミ箱の中）" : "同じ ID の本がある",
+    duplicateInFile: (firstLine: number) => `${firstLine} 行目と同じ`,
+    trashedRow: "ゴミ箱の行",
+    invalidIsbn: (value: string) => `ISBN を読めません（${value}）`,
+    excelHint:
+      "Excel が数として扱い、桁が変わった可能性があります。ISBN の列を文字列にして、CSV を作り直してください。",
+    noTitleOrIsbn: "書名も ISBN もありません",
+    unreadableValue: (item: string, value: string) => `${item} を読めません（${value}）`,
+  },
+  running: "取り込んでいます…",
+  result: {
+    imported: (count: number) => `${n(count)} 冊を取り込みました`,
+    fetchNote: (count: number) =>
+      `${n(count)} 冊は「取得待ち」にしました。書誌と書影はバックグラウンドで取得します。残りはサイドバーの「取得待ち」で確かめられます。`,
+    skipped: (count: number) => `飛ばした行: ${n(count)} 行`,
+    errors: (count: number) => `取り込めなかった行: ${n(count)} 行`,
+    createdLocations: (count: number) => `新しく作った保管場所: ${n(count)} 件`,
+    createdSeries: (count: number) => `新しく作ったシリーズ: ${n(count)} 件`,
+    saveRejected: "取り込めなかった行を CSV に保存…",
+    saveDialogTitle: "取り込めなかった行を保存",
+    defaultRejectedName: (base: string) => `${base}-取り込めなかった行.csv`,
+    csvFilter: "CSV",
+    saved: (count: number) => `取り込めなかった ${n(count)} 行を保存しました`,
+  },
+} as const;

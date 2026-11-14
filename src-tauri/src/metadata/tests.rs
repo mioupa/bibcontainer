@@ -365,6 +365,92 @@ fn at16_refetch_does_not_overwrite_a_manually_edited_title() {
     assert_eq!(book.field_sources["title"], "openbd");
 }
 
+/// CSV の取り込み（コアの `execute`）で本を作る。書名と ISBN と価格だけの 1 行。
+fn import_csv_book(rig: &Rig, title: &str, isbn: &str) -> String {
+    use bibcontainer_core::csv_import::{
+        ColumnMapping, CsvEncoding, CsvImportOptions, ImportTarget, execute,
+    };
+    let csv = format!("書名,ISBN,定価\n{title},{isbn},999\n").into_bytes();
+    let options = CsvImportOptions {
+        encoding: Some(CsvEncoding::Utf8),
+        has_header: true,
+        mapping: [
+            ImportTarget::Title,
+            ImportTarget::Isbn13,
+            ImportTarget::ListPrice,
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(i, target)| ColumnMapping {
+            column: u32::try_from(i).unwrap(),
+            target,
+        })
+        .collect(),
+    };
+    let result = rig
+        .block(rig.db.run(move |conn, _| {
+            let clock = bibcontainer_core::SystemClock;
+            let env = bibcontainer_core::library::Env::new(&clock);
+            Ok(execute(conn, &env, &csv, &options)?)
+        }))
+        .unwrap();
+    assert_eq!((result.imported, result.fetch_queued), (1, 1));
+    result.book_ids[0].clone()
+}
+
+#[test]
+fn a_csv_imported_book_keeps_its_values_when_the_pending_refetch_fills_the_rest() {
+    let rig = Rig::new();
+    let id = import_csv_book(&rig, "CSV の書名", KOKORO);
+    let book = rig.book(&id);
+    assert_eq!(book.meta_status, "pending");
+    assert_eq!(book.field_sources["title"], "import");
+
+    let summary = rig.block(rig.state.run_pending_refetch()).unwrap().unwrap();
+    assert_eq!((summary.requested, summary.updated), (1, 1));
+    let book = rig.book(&id);
+    assert_eq!(book.meta_status, "ok", "取得待ちではなくなる");
+    assert_eq!(
+        book.title, "CSV の書名",
+        "CSV の値を取得元の値で置き換えない"
+    );
+    assert_eq!(book.field_sources["title"], "import");
+    assert_eq!(book.list_price, Some(999));
+    assert_eq!(book.field_sources["list_price"], "import");
+    assert!(
+        book.publisher.is_some(),
+        "取り込んでいない項目は取得元から補う"
+    );
+    assert_eq!(book.field_sources["publisher"], "openbd");
+    assert!(
+        !book.manual_fields.contains(&"title".to_owned()),
+        "取り込みは手修正の印を付けない"
+    );
+
+    // 「手で直した項目も上書き」を選んだ再取得だけが、取得元の値に置き換える
+    rig.block(rig.state.refetch_books(vec![id.clone()], false))
+        .unwrap();
+    assert_eq!(rig.book(&id).title, "CSV の書名");
+    rig.block(rig.state.refetch_books(vec![id.clone()], true))
+        .unwrap();
+    let book = rig.book(&id);
+    assert_eq!(book.title, "こころ");
+    assert_eq!(book.field_sources["title"], "openbd");
+}
+
+#[test]
+fn trigger_now_ignores_the_minimum_gap() {
+    let rig = Rig::new();
+    let id = bare_book(&rig, Some(KOKORO), "pending");
+    *rig.state.last_pass.lock().unwrap() = Some(Instant::now());
+    rig.block(async { rig.state.trigger_now() });
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while rig.book(&id).meta_status == "pending" && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    assert_eq!(rig.book(&id).meta_status, "ok");
+}
+
 /// 洋書（978-0）の Clean Code に対する Google の応答。NDL の `Clean code` と書き方が違う。
 fn google_clean_code() -> Result<HttpResponse, TransportError> {
     google_json(

@@ -200,6 +200,14 @@ export const settings = {
       csvHint: "UTF-8（BOM 付き）。Excel でも開けます。",
       jsonHint: "ID と項目ごとの時計情報を含む、全データです。",
     },
+    csvImport: {
+      heading: "取り込み",
+      description:
+        "CSV ファイルから本を登録します。このアプリで書き出した CSV のほか、ほかのアプリや表計算の CSV も、列を対応づけて取り込めます。",
+      button: "CSV から取り込む…",
+      dialogTitle: "取り込む CSV を選ぶ",
+      filter: "CSV",
+    },
   },
   about: {
     description: "バージョンと、書誌情報の取得元のクレジット表記です。",

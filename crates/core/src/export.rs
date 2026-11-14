@@ -55,20 +55,20 @@ fn label(value: &str, table: &[(&str, &str)]) -> String {
         .map_or_else(|| value.to_owned(), |(_, ja)| (*ja).to_owned())
 }
 
-const OWNERSHIP_JA: &[(&str, &str)] = &[
+pub(crate) const OWNERSHIP_JA: &[(&str, &str)] = &[
     ("owned", "所有"),
     ("wanted", "欲しい本"),
     ("released", "手放した"),
 ];
-const READ_STATUS_JA: &[(&str, &str)] = &[
+pub(crate) const READ_STATUS_JA: &[(&str, &str)] = &[
     ("unread", "未読"),
     ("reading", "読書中"),
     ("read", "読了"),
     ("paused", "中断"),
 ];
-const PRIORITY_JA: &[(&str, &str)] = &[("high", "高"), ("mid", "中"), ("low", "低")];
-const COND_JA: &[(&str, &str)] = &[("new", "新品"), ("used", "中古")];
-const META_JA: &[(&str, &str)] = &[
+pub(crate) const PRIORITY_JA: &[(&str, &str)] = &[("high", "高"), ("mid", "中"), ("low", "低")];
+pub(crate) const COND_JA: &[(&str, &str)] = &[("new", "新品"), ("used", "中古")];
+pub(crate) const META_JA: &[(&str, &str)] = &[
     ("ok", "取得済み"),
     ("pending", "取得待ち"),
     ("partial", "一部取得"),
@@ -76,7 +76,7 @@ const META_JA: &[(&str, &str)] = &[
 ];
 
 /// 作品の手動の指定が「作品に入れない」（`work_id = "none"`）のときの CSV の値。
-const WORK_NONE_JA: &str = "まとめない";
+pub(crate) const WORK_NONE_JA: &str = "まとめない";
 
 /// CSV の列（ヘッダー、値の取り出し方）。並びがそのまま CSV の列の並び。
 const COLUMNS: &[Column] = &[
@@ -166,7 +166,7 @@ pub fn csv_headers() -> Vec<&'static str> {
 }
 
 /// 表計算ソフトが数式として解釈しうる先頭の文字（`=`、`+`、`-`、`@`、タブ、CR）。
-const FORMULA_PREFIXES: [char; 6] = ['=', '+', '-', '@', '\t', '\r'];
+pub(crate) const FORMULA_PREFIXES: [char; 6] = ['=', '+', '-', '@', '\t', '\r'];
 
 /// 数式注入の対策。取得元の書名などは信頼できない入力なので、数式の先頭になりうる文字で始まる欄は、
 /// 先頭に `'` を付けて文字列として読ませる（OWASP の CSV Injection の推奨）。
@@ -190,7 +190,7 @@ fn csv_field(s: &str, out: &mut String) {
     }
 }
 
-fn csv_line(fields: impl Iterator<Item = String>) -> String {
+pub(crate) fn csv_line(fields: impl Iterator<Item = String>) -> String {
     let mut line = String::new();
     for (i, f) in fields.enumerate() {
         if i > 0 {
@@ -336,7 +336,7 @@ pub fn export_json_to_file(conn: &Connection, clock: &dyn Clock, path: &Path) ->
 }
 
 /// 同じフォルダの一時ファイルに書いてから、名前を付け替える。
-fn write_file_atomically<T>(
+pub(crate) fn write_file_atomically<T>(
     path: &Path,
     write: impl FnOnce(&mut BufWriter<fs::File>) -> Result<T>,
 ) -> Result<T> {

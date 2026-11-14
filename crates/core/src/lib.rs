@@ -10,6 +10,7 @@
 
 pub mod backup;
 pub mod barcode;
+pub mod csv_import;
 pub mod db;
 pub mod derived;
 pub mod dump;

@@ -208,6 +208,15 @@ impl Target {
         Some((hash, source))
     }
 
+    /// 今の値の由来が CSV の取り込み（`import`）の項目。
+    fn imported_fields(&self) -> BTreeSet<String> {
+        self.field_sources
+            .iter()
+            .filter(|(_, source)| source.as_str() == SOURCE_IMPORT)
+            .map(|(field, _)| field.clone())
+            .collect()
+    }
+
     fn ineligible(id: &str, eligibility: Eligibility) -> Self {
         Target {
             id: id.to_owned(),
@@ -327,21 +336,30 @@ fn stored_cover_is_unusable(covers_dir: &std::path::Path, hash: &str) -> bool {
 /// - 手で直した項目をコアが守る（`override_manual` が偽のとき）。そのうえで、組になる項目は一緒に扱う:
 ///   巻次が手修正済みなら、巻次の数値（`volume_sort`）も書かない。シリーズ（`series_id`）が手修正済みなら、
 ///   シリーズも探さない（作らない）。
+/// - CSV から取り込んだ項目（`imported`。値の由来が `import`）は、手修正の項目と同じく守る
+///   （`override_manual` が偽のとき）。CSV の値を取得元の値より優先する（0028）。取り込みは取得待ちの
+///   自動の再取得に書誌を任せるので、守らないと CSV の値が置き換わる。「手で直した項目も上書き」
+///   （`override_manual`）のときだけ置き換える。手修正と違い、コアは取り込み由来を守らないので、
+///   ここで書く変更から外す。組になる項目（巻次の数値・シリーズ）や Cコード・本体価格もこれで守られる。
 /// - 取得状態は、今の状態と今回の判断から決める（`status_after_refetch`）。
 /// - `stale` は、取得元が値を返さなくなった項目を消す変更（`stale_clears`）。手修正の項目は、念のためここでも外す。
 fn plan(
     draft: &BookDraft,
     current_status: MetaStatus,
     manual: &BTreeSet<String>,
+    imported: &BTreeSet<String>,
     override_manual: bool,
     stale: Vec<FieldChange>,
 ) -> Plan {
-    let protected = |field: &str| manual.contains(field) && !override_manual;
+    let protected =
+        |field: &str| (manual.contains(field) || imported.contains(field)) && !override_manual;
     let mut changes: Vec<FieldChange> = draft
         .fields
         .to_changes()
         .into_iter()
         .filter(|c| c.field != "isbn13" && c.field != "meta_status")
+        // 手修正の項目はコアが守って `skipped_manual` に報告する。取り込み由来はここで外す
+        .filter(|c| !(imported.contains(&c.field) && !override_manual))
         .collect();
     if protected("volume") {
         changes.retain(|c| c.field != "volume_sort");
@@ -613,6 +631,7 @@ impl MetadataState {
                     &draft,
                     target.status,
                     &target.manual,
+                    &target.imported_fields(),
                     override_manual,
                     stale,
                 ),
@@ -746,11 +765,22 @@ impl MetadataState {
     /// 呼び出しはすぐ戻る（処理は裏で行う）。前回の試行から `MIN_TRIGGER_GAP` たっていなければ何もしない。
     /// すでに再取得が走っていれば、そちらに任せる。
     pub fn trigger(self: &Arc<Self>) {
-        let recent = self
-            .last_pass
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .is_some_and(|t| t.elapsed() < MIN_TRIGGER_GAP);
+        self.spawn_pass(true);
+    }
+
+    /// `trigger` と同じだが、前回の試行からの間隔を見ずに始める（CSV の取り込みの直後に使う）。
+    /// すでに再取得が走っていれば、そちらに任せる（残りは 5 分ごとの再取得が拾う）。
+    pub fn trigger_now(self: &Arc<Self>) {
+        self.spawn_pass(false);
+    }
+
+    fn spawn_pass(self: &Arc<Self>, respect_gap: bool) {
+        let recent = respect_gap
+            && self
+                .last_pass
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .is_some_and(|t| t.elapsed() < MIN_TRIGGER_GAP);
         if recent {
             tracing::debug!("前回の試行から間もないので、取得待ちの再取得は見送ります");
             return;
@@ -821,7 +851,7 @@ mod tests {
     fn plan_never_writes_the_isbn_and_writes_the_status_only_when_it_changes() {
         let draft = one_piece_draft();
         let none = BTreeSet::new();
-        let p = plan(&draft, MetaStatus::Ok, &none, false, Vec::new());
+        let p = plan(&draft, MetaStatus::Ok, &none, &none, false, Vec::new());
         assert!(p.changes.iter().all(|c| c.field != "isbn13"));
         assert!(
             p.changes.iter().all(|c| c.field != "meta_status"),
@@ -835,7 +865,7 @@ mod tests {
         assert!(p.changes.iter().any(|c| c.field == "title"));
         assert_eq!(p.status, MetaStatus::Ok);
 
-        let p = plan(&draft, MetaStatus::Pending, &none, false, Vec::new());
+        let p = plan(&draft, MetaStatus::Pending, &none, &none, false, Vec::new());
         let status = p.changes.iter().find(|c| c.field == "meta_status").unwrap();
         assert_eq!(status.value, serde_json::json!("ok"));
     }
@@ -857,6 +887,7 @@ mod tests {
             &draft,
             MetaStatus::Ok,
             &manual(&["volume"]),
+            &BTreeSet::new(),
             false,
             Vec::new(),
         );
@@ -867,6 +898,7 @@ mod tests {
             &draft,
             MetaStatus::Ok,
             &manual(&["series_id"]),
+            &BTreeSet::new(),
             false,
             Vec::new(),
         );
@@ -877,11 +909,40 @@ mod tests {
             &draft,
             MetaStatus::Ok,
             &manual(&["volume", "series_id"]),
+            &BTreeSet::new(),
             true,
             Vec::new(),
         );
         assert!(p.series.is_some());
         assert!(p.changes.iter().any(|c| c.field == "volume_sort"));
+    }
+
+    #[test]
+    fn plan_keeps_values_imported_from_csv_unless_override_is_chosen() {
+        let draft = one_piece_draft();
+        let none = BTreeSet::new();
+        let imported: BTreeSet<String> = ["title", "volume", "volume_sort", "series_id", "c_code"]
+            .iter()
+            .map(|s| (*s).to_owned())
+            .collect();
+        let has = |p: &Plan, f: &str| p.changes.iter().any(|c| c.field == f);
+        assert!(has(
+            &plan(&draft, MetaStatus::Ok, &none, &none, false, Vec::new()),
+            "title"
+        ));
+
+        let p = plan(&draft, MetaStatus::Ok, &none, &imported, false, Vec::new());
+        for field in ["title", "volume", "volume_sort", "c_code"] {
+            assert!(!has(&p, field), "{field} は書かない");
+        }
+        assert!(p.series.is_none(), "シリーズは探さない");
+        assert!(has(&p, "publisher"), "取り込んでいない項目は書く");
+
+        let p = plan(&draft, MetaStatus::Ok, &none, &imported, true, Vec::new());
+        for field in ["title", "volume", "volume_sort"] {
+            assert!(has(&p, field), "上書きを選べば {field} も書く");
+        }
+        assert!(p.series.is_some());
     }
 
     fn report(provider: ProviderId, outcome: ProviderOutcome) -> ProviderReport {
@@ -1006,6 +1067,7 @@ mod tests {
                 &draft,
                 MetaStatus::Ok,
                 &manual,
+                &BTreeSet::new(),
                 override_manual,
                 vec![clear("language"), clear("pages")],
             );
@@ -1021,12 +1083,20 @@ mod tests {
     fn a_book_with_data_keeps_its_status_when_nothing_was_found() {
         let mut draft = one_piece_draft();
         draft.fields.meta_status.value = MetaStatus::Failed;
-        let p = plan(&draft, MetaStatus::Ok, &BTreeSet::new(), false, Vec::new());
+        let p = plan(
+            &draft,
+            MetaStatus::Ok,
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+            Vec::new(),
+        );
         assert_eq!(p.status, MetaStatus::Ok);
         assert!(p.changes.iter().all(|c| c.field != "meta_status"));
         let p = plan(
             &draft,
             MetaStatus::Pending,
+            &BTreeSet::new(),
             &BTreeSet::new(),
             false,
             Vec::new(),

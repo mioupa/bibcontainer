@@ -26,12 +26,12 @@ use crate::hlc::{Clock, ms_to_iso8601};
 use crate::values::{SOURCE_BARCODE, SOURCE_IMPORT, SOURCE_MANUAL};
 
 pub use book::{
-    create_book, create_book_in, create_books, purge_books, restore_books, trash_books,
-    update_book, update_book_in, update_books,
+    create_book, create_book_in, create_book_with_created_at_in, create_books, purge_books,
+    restore_books, trash_books, update_book, update_book_in, update_books,
 };
 pub use location::{
-    LocationInfo, create_location, delete_location, list_locations, move_location, rename_location,
-    reorder_locations,
+    LocationInfo, create_location, create_location_in, delete_location, list_locations,
+    move_location, rename_location, reorder_locations,
 };
 pub use query::{
     IsbnMatch, StoreCount, find_by_isbn, pending_book_ids, purchase_store_suggestions,

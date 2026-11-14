@@ -16,12 +16,14 @@
 //! | `barcode` | バーコードの判定・Cコード表 |
 //! | `settings` | 端末ごとの設定（セクションごとの get/set） |
 //! | `io` | CSV・JSON の書き出し、ISBN 一覧の解析 |
+//! | `csv_import` | CSV の取り込み（開く・下見・実行・誤りの行の保存） |
 //! | `backup` | バックアップの一覧・作成・復元 |
 //! | `system` | ログ・バックアップのフォルダを開く |
 
 pub mod backup;
 pub mod barcode;
 pub mod books;
+pub mod csv_import;
 pub mod io;
 pub mod library;
 pub mod organize;

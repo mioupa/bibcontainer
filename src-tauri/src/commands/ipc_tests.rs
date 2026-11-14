@@ -99,6 +99,10 @@ impl Harness {
                 super::io::export_csv,
                 super::io::export_json,
                 super::io::parse_isbn_list,
+                super::csv_import::csv_import_open,
+                super::csv_import::csv_import_check,
+                super::csv_import::csv_import_run,
+                super::csv_import::csv_import_save_rejected,
                 super::backup::list_backups,
                 super::backup::manual_backup,
                 super::backup::restore_backup,
@@ -823,4 +827,125 @@ fn every_database_command_reports_db_unavailable_when_the_db_could_not_be_opened
         h.ok("classify_code", json!({ "raw": "9784003101117" }))["kind"],
         "isbn13"
     );
+}
+
+fn csv_options(has_header: bool, mapping: Value) -> Value {
+    json!({ "encoding": "utf8", "hasHeader": has_header, "mapping": mapping })
+}
+
+#[test]
+fn csv_import_commands_open_check_run_and_save_rejected() {
+    let h = Harness::new();
+    let csv = h.path("取り込み.csv");
+    std::fs::write(
+        &csv,
+        "書名,ISBN,保管場所\nCSV の書名,9784003101117,自宅 > 書斎\n手入力の本,,\n誤った本,12345,\n",
+    )
+    .unwrap();
+
+    // 開く: 列と見本、割り当ての案
+    let preview = h.ok(
+        "csv_import_open",
+        json!({ "path": csv, "encoding": null, "hasHeader": true }),
+    );
+    assert_eq!(preview["encoding"], "utf8");
+    assert_eq!(preview["columns"].as_array().unwrap().len(), 3);
+    assert_eq!(preview["columns"][0]["header"], "書名");
+    assert_eq!(preview["rowCount"], 3);
+    let mapping = preview["suggested"].clone();
+    assert!(mapping.as_array().unwrap().len() >= 2, "{mapping}");
+    let options = csv_options(true, mapping);
+
+    // 下見: 書かない
+    let plan = h.ok(
+        "csv_import_check",
+        json!({ "path": csv, "options": options }),
+    );
+    assert_eq!(plan["totalRows"], 3);
+    assert_eq!(plan["toImport"], 2);
+    assert_eq!(plan["toFetch"], 1);
+    assert_eq!(plan["errors"], 1);
+    assert_eq!(h.ok("list_books", json!({})), json!([]));
+    assert!(h.take_events().is_empty());
+
+    // 実行: 本を作り、library-changed を送る
+    let result = h.ok("csv_import_run", json!({ "path": csv, "options": options }));
+    assert_eq!(result["imported"], 2);
+    assert_eq!(result["fetchQueued"], 1);
+    assert_eq!(result["errors"], 1);
+    let ids = result["bookIds"].clone();
+    assert_eq!(ids.as_array().unwrap().len(), 2);
+    assert_eq!(h.take_events(), [json!({ "books": ids, "others": true })]);
+    let rows = h.ok("list_books", json!({}));
+    assert_eq!(rows.as_array().unwrap().len(), 2);
+    assert!(
+        rows.as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["title"] == "CSV の書名" && r["isbn13"] == "9784003101117")
+    );
+
+    // 誤りの行を保存する
+    let out = h.path("誤り.csv");
+    let n = h.ok(
+        "csv_import_save_rejected",
+        json!({ "path": csv, "options": options, "outPath": out }),
+    );
+    assert_eq!(n, json!(1));
+    assert!(std::fs::read_to_string(&out).unwrap().contains("誤った本"));
+    assert_eq!(
+        h.err_kind(
+            "csv_import_save_rejected",
+            json!({ "path": csv, "options": options, "outPath": "相対.csv" })
+        ),
+        "validation"
+    );
+}
+
+#[test]
+fn csv_import_run_without_new_books_sends_no_event_and_missing_files_are_io_errors() {
+    let h = Harness::new();
+    let csv = h.path("空.csv");
+    std::fs::write(&csv, "書名\n").unwrap();
+    let options = csv_options(true, json!([{ "column": 0, "target": "title" }]));
+    let result = h.ok("csv_import_run", json!({ "path": csv, "options": options }));
+    assert_eq!(result["imported"], 0);
+    assert!(h.take_events().is_empty());
+    assert_eq!(
+        h.err_kind(
+            "csv_import_open",
+            json!({ "path": h.path("無い.csv"), "hasHeader": true })
+        ),
+        "io"
+    );
+}
+
+#[test]
+fn csv_import_rejects_files_over_the_size_limit() {
+    let h = Harness::new();
+    let big = h.path("大きい.csv");
+    let file = std::fs::File::create(&big).unwrap();
+    file.set_len(bibcontainer_core::csv_import::MAX_CSV_BYTES as u64 + 1)
+        .unwrap();
+    drop(file);
+    let options = csv_options(true, json!([]));
+    assert_eq!(
+        h.err_kind(
+            "csv_import_open",
+            json!({ "path": big, "encoding": null, "hasHeader": true })
+        ),
+        "validation"
+    );
+    assert_eq!(
+        h.err_kind(
+            "csv_import_check",
+            json!({ "path": big, "options": options })
+        ),
+        "validation"
+    );
+    assert_eq!(
+        h.err_kind("csv_import_run", json!({ "path": big, "options": options })),
+        "validation"
+    );
+    assert!(h.take_events().is_empty());
 }

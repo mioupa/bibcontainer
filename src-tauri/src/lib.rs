@@ -117,6 +117,10 @@ pub fn run() {
             commands::io::export_csv,
             commands::io::export_json,
             commands::io::parse_isbn_list,
+            commands::csv_import::csv_import_open,
+            commands::csv_import::csv_import_check,
+            commands::csv_import::csv_import_run,
+            commands::csv_import::csv_import_save_rejected,
             // バックアップ
             commands::backup::list_backups,
             commands::backup::manual_backup,

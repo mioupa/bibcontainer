@@ -265,9 +265,9 @@ export const bulkDialog = {
 export const refetchDialog = {
   title: "書誌を再取得しますか？",
   description: (count: number) => `選んだ ${n(count)} 冊の書誌情報を、取得元から取り直します。`,
-  overrideLabel: "手で直した項目も上書きする",
-  keepHint: "オフのままなら、手で直した項目は上書きされません（既定）。",
-  overrideHint: "オンにすると、手で直した項目も取得元の値に置き換わります。",
+  overrideLabel: "手で直した項目・取り込んだ項目も上書きする",
+  keepHint: "オフのままなら、手で直した項目と CSV から取り込んだ項目は上書きされません（既定）。",
+  overrideHint: "オンにすると、手で直した項目と取り込んだ項目も取得元の値に置き換わります。",
   confirm: "再取得",
   cancel: "キャンセル",
 } as const;

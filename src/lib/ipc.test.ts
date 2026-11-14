@@ -118,6 +118,20 @@ describe("ipc", () => {
       ]);
     });
 
+    it("CSV の取り込み", async () => {
+      const options = { encoding: null, hasHeader: true, mapping: [] };
+      await ipc.csvImportOpen("/tmp/a.csv", "shiftJis", false);
+      await ipc.csvImportCheck("/tmp/a.csv", options);
+      await ipc.csvImportRun("/tmp/a.csv", options);
+      await ipc.csvImportSaveRejected("/tmp/a.csv", options, "/tmp/r.csv");
+      expect(invoke.mock.calls).toEqual([
+        ["csv_import_open", { path: "/tmp/a.csv", encoding: "shiftJis", hasHeader: false }],
+        ["csv_import_check", { path: "/tmp/a.csv", options }],
+        ["csv_import_run", { path: "/tmp/a.csv", options }],
+        ["csv_import_save_rejected", { path: "/tmp/a.csv", options, outPath: "/tmp/r.csv" }],
+      ]);
+    });
+
     it("書誌の取得: 2段目は secondTier、再取得は overrideManual で渡す", async () => {
       await ipc.fetchMetadata("9784780802047", { cCode: "0076", listPrice: 1500 });
       await ipc.fetchMetadata("9784780802047");

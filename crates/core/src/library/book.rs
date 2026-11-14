@@ -158,6 +158,25 @@ pub fn create_book_in(
     env: &Env<'_>,
     changes: &[FieldChange],
 ) -> Result<String> {
+    create_book_with_created_at_in(tx, env, changes, None)
+}
+
+/// `create_book_in` で、登録日時（`created_at`）を指定できる版（CSV の取り込みが元の登録日時を引き継ぐ）。
+/// `None` なら現在時刻。指定は `env.now_iso()` と同じ形（`2026-11-14T03:04:05.123Z`）でなければならない。
+pub fn create_book_with_created_at_in(
+    tx: &Transaction<'_>,
+    env: &Env<'_>,
+    changes: &[FieldChange],
+    created_at: Option<&str>,
+) -> Result<String> {
+    if let Some(c) = created_at
+        && !is_iso_millis_utc(c)
+    {
+        return Err(Error::validation(
+            "created_at",
+            format!("YYYY-MM-DDTHH:MM:SS.mmmZ の形で指定してください（値: {c:?}）"),
+        ));
+    }
     let mut prepared = prepare(changes)?;
     check_refs(tx, &prepared)?;
     if !prepared.iter().any(|p| p.field == "volume_sort")
@@ -174,7 +193,11 @@ pub fn create_book_in(
         .iter()
         .map(|def| (def.name.to_owned(), def.default_value()))
         .collect();
-    set.insert("created_at".to_owned(), Value::String(env.now_iso()?));
+    let created = match created_at {
+        Some(c) => c.to_owned(),
+        None => env.now_iso()?,
+    };
+    set.insert("created_at".to_owned(), Value::String(created));
 
     for p in &prepared {
         set.insert(p.field.clone(), p.value.clone());
@@ -192,6 +215,13 @@ pub fn create_book_in(
     let id = new_entity_id();
     record_change(tx, env.clock, Entity::Book, &id, set)?;
     Ok(id)
+}
+
+/// `2026-11-14T03:04:05.123Z` の形（実在する日時）か。
+fn is_iso_millis_utc(s: &str) -> bool {
+    s.len() == 24
+        && s.ends_with('Z')
+        && chrono::NaiveDateTime::parse_from_str(&s[..23], "%Y-%m-%dT%H:%M:%S%.3f").is_ok()
 }
 
 /// 書籍の項目を変更する（自前のトランザクション）。

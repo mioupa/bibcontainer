@@ -30,7 +30,8 @@ vi.mock("@/features/scan/playSound", () => ({ playSound }));
 
 const chooseDirectory = vi.hoisted(() => vi.fn());
 const chooseSavePath = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/dialog", () => ({ chooseDirectory, chooseSavePath, chooseOpenFile: vi.fn() }));
+const chooseOpenFile = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/dialog", () => ({ chooseDirectory, chooseSavePath, chooseOpenFile }));
 
 const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn(), info: vi.fn() }));
 vi.mock("sonner", () => ({ toast, Toaster: () => null }));
@@ -296,6 +297,7 @@ beforeEach(() => {
   playSound.mockReset();
   chooseDirectory.mockReset();
   chooseSavePath.mockReset();
+  chooseOpenFile.mockReset();
   toast.error.mockReset();
   toast.success.mockReset();
   isTauri.mockReturnValue(true);
@@ -1153,6 +1155,61 @@ describe("バックアップ（FR-CONF-06、FR-IO-05）", () => {
       await Promise.resolve();
     });
     expect(calls("export_csv")).toHaveLength(0);
+  });
+});
+
+describe("CSV の取り込みの入口", () => {
+  const t = ja.settings.backup.csvImport;
+
+  it("ボタンでファイルを選ぶと、取り込みのダイアログが開き、CSV を読む", async () => {
+    chooseOpenFile.mockResolvedValue("/tmp/books.csv");
+    route({
+      csv_import_open: {
+        encoding: "utf8",
+        autoDetected: true,
+        columns: [{ index: 0, header: "ISBN", samples: ["9784780802047"] }],
+        rowCount: 1,
+        suggested: [{ column: 0, target: "isbn13" }],
+      },
+    });
+    installInvoke();
+    renderSettings("backup");
+    fireEvent.click(await screen.findByRole("button", { name: t.button }));
+    expect(chooseOpenFile).toHaveBeenCalledWith(
+      expect.objectContaining({ filters: [{ name: t.filter, extensions: ["csv", "txt"] }] }),
+    );
+    expect(await screen.findByRole("dialog")).toHaveTextContent(ja.csvImport.title);
+    await waitFor(() => expect(calls("csv_import_open")).toHaveLength(1));
+    expect(calls("csv_import_open")[0]![1]).toEqual({
+      path: "/tmp/books.csv",
+      encoding: null,
+      hasHeader: true,
+    });
+  });
+
+  it("ファイルを選ばなければ、ダイアログは開かない", async () => {
+    chooseOpenFile.mockResolvedValue(null);
+    renderSettings("backup");
+    fireEvent.click(await screen.findByRole("button", { name: t.button }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(calls("csv_import_open")).toHaveLength(0);
+  });
+
+  it("ファイル選択に失敗したら、エラーを出す", async () => {
+    chooseOpenFile.mockRejectedValue(new Error("not in tauri"));
+    renderSettings("backup");
+    fireEvent.click(await screen.findByRole("button", { name: t.button }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(ja.toast.failed));
+  });
+
+  it("Tauri の外では、取り込みのボタンは出ない", async () => {
+    isTauri.mockReturnValue(false);
+    renderSettings("backup");
+    expect(await screen.findByText(ja.settings.browserNotice)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: t.button })).not.toBeInTheDocument();
   });
 });
 

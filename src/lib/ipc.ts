@@ -11,6 +11,11 @@ import type { BookDetail } from "@/bindings/BookDetail";
 import type { CCodeInfo } from "@/bindings/CCodeInfo";
 import type { CCodeTable } from "@/bindings/CCodeTable";
 import type { ChangeReport } from "@/bindings/ChangeReport";
+import type { CsvEncoding } from "@/bindings/CsvEncoding";
+import type { CsvImportOptions } from "@/bindings/CsvImportOptions";
+import type { CsvImportPlan } from "@/bindings/CsvImportPlan";
+import type { CsvImportResult } from "@/bindings/CsvImportResult";
+import type { CsvPreview } from "@/bindings/CsvPreview";
 import type { CoversArrived } from "@/bindings/CoversArrived";
 import type { DisplaySettings } from "@/bindings/DisplaySettings";
 import type { ErrorKind } from "@/bindings/ErrorKind";
@@ -152,6 +157,16 @@ interface CommandMap {
   export_csv: { args: { path: string; ids?: string[] }; result: number };
   export_json: { args: { path: string }; result: null };
   parse_isbn_list: { args: { path: string }; result: ScanCode[] };
+  csv_import_open: {
+    args: { path: string; encoding: CsvEncoding | null; hasHeader: boolean };
+    result: CsvPreview;
+  };
+  csv_import_check: { args: { path: string; options: CsvImportOptions }; result: CsvImportPlan };
+  csv_import_run: { args: { path: string; options: CsvImportOptions }; result: CsvImportResult };
+  csv_import_save_rejected: {
+    args: { path: string; options: CsvImportOptions; outPath: string };
+    result: number;
+  };
 
   // バックアップ（commands/backup.rs）
   list_backups: { result: BackupInfo[] };
@@ -292,6 +307,18 @@ export const ipc = {
   exportJson: (path: string) => call("export_json", { path }),
   /** ISBN 一覧のファイルを読み、各行を判定した結果を返す。 */
   parseIsbnList: (path: string) => call("parse_isbn_list", { path }),
+  /** CSV を読み、列の見本と推測した対応づけを返す（DB には書かない）。 */
+  csvImportOpen: (path: string, encoding: CsvEncoding | null, hasHeader: boolean) =>
+    call("csv_import_open", { path, encoding, hasHeader }),
+  /** 対応づけで各行を判定した見積もりを返す（DB には書かない）。 */
+  csvImportCheck: (path: string, options: CsvImportOptions) =>
+    call("csv_import_check", { path, options }),
+  /** CSV を取り込む（1 トランザクション）。書誌と書影はあとでバックグラウンドで取得する。 */
+  csvImportRun: (path: string, options: CsvImportOptions) =>
+    call("csv_import_run", { path, options }),
+  /** 取り込めなかった行を CSV に書き出す。書いた行数を返す。 */
+  csvImportSaveRejected: (path: string, options: CsvImportOptions, outPath: string) =>
+    call("csv_import_save_rejected", { path, options, outPath }),
 
   // ---- バックアップ ----
   listBackups: () => call("list_backups"),

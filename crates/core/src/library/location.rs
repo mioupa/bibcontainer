@@ -217,9 +217,21 @@ pub fn create_location(
     name: &str,
     parent_id: Option<&str>,
 ) -> Result<String> {
-    let name = require_name(name)?;
     let tx = write_tx(conn)?;
-    let index = LocationIndex::load(&tx)?;
+    let id = create_location_in(&tx, env, name, parent_id)?;
+    tx.commit()?;
+    Ok(id)
+}
+
+/// `create_location` の、呼び出し側のトランザクションの中で動く版。
+pub fn create_location_in(
+    tx: &Transaction<'_>,
+    env: &Env<'_>,
+    name: &str,
+    parent_id: Option<&str>,
+) -> Result<String> {
+    let name = require_name(name)?;
+    let index = LocationIndex::load(tx)?;
     if let Some(parent) = parent_id {
         require_active(&index, parent)?;
     }
@@ -239,8 +251,7 @@ pub fn create_location(
     ]
     .into_iter()
     .collect();
-    record_change(&tx, env.clock, Entity::Location, &id, set)?;
-    tx.commit()?;
+    record_change(tx, env.clock, Entity::Location, &id, set)?;
     Ok(id)
 }
 

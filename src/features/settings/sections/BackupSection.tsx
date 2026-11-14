@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { CsvImportDialog } from "@/features/csvImport/CsvImportDialog";
 import { dateStamp } from "@/features/library/actions";
 import { reloadLibrary } from "@/features/library/sync";
 import { formatBackupTime, formatBytes } from "@/features/settings/backupFormat";
@@ -23,7 +24,7 @@ import { Group, NumberRow, Row } from "@/features/settings/fields";
 import { settingsKeys, useBackupSettings } from "@/features/settings/hooks";
 import { useSyncStatus } from "@/features/sync/hooks";
 import { ja } from "@/i18n/ja";
-import { chooseDirectory, chooseSavePath } from "@/lib/dialog";
+import { chooseDirectory, chooseOpenFile, chooseSavePath } from "@/lib/dialog";
 import { errorMessage } from "@/lib/errors";
 import { ipc } from "@/lib/ipc";
 import { useModalGuard } from "@/lib/useModalGuard";
@@ -48,6 +49,7 @@ export function BackupSection() {
       <LocationGroup />
       <BackupList />
       <ExportGroup />
+      <ImportGroup />
     </div>
   );
 }
@@ -283,6 +285,34 @@ function ExportGroup() {
           {t.button}
         </Button>
       </Row>
+    </Group>
+  );
+}
+
+function ImportGroup() {
+  const t = ja.settings.backup.csvImport;
+  const [path, setPath] = useState<string | null>(null);
+
+  const choose = async () => {
+    try {
+      const chosen = await chooseOpenFile({
+        title: t.dialogTitle,
+        filters: [{ name: t.filter, extensions: ["csv", "txt"] }],
+      });
+      if (chosen !== null) setPath(chosen);
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
+  };
+
+  return (
+    <Group title={t.heading} description={t.description}>
+      <div>
+        <Button variant="outline" size="sm" onClick={() => void choose()}>
+          {t.button}
+        </Button>
+      </div>
+      <CsvImportDialog path={path} onClose={() => setPath(null)} />
     </Group>
   );
 }
