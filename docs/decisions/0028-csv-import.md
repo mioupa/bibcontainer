@@ -2,7 +2,7 @@
 
 ## 状態
 
-採用（2026-11-14 にユーザーが設計と受け入れ基準の案（AT-50〜AT-57）を承認した。決めてほしい 3 点（取り込んだ値を再取得でも守る、登録日時を取り込む、手放した本の ISBN も飛ばす）は、どれも推奨のまま。コア・アプリ・jsdom のテストまで。実機での操作は未確認）
+採用（2026-11-14 にユーザーが設計と受け入れ基準の案（AT-50〜AT-57）を承認した。決めてほしい 3 点（取り込んだ値を再取得でも守る、登録日時を取り込む、手放した本の ISBN も飛ばす）は、どれも推奨のまま。実装済み（21c43c4・e99cbe1）。要件書 0.11 に反映（ユーザー承認）。コア・アプリ・jsdom のテストまで。実機での操作は未確認）
 
 ## 日付
 
@@ -103,6 +103,11 @@
 - アプリ: `src-tauri/src/commands/csv_import.rs`（4 つのコマンド。ファイルは `spawn_blocking` で読む。取り込みのあと `library-changed` と `MetadataState::trigger_now`）、`refetch.rs`（`plan` の引数 `imported`、`Target::imported_fields`、`trigger_now`）。テストは `ipc_tests.rs`（`csv_import_commands_open_check_run_and_save_rejected` ほか 2 つ）、`refetch.rs`（`plan_keeps_values_imported_from_csv_unless_override_is_chosen`）、`metadata/tests.rs`（`a_csv_imported_book_keeps_its_values_when_the_pending_refetch_fills_the_rest`、`trigger_now_ignores_the_minimum_gap`）。
 - 画面: `src/features/csvImport/`（`CsvImportDialog.tsx`・`MappingStep.tsx`・`ConfirmStep.tsx`・`model.ts`）、`BackupSection.tsx` の `ImportGroup`、文言は `src/i18n/ja/csvImport.ts`。確認の一覧は 1 つの分類につき 500 行まで（「ほか N 行」）、作る保管場所・シリーズは 20 個まで（「ほか N」）。取り込みの間は閉じられない。テストは `model.test.ts`（全項目に名前と分類がちょうど 1 つ（`ImportTarget` が増えると型の検査で落ちる）、対応の一意性、理由の文）、`CsvImportDialog.test.tsx`、`SettingsScreen.test.tsx`（入口）。
 - 性能（release、5,000 行、既存 1,000 冊のうち 500 行が登録済み）: 確認 約 13ms、取り込み（4,500 冊・保管場所 40・シリーズ 100）約 0.9 秒。`cargo test --release -p bibcontainer-core --test csv_import -- --ignored --nocapture`。
+
+### 要件書
+
+- 0.11 に反映した（2026-11-15、ユーザー承認）: FR-META-07（CSV から取り込んだ項目も再取得で上書きしない）、FR-IO-04（文字コードの判定、確認の画面、1 回の取り込み、飛ばす行と取り込めない行、取得待ちと CSV の値の優先、書き出しの取り込み直し、取り込めなかった行の保存）、12 章のフェーズ 3 の AT-50〜AT-57。
+- 承認した案から 2 か所だけ文面を直した。AT-53 の上書きの選択肢は、画面の今の文言（「手で直した項目・取り込んだ項目も上書きする」）に合わせた。AT-54 の「上の規則」は、要件書の中では指す先がないので「0028 の規則」とした。
 
 ### 未確認
 
