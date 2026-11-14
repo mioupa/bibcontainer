@@ -1,6 +1,7 @@
 # 蔵書管理アプリ「bibcontainer」要件定義書
 
-- 版: 0.9（2026-10-18）
+- 版: 0.10（2026-11-14）
+  - 0.10（2026-11-14）: 一括再取得（FR-META-13）の形を決めた（`docs/decisions/0027`）。FR-META-13、9.1、11.3、11.4、12 章のフェーズ 3（受け入れ基準 AT-46〜AT-49）を修正
   - 0.9（2026-10-18）: キーワード検索（FR-META-12）の形を決めた（`docs/decisions/0025`）。FR-META-12、9.2、10.6、11.2〜11.4、12 章のフェーズ 3（受け入れ基準 AT-41〜AT-45）を修正
   - 0.8（2026-10-18）: 作品の手動のまとめ・外し（本ごとに作品の判定を上書きする。books の `work_id`）を加えた（`docs/decisions/0026`）。FR-LIST-08、8.2、9.1、12 章のフェーズ 3（受け入れ基準 AT-36〜AT-40）を修正
   - 0.7（2026-10-17）: グリッド表示の形と、巻をまとめた表示（FR-LIST-08。同じ作品の巻を一覧の 1 行に畳む）を加えた（`docs/decisions/0024`）。FR-LIST-07／08、9.1、9.5、12 章のフェーズ 3（受け入れ基準 AT-30〜AT-35）を修正
@@ -325,7 +326,10 @@ Open Library は、Google Books の ISBN 検索が 2026-10 初めから 0 件を
   - 検索先は、有効な取得元のうち検索できる NDL・Google Books（API キーがあるとき）・Open Library。1 回の検索で、取得元ごとに 1 回問い合わせる。
   - 結果は取得元ごとに分けて並べる。Google Books の結果は、ほかの結果と混ぜず、並べ替えない（10.6）。
   - ISBN のある候補を選ぶと、その ISBN でふだんの取得（FR-META-04）をする。ISBN のない候補は、その候補の値だけを入れる。書名・著者は選んだ本の値に置き換え、手で入れたほかの項目は残す。
-- **FR-META-13 [SHOULD]** 登録済みの本を選んで「書誌を再取得」できる（一括も可）。
+- **FR-META-13 [SHOULD]** 登録済みの本を選んで「書誌を再取得」できる。表示中の本（サイドバーの絞り込みと検索の結果）をまとめて再取得することもできる。
+  - 再取得は裏で進み、画面を止めない。進み具合（済んだ冊数と残りの時間の目安）をステータスバーに出し、途中でやめられる。同時に動く再取得は 1 つ。
+  - 取得元が制限・拒否（HTTP 401・403・429、1 日の上限）を返したら、そこで止め、その本は書き込まない。通信が切れたときも止める。前回の取得が古い本から取るので、もう一度実行すると残りから進む。
+  - 手で直した項目は上書きしない（上書きするかはユーザーが選ぶ。FR-META-07）。
 
 ### 7.4 書影（FR-COVER）
 
@@ -626,7 +630,8 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 
 - 3 ペイン構成（サイドバー、一覧、詳細）。サイドバーと詳細ペインは折りたためる。
 - 一覧で複数行を選び、右クリックメニューから一括変更・削除・再取得・書き出し、作品のまとめ・外しができる。
-- 一覧の上の帯で、表とグリッドの切り替え、巻をまとめるかどうか、表示中の本の書き出し、列（グリッドでは並べ替え）を選ぶ。
+- 一覧の上の帯で、表とグリッドの切り替え、巻をまとめるかどうか、表示中の本の再取得・書き出し、列（グリッドでは並べ替え）を選ぶ。
+- 書誌の再取得の間は、ステータスバーに進み具合と「やめる」を出す。
 
 ### 9.2 登録・編集フォーム
 
@@ -756,7 +761,7 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 - API キーが必要。キーなしでは常に 429（`Queries per day`、割り当て 0）になる（2026-10 確認）。キーは Google Cloud Console で Books API を有効にして作り、アプリの設定画面で入力する。
 - 使う項目: `items[0].volumeInfo` の `title` / `subtitle` / `authors[]` / `publisher` / `publishedDate` / `description` / `pageCount` / `imageLinks.thumbnail` / `language`
 - 書影 URL が `http://` の場合は `https://` に置き換える。`edge=curl` を外し、`zoom=0` にすると大きい画像が取れる。
-- `q=isbn:` が 0 件のときは、Dynamic Links（`https://books.google.com/books?bibkeys=ISBN:<ISBN>&jscmd=viewapi`、キー不要）で volume ID を得て、`volumes/<ID>` を取る（2026-10 の障害への回避策。`docs/decisions/0018`）。volume の `industryIdentifiers` の ISBN が合うものだけを使う。書影は `books/content?id=<ID>&printsec=frontcover&img=1&zoom=0`（ダミーなら `zoom=1`）。
+- `q=isbn:` が 0 件のときは、Dynamic Links（`https://books.google.com/books?bibkeys=ISBN:<ISBN>&jscmd=viewapi`、キー不要）で volume ID を得て、`volumes/<ID>` を取る（2026-10 の障害への回避策。`docs/decisions/0018`）。volume の `industryIdentifiers` の ISBN が合うものだけを使う。書影は `books/content?id=<ID>&printsec=frontcover&img=1&zoom=0`（ダミーなら `zoom=1`）。複数の本をまとめて取るとき（再取得など）は、検索で 0 件だった本を 10 冊ずつ、Dynamic Links に 1 回で問い合わせる（`bibkeys` はカンマ区切りで複数を書ける。`docs/decisions/0027`）。
 - 和書は収録が不揃いで、出版社が空のことが多い。和書では補完用として使う（洋書などでは優先する。FR-META-04）。
 - キーワード検索（FR-META-12）: `volumes?q=<書名> <著者>&maxResults=20&printType=books&key=…`。`intitle:`・`inauthor:` は 2026-10 から 0 件を返すので使わない。表示は 10.6 のとおり（`docs/decisions/0025`）。
 
@@ -764,13 +769,13 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 
 - キー不要。主に洋書で、和書はほとんど収録がない。詳細は `docs/decisions/0017`。
 - 書誌は 2 回の通信で取る。
-  1. 検索: `GET https://openlibrary.org/search.json?isbn=<ISBN-13>&fields=key,title,author_name,editions,editions.key,editions.title,editions.subtitle,editions.author_name,editions.publisher,editions.publish_date,editions.language,editions.cover_i,editions.isbn`。`docs` が空なら該当なし（ここで終わる）。`editions.docs` から ISBN の合う版を選ぶ。著者名は検索の版の `author_name` から取る。
+  1. 検索: `GET https://openlibrary.org/search.json?isbn=<ISBN-13>&fields=key,title,author_name,editions,editions.key,editions.title,editions.subtitle,editions.author_name,editions.publisher,editions.publish_date,editions.language,editions.cover_i,editions.isbn`。`docs` が空なら該当なし（ここで終わる）。`editions.docs` から ISBN の合う版を選ぶ。著者名は検索の版の `author_name` から取る。複数の本をまとめて取るとき（再取得など）は、`q=isbn:(A OR B …)` で 10 冊ずつ 1 回にし、結果を ISBN ごとに分ける（`docs/decisions/0027`）。
   2. 版の JSON: `GET https://openlibrary.org/books/<OLID>.json`。ページ数（`number_of_pages`）と内容紹介（`description`。文字列か `{type, value}`）のため。404 と統合された版（`/type/redirect`）は、検索の値だけで続ける。
 - `/isbn/<ISBN>.json`（版の JSON への転送）は、著者が参照（`/authors/…`）だけで名前がなく、作品・著者の JSON が別に要るので使わない。`/api/books` は legacy で、いずれ廃止されうる。
 - 書影: 版の `covers`（`-1` は削除済み）の最初の正の ID から `https://covers.openlibrary.org/b/id/<ID>-L.jpg?default=false`（書影がなければ 404）。ISBN を指定した書影の URL は、IP ごとに 5 分で 100 回までの制限があるので使わない（書影 ID での取得は制限されない）。
 - キーワード検索（FR-META-12）: `search.json?title=…&author=…&limit=20`。`fields` には版（`editions.*`）の項目を指定する。作品ごとに、条件に合う版が 1 つ返る。作品単位の `isbn` は数千件になることがあるので取らない（`docs/decisions/0025`）。
 - 発行日は英語の自由な書式（`July 2008`、`Mar 05, 2016`、`c1995` など）。
-- 利用の作法: 名乗らないリクエストは 1 秒に 1 回（User-Agent にメールか電話番号を入れると 3 回だが、利用者の個人情報を出さないため使わない）。API での大量取得・書影 API のクロールはしない。書影 API は公開のウェブサイトでの表示のためのもので、大量ダウンロード用ではない。Open Library へのリンクを「このアプリについて」などに置くよう依頼されている。
+- 利用の作法: 名乗らないリクエストは 1 秒に 1 回（User-Agent にメールか電話番号を入れると 3 回だが、利用者の個人情報を出さないため使わない）。API での大量取得・書影 API のクロールはしない。1 冊ずつの問い合わせを何百回もしない（まとめた結果は search.json で取る）。書影 API は公開のウェブサイトでの表示のためのもので、大量ダウンロード用ではない。Open Library へのリンクを「このアプリについて」などに置くよう依頼されている。
 
 ### 11.5 楽天ブックス書籍検索 API（見送り）
 
@@ -864,6 +869,10 @@ CREATE VIRTUAL TABLE books_fts USING fts5(
 | AT-43 | ISBN のない候補（古い版など）を選ぶ | その候補の値でフォームが埋まる（由来はその取得元。書影があれば入る）。保存した本に取得状態は付かない |
 | AT-44 | 1 つの取得元が通信エラー・HTTP エラーになる。選んだ直後に通信が切れる | ほかの取得元の欄は出て、失敗した欄には理由が出る。選んだあとの取得が通信エラーでも候補の値で埋まり、取得待ちで保存できる |
 | AT-45 | 語に `"`・`AND`・`organic` などを入れる。両方の欄を空にする。キーで操作する | NDL がエラーにならない。空なら探さない。1 回の検索で各取得元に 1 回だけ問い合わせる。Enter で探し、↑↓ で選んで Enter で入れる。Esc は検索だけを閉じる |
+| AT-46 | 「情報不足」などで絞り込み、帯の「再取得…」で表示中の本を再取得する | 確認のダイアログに冊数・ISBN のない冊数・時間の目安が出る。実行すると裏で進み、ステータスバーに済んだ冊数と残りの時間が出て、その間も選ぶ・編集・スキャン登録ができる。終わると結果が出る。手で直した項目は上書きしない |
+| AT-47 | 実行中に「やめる」を押す。実行中に、取得待ちの自動再取得とスキャン登録の取得が動く | すぐ止まり、取得中のまとまりは書き込まない。済んだ本はそのまま。済んだ冊数と残りの冊数が出る。実行中はほかの再取得を始められない。自動再取得は終わるまで見送り、登録の取得は待たない |
+| AT-48 | 取得元が 429・401・403 か 1 日の上限を返す。途中で通信が切れる | そこで止まり、制限を返された本は書き込まない。理由と残りの冊数が出る。その取得元には残りを問い合わせない。もう一度実行すると、取れなかった本から取る |
+| AT-49 | 洋書と和書を 20 冊まとめて再取得する | Open Library の検索と Google の Dynamic Links は 10 冊に 1 回。結果は 1 冊ずつ取ったときと同じ |
 
 ### フェーズ 4: 配布とモバイル
 
