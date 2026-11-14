@@ -11,7 +11,7 @@ use tauri::ipc::{InvokeBody, Request};
 
 use super::fetch::FetchMetadataResult;
 use super::providers::{ProviderStatus, ProviderTestResult};
-use super::refetch::RefetchSummary;
+use super::refetch_job::RefetchJobStatus;
 use super::register::NewBookDraft;
 use super::search::ProviderSearchResult;
 use super::settings::ProviderSettings;
@@ -119,14 +119,29 @@ pub async fn create_books_from_drafts(
     state.create_books_from_drafts(drafts).await
 }
 
-/// 選んだ本の書誌を再取得する。`override_manual` が偽なら、手で直した項目は上書きしない。
+/// 選んだ本の書誌の再取得を、裏で始める（すぐ戻る。0027）。`override_manual` が偽なら、手で直した項目は上書きしない。
+/// 動いている作業があれば `conflict`。使える取得元がなければ、すぐ `stopped`（`noActiveProviders`）で終わる。
+/// 進み具合は `refetch-progress` イベントで届く。
 #[tauri::command]
-pub async fn refetch_books(
+pub async fn start_refetch(
     ids: Vec<String>,
     override_manual: bool,
     state: Metadata<'_>,
-) -> Result<RefetchSummary, AppError> {
-    state.refetch_books(ids, override_manual).await
+) -> Result<RefetchJobStatus, AppError> {
+    state.inner().start_refetch(ids, override_manual).await
+}
+
+/// 動いている再取得の作業をやめる。なければ何もしない。
+#[tauri::command]
+pub async fn cancel_refetch(state: Metadata<'_>) -> Result<(), AppError> {
+    state.cancel_refetch();
+    Ok(())
+}
+
+/// 今の再取得の作業、または最後に終わった作業の状態（なければ null）。
+#[tauri::command]
+pub async fn get_refetch_job(state: Metadata<'_>) -> Result<Option<RefetchJobStatus>, AppError> {
+    Ok(state.get_refetch_job())
 }
 
 /// 取得待ちの本の再取得を、今すぐ試す（すぐ戻る。処理は裏で行う）。

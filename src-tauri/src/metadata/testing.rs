@@ -11,7 +11,8 @@ use bibcontainer_metadata::http::{HttpClient, HttpRequest, HttpResponse, Transpo
 use bibcontainer_metadata::{RetryPolicy, Transport};
 
 use super::keychain::MemoryKeyStore;
-use super::state::{CoverDirs, MetadataState, Notifier, TransportFactory};
+use super::refetch_job::RefetchJobStatus;
+use super::state::{CoverDirs, MetadataState, Notifier, ProgressEmitter, TransportFactory};
 use crate::database::{BACKUP_DIR_NAME, DB_FILE_NAME, Database};
 
 pub const ONIGIRI: &str = "9784780802047";
@@ -231,8 +232,12 @@ pub fn online_handler() -> Handler {
     })
 }
 
+/// URL ごとの、応答までの待ち時間（非同期に待つ。再取得の取り消しのテスト用）。
+pub type DelayFn = Arc<dyn Fn(&str) -> Duration + Send + Sync>;
+
 pub struct FakeHttp {
     handler: Mutex<Handler>,
+    delay: Mutex<Option<DelayFn>>,
     urls: Mutex<Vec<String>>,
 }
 
@@ -240,12 +245,18 @@ impl FakeHttp {
     pub fn new() -> Arc<Self> {
         Arc::new(FakeHttp {
             handler: Mutex::new(online_handler()),
+            delay: Mutex::new(None),
             urls: Mutex::new(Vec::new()),
         })
     }
 
     pub fn set_handler(&self, handler: Handler) {
         *self.handler.lock().unwrap() = handler;
+    }
+
+    /// 応答までの待ち時間を、URL から決める関数にする（要求を受けた時点で呼ぶ）。
+    pub fn set_delay(&self, delay: impl Fn(&str) -> Duration + Send + Sync + 'static) {
+        *self.delay.lock().unwrap() = Some(Arc::new(delay));
     }
 
     pub fn set_offline(&self) {
@@ -274,6 +285,13 @@ impl FakeHttp {
 impl HttpClient for FakeHttp {
     async fn get(&self, req: HttpRequest) -> Result<HttpResponse, TransportError> {
         self.urls.lock().unwrap().push(req.url.clone());
+        let delay = self.delay.lock().unwrap().clone();
+        if let Some(delay) = delay {
+            let wait = delay(&req.url);
+            if !wait.is_zero() {
+                tokio::time::sleep(wait).await;
+            }
+        }
         (self.handler.lock().unwrap())(&req.url)
     }
 }
@@ -286,6 +304,8 @@ pub struct Rig {
     pub keys: Arc<MemoryKeyStore>,
     /// `library-changed` として通知された（本の ID の一覧、others）
     pub changed: ChangedLog,
+    /// `refetch-progress` として通知された状態（順）
+    pub progress: Arc<Mutex<Vec<RefetchJobStatus>>>,
     /// 通信の層を作ったときの User-Agent
     pub user_agents: Arc<Mutex<Vec<String>>>,
     pub dir: tempfile::TempDir,
@@ -307,6 +327,11 @@ impl Rig {
         let notifier: Notifier = {
             let changed = Arc::clone(&changed);
             Arc::new(move |books, others| changed.lock().unwrap().push((books, others)))
+        };
+        let progress: Arc<Mutex<Vec<RefetchJobStatus>>> = Arc::default();
+        let emitter: ProgressEmitter = {
+            let progress = Arc::clone(&progress);
+            Arc::new(move |status| progress.lock().unwrap().push(status.clone()))
         };
         let factory: TransportFactory = {
             let http = Arc::clone(&http);
@@ -333,6 +358,7 @@ impl Rig {
             "0.0.0-test".to_owned(),
             factory,
             notifier,
+            emitter,
         );
         Rig {
             state,
@@ -340,6 +366,7 @@ impl Rig {
             http,
             keys,
             changed,
+            progress,
             user_agents,
             dir,
         }

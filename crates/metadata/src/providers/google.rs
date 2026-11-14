@@ -37,6 +37,12 @@
 //!    合わなければ「該当なし」にする（検索の応答と同じ規則）。採用したら、**volume の JSON を受け取ったまま**
 //!    `RawResponse.body` にする。
 //!
+//! 複数の ISBN を取るとき（`fetch_raw_batch`。0027 §4.3）は、1 の検索を 1 冊ずつ順に行い、該当なしだった本の
+//! Dynamic Links を 10 冊（`MAX_BATCH_ISBNS`）ずつ 1 回にまとめる（`bibkeys=ISBN:A,ISBN:B,…`）。各 ISBN は `ISBN:<ISBN-13>` の
+//! 項目から ID を取る（項目がなければ該当なし。「唯一の項目を使う」のは 1 冊だけ問い合わせたときだけ）。`volumes/<ID>` は 1 冊ずつ。
+//! Dynamic Links のエラーは、その群の本すべてのエラー（キャッシュされない）。Google の API が 401・403・429 を返したら、
+//! 残りには問い合わせない。Dynamic Links の 403・429 のときは、Dynamic Links だけやめる（検索は続ける）。
+//!
 //! 障害のあいだの 1 冊あたりの通信は、検索・Dynamic Links・volume の 3 回（1 秒ずつあける）。
 //!
 //! # キーワード検索（フェーズ 3）
@@ -74,6 +80,9 @@ pub const DEFAULT_DYNAMIC_LINKS_BASE_URL: &str = "https://books.google.com";
 
 /// キーワード検索で 1 回に取る件数（`maxResults` の上限は 40）。
 const SEARCH_MAX_RESULTS: u32 = 20;
+
+/// まとめて取るとき、Dynamic Links の 1 回の問い合わせに入れる ISBN の数の上限（0027 §4.3）。
+pub const MAX_BATCH_ISBNS: usize = 10;
 
 pub struct GoogleBooks {
     base_url: String,
@@ -157,10 +166,13 @@ impl GoogleBooks {
     }
 
     /// Dynamic Links の URL。キーは付けない（books.google.com にキーを送らない）。
-    fn dynamic_links_url(&self, isbn13: &str) -> String {
+    /// 複数の ISBN は `bibkeys=ISBN:A,ISBN:B,…`。
+    fn dynamic_links_url(&self, isbns: &[&str]) -> String {
+        let bibkeys: Vec<String> = isbns.iter().map(|i| format!("ISBN:{i}")).collect();
         format!(
-            "{}/books?bibkeys=ISBN:{}&jscmd=viewapi&callback=cb",
-            self.dynamic_links_base_url, isbn13
+            "{}/books?bibkeys={}&jscmd=viewapi&callback=cb",
+            self.dynamic_links_base_url,
+            bibkeys.join(",")
         )
     }
 
@@ -180,21 +192,40 @@ impl GoogleBooks {
             isbn13,
             "Google Books の検索が該当なしなので、Dynamic Links で探す"
         );
+        let text = self.fetch_dynamic_links(transport, &[isbn13]).await?;
+        let Some(id) = volume_id_from_jsonp(&text, isbn13)? else {
+            return Ok(None);
+        };
+        self.fetch_volume_by_id(transport, &id, isbn13).await
+    }
+
+    /// Dynamic Links を 1 回。応答の本文（JSONP）を返す。HTTP エラーは `dynamic_links_http_error`。
+    async fn fetch_dynamic_links(
+        &self,
+        transport: &Transport,
+        isbns: &[&str],
+    ) -> Result<String, FetchError> {
         let resp = transport
             .get(
                 &Self::rate_limit(),
-                HttpRequest::get(self.dynamic_links_url(isbn13)),
+                HttpRequest::get(self.dynamic_links_url(isbns)),
             )
             .await?;
         if !resp.is_success() {
             return Err(dynamic_links_http_error(&resp));
         }
-        let Some(id) = volume_id_from_jsonp(&resp.text(), isbn13)? else {
-            return Ok(None);
-        };
+        Ok(resp.text())
+    }
 
+    /// `volumes/<ID>` を 1 回。404 は該当なし（`None`）。ISBN が合わなければ該当なし。取れたら volume の JSON。
+    async fn fetch_volume_by_id(
+        &self,
+        transport: &Transport,
+        id: &str,
+        isbn13: &str,
+    ) -> Result<Option<String>, FetchError> {
         let resp = transport
-            .get(&Self::rate_limit(), HttpRequest::get(self.volume_url(&id)))
+            .get(&Self::rate_limit(), HttpRequest::get(self.volume_url(id)))
             .await?;
         if resp.status == 404 {
             return Ok(None);
@@ -219,6 +250,64 @@ impl GoogleBooks {
             Ok(None) => Ok(None),
             Err(e) => Err(FetchError::Parse(e.0)),
         }
+    }
+
+    /// ISBN 検索（`volumes?q=isbn:`）を 1 回。応答の本文を返す（HTTP エラーは `Err`）。
+    async fn fetch_search_body(
+        &self,
+        transport: &Transport,
+        isbn13: &str,
+    ) -> Result<String, FetchError> {
+        let resp = transport
+            .get(
+                &Self::rate_limit(),
+                HttpRequest::get(self.request_url(isbn13)),
+            )
+            .await?;
+        if !resp.is_success() {
+            return Err(google_http_error(&resp, self.api_key.is_some()));
+        }
+        Ok(resp.text())
+    }
+
+    /// Dynamic Links の 1 まとまり（最大 `MAX_BATCH_ISBNS` 冊）の結果を、ISBN ごとに作る（0027 §4.3）。
+    /// `volumes/<ID>` は 1 冊ずつ。`refused` は、この呼び出しで Google の API が制限・拒否を返したあとのエラー
+    /// （あれば、volume には問い合わせない）。
+    async fn resolve_dynamic_links_group(
+        &self,
+        transport: &Transport,
+        group: &[&str],
+        refused: &mut Option<FetchError>,
+    ) -> Vec<Result<Option<String>, FetchError>> {
+        let text = match self.fetch_dynamic_links(transport, group).await {
+            Ok(t) => t,
+            Err(e) => return group.iter().map(|_| Err(e.clone())).collect(),
+        };
+        let parsed = match parse_jsonp(&text) {
+            Ok(v) => v,
+            Err(e) => return group.iter().map(|_| Err(e.clone())).collect(),
+        };
+        // 「唯一の項目を使う」のは、1 冊だけ問い合わせたときだけ
+        let allow_sole = group.len() == 1;
+        let mut out = Vec::with_capacity(group.len());
+        for isbn in group {
+            if let Some(e) = refused.as_ref() {
+                out.push(Err(e.clone()));
+                continue;
+            }
+            let r = match volume_id_from_entries(&parsed, isbn, allow_sole) {
+                Ok(Some(id)) => self.fetch_volume_by_id(transport, &id, isbn).await,
+                Ok(None) => Ok(None),
+                Err(e) => Err(e),
+            };
+            if let Err(e) = &r
+                && e.is_refusal()
+            {
+                *refused = Some(e.clone());
+            }
+            out.push(r);
+        }
+        out
     }
 }
 
@@ -249,7 +338,7 @@ impl Provider for GoogleBooks {
             ],
             rate_limit: Self::rate_limit(),
             credit: "Powered by Google Books API (https://books.google.com/)".to_string(),
-            supports_batch: false,
+            supports_batch: true,
             supports_search: true,
             needs_network: true,
         }
@@ -260,16 +349,7 @@ impl Provider for GoogleBooks {
         transport: &Transport,
         isbn13: &str,
     ) -> Result<RawResponse, FetchError> {
-        let resp = transport
-            .get(
-                &Self::rate_limit(),
-                HttpRequest::get(self.request_url(isbn13)),
-            )
-            .await?;
-        if !resp.is_success() {
-            return Err(google_http_error(&resp, self.api_key.is_some()));
-        }
-        let search_body = resp.text();
+        let search_body = self.fetch_search_body(transport, isbn13).await?;
         // 書誌が取れる応答と、解析できない応答は、そのまま返す。「該当なし」のときだけ、回避策に進む（ファイル先頭の 1）
         let body = if matches!(parse_google(isbn13, &search_body), Ok(None)) {
             self.fetch_volume_via_dynamic_links(transport, isbn13)
@@ -284,6 +364,85 @@ impl Provider for GoogleBooks {
             isbn13: isbn13.to_string(),
             body,
         })
+    }
+
+    /// 複数の ISBN-13 をまとめて取る（0027 §4.3）。検索（`volumes?q=isbn:`）は 1 冊ずつ順に。検索で該当なしだった本は、
+    /// 10 冊ずつ 1 回の Dynamic Links で ID を引き、`volumes/<ID>` は 1 冊ずつ。結果の本文は 1 冊ずつのときと同じ。
+    /// 制限・拒否（401・403・429）を返されたら、API には残りを問い合わせない。Dynamic Links の 403・429 のときは、
+    /// Dynamic Links だけをやめる（検索は続ける）。
+    async fn fetch_raw_batch(
+        &self,
+        transport: &Transport,
+        isbns: &[String],
+    ) -> Vec<(String, Result<RawResponse, FetchError>)> {
+        let wrap = |isbn: &str, body: String| RawResponse {
+            provider: ProviderId::Google,
+            isbn13: isbn.to_string(),
+            body,
+        };
+        let mut results: Vec<Option<Result<RawResponse, FetchError>>> =
+            (0..isbns.len()).map(|_| None).collect();
+        // 検索で該当なしだった本: (位置, 検索の応答)
+        let mut pending: Vec<(usize, String)> = Vec::new();
+        let mut refused: Option<FetchError> = None;
+
+        for (i, isbn) in isbns.iter().enumerate() {
+            if let Some(e) = &refused {
+                results[i] = Some(Err(e.clone()));
+                continue;
+            }
+            match self.fetch_search_body(transport, isbn).await {
+                Err(e) => {
+                    if e.is_refusal() {
+                        refused = Some(e.clone());
+                    }
+                    results[i] = Some(Err(e));
+                }
+                Ok(body) if matches!(parse_google(isbn, &body), Ok(None)) => {
+                    pending.push((i, body));
+                }
+                Ok(body) => results[i] = Some(Ok(wrap(isbn, body))),
+            }
+        }
+
+        // Dynamic Links（検索の障害のあいだ、該当なしの本が回る）
+        let mut dl_refused: Option<FetchError> = None;
+        for group in pending.chunks(MAX_BATCH_ISBNS) {
+            let group_isbns: Vec<&str> = group.iter().map(|(i, _)| isbns[*i].as_str()).collect();
+            let resolved: Vec<Result<Option<String>, FetchError>> =
+                if let Some(e) = refused.as_ref().or(dl_refused.as_ref()) {
+                    group_isbns.iter().map(|_| Err(e.clone())).collect()
+                } else {
+                    tracing::debug!(
+                        count = group_isbns.len(),
+                        "Google Books の検索が該当なしなので、Dynamic Links でまとめて探す"
+                    );
+                    let r = self
+                        .resolve_dynamic_links_group(transport, &group_isbns, &mut refused)
+                        .await;
+                    // Dynamic Links 自身の 403・429（captcha など）。同じ呼び出しの残りは Dynamic Links に聞かない
+                    if let Some(Err(e)) = r.first()
+                        && e.is_refusal()
+                        && is_dynamic_links_error(e)
+                    {
+                        dl_refused = Some(e.clone());
+                    }
+                    r
+                };
+            for ((i, search_body), r) in group.iter().zip(resolved) {
+                results[*i] = Some(r.map(|volume| {
+                    // 該当なしなら、検索の応答を返す（`parse` が `None` にする）
+                    wrap(&isbns[*i], volume.unwrap_or_else(|| search_body.clone()))
+                }));
+            }
+        }
+
+        isbns
+            .iter()
+            .cloned()
+            .zip(results)
+            .map(|(isbn, r)| (isbn, r.expect("すべての ISBN に結果がある")))
+            .collect()
     }
 
     fn parse(&self, raw: &RawResponse) -> Result<Option<Candidate>, ParseError> {
@@ -451,13 +610,27 @@ fn parse_jsonp(text: &str) -> Result<Value, FetchError> {
 /// - ID は `info_url`、なければ `preview_url`・`thumbnail_url` の `id` パラメータ。
 ///   ID がない・形が違う（`is_valid_volume_id`）ときは `Err`（解析エラー）。
 fn volume_id_from_jsonp(text: &str, isbn13: &str) -> Result<Option<String>, FetchError> {
-    let v = parse_jsonp(text)?;
+    volume_id_from_entries(&parse_jsonp(text)?, isbn13, true)
+}
+
+/// Dynamic Links のエラーか（メッセージの印で見分ける。`dynamic_links_http_error` が付ける）。
+fn is_dynamic_links_error(e: &FetchError) -> bool {
+    matches!(e, FetchError::Http { message, .. } if message.contains(DYNAMIC_LINKS_NOTE))
+}
+
+/// 解析済みの Dynamic Links の応答から、`ISBN:<isbn13>` の項目の volume ID を取る。
+/// `allow_sole` が真のときだけ、項目が 1 つなら、キーが違ってもそれを使う（1 冊だけ問い合わせたとき）。
+fn volume_id_from_entries(
+    v: &Value,
+    isbn13: &str,
+    allow_sole: bool,
+) -> Result<Option<String>, FetchError> {
     let map = v.as_object().ok_or_else(|| {
         FetchError::Parse("Google Books（Dynamic Links）の応答がオブジェクトではありません".into())
     })?;
     let entry = match map.get(&format!("ISBN:{isbn13}")) {
         Some(entry) => entry,
-        None if map.len() == 1 => map.values().next().expect("項目が 1 つある"),
+        None if allow_sole && map.len() == 1 => map.values().next().expect("項目が 1 つある"),
         None => return Ok(None),
     };
     let url_id = ["info_url", "preview_url", "thumbnail_url"]
@@ -870,7 +1043,7 @@ mod tests {
     fn urls_never_carry_the_key_to_dynamic_links() {
         let g = GoogleBooks::new(Some("AIza-_x y".to_string()));
         assert_eq!(
-            g.dynamic_links_url(CLEAN_CODE),
+            g.dynamic_links_url(&[CLEAN_CODE]),
             "https://books.google.com/books?bibkeys=ISBN:9780132350884&jscmd=viewapi&callback=cb"
         );
         assert_eq!(
@@ -885,7 +1058,7 @@ mod tests {
         // テスト用の接続先: `with_base_url` は Dynamic Links も同じ接続先にする（本物の books.google.com に出ない）
         let g = GoogleBooks::with_base_url("http://127.0.0.1:9/", Some("K".into()));
         assert_eq!(
-            g.dynamic_links_url(CLEAN_CODE),
+            g.dynamic_links_url(&[CLEAN_CODE]),
             "http://127.0.0.1:9/books?bibkeys=ISBN:9780132350884&jscmd=viewapi&callback=cb"
         );
         let g = GoogleBooks::with_base_urls("http://a.test/", "http://b.test/", Some("K".into()));
@@ -894,7 +1067,7 @@ mod tests {
             "http://a.test/books/v1/volumes?q=isbn:9780132350884&maxResults=5&printType=books&key=K"
         );
         assert_eq!(
-            g.dynamic_links_url(CLEAN_CODE),
+            g.dynamic_links_url(&[CLEAN_CODE]),
             "http://b.test/books?bibkeys=ISBN:9780132350884&jscmd=viewapi&callback=cb"
         );
     }

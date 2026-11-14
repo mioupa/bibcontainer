@@ -42,7 +42,7 @@ fn format_time(secs: i64) -> String {
 }
 
 /// `provider_cache.fetched_at` → UNIX 秒。RFC 3339 のほか、数字だけの文字列（UNIX 秒）も読む。
-fn parse_time(text: &str) -> Option<i64> {
+pub(super) fn parse_time(text: &str) -> Option<i64> {
     let text = text.trim();
     if let Ok(secs) = text.parse::<i64>() {
         return Some(secs);

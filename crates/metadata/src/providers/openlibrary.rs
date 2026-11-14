@@ -10,6 +10,12 @@
 //!    （リダイレクト先は追わない）。そのほかのエラー（通信エラー・5xx・429 など）は、取得全体の失敗にする
 //!    （キャッシュされず、あとで取り直される）。
 //!
+//! 複数の ISBN を取るとき（`fetch_raw_batch`。0027 §4.2）は、1 の検索を 10 冊（`MAX_BATCH_ISBNS`）ずつ 1 回にまとめる:
+//! `GET /search.json?q=isbn:(A OR B …)&fields=<1 と同じ>&limit=100`。応答の作品を、ISBN ごとに「その ISBN（13 桁、
+//! 978 なら 10 桁も）を `editions.docs[].isbn` に含む作品だけ、返った順」の検索の応答（`{"numFound", "start", "docs"}`）に
+//! 分け、あとは 1 冊のときと同じ（2 の版の JSON を取り、包みにする）。応答が `limit` で切れていて（`numFound` が返った作品の
+//! 数より多い）、見つからなかった ISBN は、1 冊ずつの検索で取り直す。401・403・429 を返されたら、残りには問い合わせない。
+//!
 //! キャッシュに残す生の応答（`RawResponse.body`）は、この取得元の包み（`{"search": 検索の JSON, "edition": 版の JSON または null}`）。
 //! `parse` はこの包みだけを読むので、キャッシュからのやり直しは通信なしでできる（FR-META-10）。
 //!
@@ -59,6 +65,11 @@ const SEARCH_FIELDS: &str = "key,title,author_name,editions,editions.key,edition
 const KEYWORD_FIELDS: &str = "key,title,subtitle,author_name,cover_i,editions,editions.key,editions.title,editions.subtitle,editions.author_name,editions.isbn,editions.publisher,editions.publish_date,editions.language,editions.cover_i";
 /// キーワード検索で 1 回に取る作品の数。
 const KEYWORD_LIMIT: u32 = 20;
+
+/// まとめて取るとき、1 回の検索に入れる ISBN の数の上限（0027 §4.2）。
+pub const MAX_BATCH_ISBNS: usize = 10;
+/// まとめた検索で 1 回に取る作品の数（ISBN の数 × 版の混ざりを見込んだ上限）。
+const BATCH_LIMIT: u32 = 100;
 
 pub struct OpenLibrary {
     base_url: String,
@@ -122,8 +133,73 @@ impl OpenLibrary {
         format!("{}/search.json?{}", self.base_url, params.join("&"))
     }
 
+    /// まとめた検索の URL（`q=isbn:(A OR B …)`。`fields` は 1 冊の検索と同じ）。
+    fn batch_search_url(&self, isbns: &[String]) -> String {
+        let q = format!("isbn:({})", isbns.join(" OR "));
+        format!(
+            "{}/search.json?q={}&fields={}&limit={}",
+            self.base_url,
+            percent_encode(&q),
+            SEARCH_FIELDS,
+            BATCH_LIMIT
+        )
+    }
+
     fn cover_url(&self, id: i64) -> String {
         format!("{}/b/id/{}-L.jpg?default=false", self.covers_base_url, id)
+    }
+
+    /// まとめた検索を 1 回。応答の JSON を返す（通信・HTTP・解析の失敗は `Err`）。
+    async fn fetch_group_search(
+        &self,
+        transport: &Transport,
+        group: &[String],
+    ) -> Result<Value, FetchError> {
+        let resp = transport
+            .get_ok(
+                &Self::rate_limit(),
+                HttpRequest::get(self.batch_search_url(group)),
+            )
+            .await?;
+        parse_search_body(&resp.body)
+    }
+
+    /// 検索の応答（1 冊ぶん）から、版の JSON を取って、キャッシュに残す包みにする。
+    /// 1 冊の取得（`fetch_raw`）と、まとめた取得（`fetch_raw_batch`）で共有する。
+    async fn finish_raw(
+        &self,
+        transport: &Transport,
+        isbn13: &str,
+        search: Value,
+    ) -> Result<RawResponse, FetchError> {
+        let docs = search_docs(&search)
+            .ok_or_else(|| FetchError::Parse("Open Library の応答に docs がありません".into()))?;
+
+        // 該当なし（docs が空）か、版が 1 件もない: 2 回目の通信はしない（parse が該当なしにする）
+        let edition_key = match docs
+            .first()
+            .and_then(|work| pick_search_edition(work, isbn13))
+        {
+            None => None,
+            Some(doc) => {
+                let key = doc.get("key").and_then(Value::as_str).unwrap_or_default();
+                if !is_edition_key(key) {
+                    return Err(FetchError::Parse(format!(
+                        "Open Library の版の key が想定の形ではありません: {key:?}"
+                    )));
+                }
+                Some(key.to_string())
+            }
+        };
+        let edition = match edition_key {
+            Some(key) => self.fetch_edition(transport, &key).await?,
+            None => None,
+        };
+        Ok(RawResponse {
+            provider: ProviderId::OpenLibrary,
+            isbn13: isbn13.to_string(),
+            body: json!({ "search": search, "edition": edition }).to_string(),
+        })
     }
 
     /// 版の JSON を取る。404 と、統合された版（`/type/redirect`）は `None`（検索の結果だけで続ける）。
@@ -175,7 +251,7 @@ impl Provider for OpenLibrary {
             ],
             rate_limit: Self::rate_limit(),
             credit: "書誌情報・書影: Open Library (https://openlibrary.org/)".to_string(),
-            supports_batch: false,
+            supports_batch: true,
             supports_search: true,
             needs_network: true,
         }
@@ -192,37 +268,73 @@ impl Provider for OpenLibrary {
                 HttpRequest::get(self.search_url(isbn13)),
             )
             .await?;
-        let search: Value = serde_json::from_slice(&resp.body).map_err(|e| {
-            FetchError::Parse(format!("Open Library の応答が JSON ではありません: {e}"))
-        })?;
-        let docs = search_docs(&search)
-            .ok_or_else(|| FetchError::Parse("Open Library の応答に docs がありません".into()))?;
+        let search = parse_search_body(&resp.body)?;
+        self.finish_raw(transport, isbn13, search).await
+    }
 
-        // 該当なし（docs が空）か、版が 1 件もない: 2 回目の通信はしない（parse が該当なしにする）
-        let edition_key = match docs
-            .first()
-            .and_then(|work| pick_search_edition(work, isbn13))
-        {
-            None => None,
-            Some(doc) => {
-                let key = doc.get("key").and_then(Value::as_str).unwrap_or_default();
-                if !is_edition_key(key) {
-                    return Err(FetchError::Parse(format!(
-                        "Open Library の版の key が想定の形ではありません: {key:?}"
-                    )));
-                }
-                Some(key.to_string())
+    /// 複数の ISBN-13 を、10 冊ずつ 1 回の検索で取る（0027 §4.2）。結果は 1 冊ずつのときと同じ形。
+    /// 応答が `limit` で切れていて見つからなかった ISBN は、1 冊ずつの検索で取り直す。
+    /// 制限・拒否（401・403・429）を返されたら、残りには問い合わせず、同じエラーにする。
+    async fn fetch_raw_batch(
+        &self,
+        transport: &Transport,
+        isbns: &[String],
+    ) -> Vec<(String, Result<RawResponse, FetchError>)> {
+        let mut out: Vec<(String, Result<RawResponse, FetchError>)> =
+            Vec::with_capacity(isbns.len());
+        let mut refused: Option<FetchError> = None;
+        for group in isbns.chunks(MAX_BATCH_ISBNS) {
+            if let Some(e) = &refused {
+                out.extend(group.iter().map(|i| (i.clone(), Err(e.clone()))));
+                continue;
             }
-        };
-        let edition = match edition_key {
-            Some(key) => self.fetch_edition(transport, &key).await?,
-            None => None,
-        };
-        Ok(RawResponse {
-            provider: ProviderId::OpenLibrary,
-            isbn13: isbn13.to_string(),
-            body: json!({ "search": search, "edition": edition }).to_string(),
-        })
+            let search = match self.fetch_group_search(transport, group).await {
+                Ok(v) => v,
+                Err(e) => {
+                    if e.is_refusal() {
+                        refused = Some(e.clone());
+                    }
+                    out.extend(group.iter().map(|i| (i.clone(), Err(e.clone()))));
+                    continue;
+                }
+            };
+            let Some(docs) = search_docs(&search) else {
+                let e = FetchError::Parse("Open Library の応答に docs がありません".into());
+                out.extend(group.iter().map(|i| (i.clone(), Err(e.clone()))));
+                continue;
+            };
+            let found_all = search
+                .get("numFound")
+                .and_then(Value::as_u64)
+                .is_none_or(|n| n <= docs.len() as u64);
+            for isbn in group {
+                let result = if let Some(e) = &refused {
+                    Err(e.clone())
+                } else {
+                    let matched: Vec<Value> = docs
+                        .iter()
+                        .filter(|work| work_has_isbn(work, isbn))
+                        .cloned()
+                        .collect();
+                    let r = if matched.is_empty() && !found_all {
+                        // 切れた応答の外にあるかもしれない。「該当なし」にせず、1 冊ずつの検索で取り直す
+                        self.fetch_raw(transport, isbn).await
+                    } else {
+                        let per_isbn =
+                            json!({ "numFound": matched.len(), "start": 0, "docs": matched });
+                        self.finish_raw(transport, isbn, per_isbn).await
+                    };
+                    if let Err(e) = &r
+                        && e.is_refusal()
+                    {
+                        refused = Some(e.clone());
+                    }
+                    r
+                };
+                out.push((isbn.clone(), result));
+            }
+        }
+        out
     }
 
     fn parse(&self, raw: &RawResponse) -> Result<Option<Candidate>, ParseError> {
@@ -244,6 +356,30 @@ impl Provider for OpenLibrary {
         self.parse_keyword_search(&resp.text())
             .map_err(|e| FetchError::Parse(e.0).into())
     }
+}
+
+fn parse_search_body(body: &[u8]) -> Result<Value, FetchError> {
+    serde_json::from_slice(body)
+        .map_err(|e| FetchError::Parse(format!("Open Library の応答が JSON ではありません: {e}")))
+}
+
+/// 作品の版（`editions.docs[].isbn`）に、この ISBN-13（978 なら ISBN-10 の表記も）があるか。
+fn work_has_isbn(work: &Value, isbn13: &str) -> bool {
+    work.pointer("/editions/docs")
+        .and_then(Value::as_array)
+        .is_some_and(|docs| {
+            docs.iter().any(|d| {
+                d.get("isbn")
+                    .and_then(Value::as_array)
+                    .is_some_and(|isbns| {
+                        isbns
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .filter_map(to_isbn13)
+                            .any(|x| x == isbn13)
+                    })
+            })
+        })
 }
 
 /// 検索の応答の作品の一覧（`docs`）。`docs` がなくても `numFound` が 0 なら、該当なし（空の一覧）として読む。

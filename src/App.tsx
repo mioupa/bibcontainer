@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { EditorHost } from "@/features/editor/EditorHost";
 import { MainScreen } from "@/features/layout/MainScreen";
 import { useCoverArrivalSync } from "@/features/library/coverArrivals";
+import { useRefetchJobSync } from "@/features/library/refetchJob";
 import { useLibraryChangeSync } from "@/features/library/sync";
 import { useSoundUnlock } from "@/features/scan/useSoundUnlock";
 import { ScanScreen } from "@/features/scanScreen/ScanScreen";
@@ -40,6 +41,8 @@ function Screens() {
 function AppShell() {
   useLibraryChangeSync();
   useCoverArrivalSync();
+  // 書誌の再取得の作業（0027）。状態と、終わったときの通知を、どの画面でも受ける
+  useRefetchJobSync();
   // 同期の状態（上部バーの表示、設定の同期の節）。`sync-status` を、どの画面でも受け続ける
   useSyncStatusSubscription();
   // ⌘N（手動登録）・⇧⌘N（スキャン登録）・⌘,（設定）は、どの画面でも効く（9.5）

@@ -36,7 +36,7 @@ import type { ProviderSearchResult } from "@/bindings/ProviderSearchResult";
 import type { ProviderSettings } from "@/bindings/ProviderSettings";
 import type { ProviderStatus } from "@/bindings/ProviderStatus";
 import type { ProviderTestResult } from "@/bindings/ProviderTestResult";
-import type { RefetchSummary } from "@/bindings/RefetchSummary";
+import type { RefetchJobStatus } from "@/bindings/RefetchJobStatus";
 import type { RestoreReport } from "@/bindings/RestoreReport";
 import type { ScanCode } from "@/bindings/ScanCode";
 import type { ScanSettings } from "@/bindings/ScanSettings";
@@ -198,7 +198,9 @@ interface CommandMap {
   };
   fetch_search_hit: { args: { hit: SearchHit }; result: FetchMetadataResult };
   create_books_from_drafts: { args: { drafts: NewBookDraft[] }; result: string[] };
-  refetch_books: { args: { ids: string[]; overrideManual: boolean }; result: RefetchSummary };
+  start_refetch: { args: { ids: string[]; overrideManual: boolean }; result: RefetchJobStatus };
+  cancel_refetch: { result: null };
+  get_refetch_job: { result: RefetchJobStatus | null };
   trigger_pending_refetch: { result: null };
   import_cover_file: { args: { path: string }; result: string };
   /** 画像のバイト列は、Uint8Array をそのまま渡すと、バイナリのまま送られる（大きい画像向け）。 */
@@ -353,9 +355,16 @@ export const ipc = {
   fetchSearchHit: (hit: SearchHit) => call("fetch_search_hit", { hit }),
   /** 下書きから本を作る（全体で 1 トランザクション）。新しい本の ID を渡した順に返す。 */
   createBooksFromDrafts: (drafts: NewBookDraft[]) => call("create_books_from_drafts", { drafts }),
-  /** 選んだ本の書誌を再取得する。`overrideManual` が false なら、手で直した項目は上書きしない。 */
-  refetchBooks: (ids: string[], overrideManual: boolean) =>
-    call("refetch_books", { ids, overrideManual }),
+  /**
+   * 選んだ本の書誌の再取得（作業）を始める。すぐ戻り、作業は裏で進む（0027）。`overrideManual` が false なら、
+   * 手で直した項目は上書きしない。動いている作業があれば `conflict`。
+   */
+  startRefetch: (ids: string[], overrideManual: boolean) =>
+    call("start_refetch", { ids, overrideManual }),
+  /** 動いている再取得の作業をやめる。なければ何もしない。 */
+  cancelRefetch: () => call("cancel_refetch"),
+  /** 今の再取得の作業、または最後に終わった作業（なければ null）。 */
+  getRefetchJob: () => call("get_refetch_job"),
   /** 取得待ちの本の再取得を、今すぐ試す（すぐ戻る）。 */
   triggerPendingRefetch: () => call("trigger_pending_refetch"),
   /** 書影を取り込んで、保存した書影のハッシュを返す。本への設定は、`update_book` で `cover_hash` を書く。 */
@@ -387,6 +396,13 @@ export function onLibraryChanged(handler: (change: LibraryChanged) => void): Pro
 /** 同期の状態の通知（`sync-status`）を受ける。返した関数で購読をやめる。 */
 export function onSyncStatus(handler: (status: SyncStatus) => void): Promise<UnlistenFn> {
   return listen<SyncStatus>("sync-status", (event) => handler(event.payload));
+}
+
+/** 再取得の作業の進み具合の通知（`refetch-progress`）を受ける。返した関数で購読をやめる。 */
+export function onRefetchProgress(
+  handler: (status: RefetchJobStatus) => void,
+): Promise<UnlistenFn> {
+  return listen<RefetchJobStatus>("refetch-progress", (event) => handler(event.payload));
 }
 
 /** 同期で書影が手元に届いた通知（`covers-arrived`）を受ける。返した関数で購読をやめる。 */

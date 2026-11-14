@@ -121,9 +121,23 @@ pub trait Provider: Send + Sync {
         transport: &Transport,
         isbns: &[String],
     ) -> Vec<(String, Result<RawResponse, FetchError>)> {
+        // 制限・拒否（401・403・429）を返されたら、残りの ISBN には問い合わせず、同じ状態にする（0027 §4.4）
+        let mut refused: Option<FetchError> = None;
         let mut out = Vec::with_capacity(isbns.len());
         for isbn in isbns {
-            out.push((isbn.clone(), self.fetch_raw(transport, isbn).await));
+            let raw = match &refused {
+                Some(e) => Err(e.clone()),
+                None => {
+                    let raw = self.fetch_raw(transport, isbn).await;
+                    if let Err(e) = &raw
+                        && e.is_refusal()
+                    {
+                        refused = Some(e.clone());
+                    }
+                    raw
+                }
+            };
+            out.push((isbn.clone(), raw));
         }
         out
     }

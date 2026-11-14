@@ -13,8 +13,12 @@
 //!    （見つからない・通信エラー・無効）項目は、そのまま残す。
 //!
 //! 全取得元が通信エラー（オフライン）のときは何も書かない。取得待ちの本は取得待ちのまま、次回に回す（AT-11）。
+//!
+//! 1 まとまり（10 冊。`CHUNK`）は、取得（`fetch_stage`。DB は読むだけ）と書き込み（`apply_stage`）に分かれる。
+//! 手動の一括再取得（`refetch_job`。0027）は、この間でやめたり、制限を返された本を書かずに残したりする。
+//! 取得待ちの自動再取得（`run_pending_refetch`）は、続けて 2 つを呼ぶだけで、取れた値は書く。
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -28,9 +32,7 @@ use bibcontainer_core::{SystemClock, write_tx};
 use bibcontainer_metadata::cover::{is_usable_auto_cover, stored_cover_dimensions};
 use bibcontainer_metadata::{MetaFetchResult, MetaSecondTier, ProviderOutcome};
 use rusqlite::Connection;
-use serde::Serialize;
 use serde_json::Value;
-use ts_rs::TS;
 
 use super::draft::{
     BookDraft, DraftSeries, MetaStatus, build_draft, decide_status, status_after_refetch,
@@ -44,13 +46,11 @@ pub const PENDING_INTERVAL: Duration = Duration::from_secs(5 * 60);
 const STARTUP_DELAY: Duration = Duration::from_secs(5);
 /// `trigger` による試行の最短の間隔（ウィンドウが前面に来るたびに通信しないため）。
 pub const MIN_TRIGGER_GAP: Duration = Duration::from_secs(30);
-/// 一度に取得する本の数（NDL・Google・Open Library は 1 件ずつ 1 秒あけるので、進捗が保存される単位）。
-const CHUNK: usize = 20;
+/// 一度に取得する本の数（取得元への問い合わせをまとめる単位で、書き込みと進み具合を知らせる単位。0027 §2）。
+pub(super) const CHUNK: usize = 10;
 
 /// 1 冊の再取得の結果。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RefetchOutcome {
     /// 書き換えた項目がある
     Updated,
@@ -65,9 +65,7 @@ pub enum RefetchOutcome {
 }
 
 /// 1 冊ぶんの結果。
-#[derive(Debug, Clone, PartialEq, Serialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RefetchItem {
     pub id: String,
     pub outcome: RefetchOutcome,
@@ -82,7 +80,7 @@ pub struct RefetchItem {
 }
 
 impl RefetchItem {
-    fn new(id: &str, outcome: RefetchOutcome) -> Self {
+    pub(super) fn new(id: &str, outcome: RefetchOutcome) -> Self {
         RefetchItem {
             id: id.to_owned(),
             outcome,
@@ -100,9 +98,7 @@ impl RefetchItem {
 }
 
 /// 再取得の結果の要約。
-#[derive(Debug, Clone, Default, PartialEq, Serialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct RefetchSummary {
     /// 渡された本の数（重複を除く）
     pub requested: u32,
@@ -417,11 +413,52 @@ struct Prepared {
     cover_saved: bool,
 }
 
+/// 取得元が返した制限・拒否（HTTP 401・403・429。0027 §4.4）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct Refusal {
+    /// 取得元の名前（`ProviderId::as_str`）
+    pub provider: String,
+    pub status: u16,
+    pub message: String,
+}
+
+/// 取得の結果から、制限・拒否を最初に返した取得元を探す。
+fn refusal_of(result: &MetaFetchResult) -> Option<Refusal> {
+    result.reports.iter().find_map(|r| match &r.outcome {
+        ProviderOutcome::HttpError { status, message }
+            if !r.from_cache && matches!(status, 401 | 403 | 429) =>
+        {
+            Some(Refusal {
+                provider: r.provider.as_str().to_owned(),
+                status: *status,
+                message: message.clone(),
+            })
+        }
+        _ => None,
+    })
+}
+
+/// 1 まとまりの取得の結果（`fetch_stage`）。書き込む前の状態で、DB はまだ変わっていない。
+pub(super) struct Fetched {
+    /// まとまりの本の ID（渡した順）
+    ids: Vec<String>,
+    /// 書き込みが要らない本（対象にならない・通信できない）の結果
+    early: HashMap<String, RefetchItem>,
+    prepared: Vec<Prepared>,
+    /// 制限・拒否を返された本（まとまりの順）
+    pub(super) refusals: Vec<(String, Refusal)>,
+    /// 取得を試した本の数（対象になった本）
+    pub(super) attempted: usize,
+    /// そのうち、通信できなかった本の数
+    pub(super) offline: usize,
+}
+
 impl MetadataState {
-    /// 選んだ本の書誌を再取得する（FR-META-13）。キャッシュは使わず、取り直す。
+    /// 選んだ本の書誌を、止める条件なしで再取得する（テスト用。IPC は `start_refetch`。0027）。キャッシュは使わず、取り直す。
     ///
     /// `override_manual` が偽なら、手で直した項目は上書きしない（AT-16）。真なら、取得元の値で上書きして、
     /// その項目の手修正の記録を外す。2段目（バーコード）由来の Cコード・本体価格は、どちらの場合も保つ。
+    #[cfg(test)]
     pub async fn refetch_books(
         &self,
         ids: Vec<String>,
@@ -538,6 +575,7 @@ impl MetadataState {
     }
 
     /// 1 まとまりの本を再取得して、書き込む。結果の一覧（渡した順）と、新しく保存した書影の数を返す。
+    /// 取得待ちの自動再取得と、テストが使う。制限を返された本も書く（0027 §4.5）。
     async fn refetch_chunk(
         &self,
         active: &Arc<Active>,
@@ -545,6 +583,22 @@ impl MetadataState {
         override_manual: bool,
         force_refresh: bool,
     ) -> Result<(Vec<RefetchItem>, u32), AppError> {
+        let fetched = self
+            .fetch_stage(active, ids, override_manual, force_refresh)
+            .await?;
+        self.apply_stage(fetched, override_manual, &HashSet::new())
+            .await
+    }
+
+    /// 1 まとまりの本を取得して、書き込む内容まで決める（DB は読むだけ。書影のファイルは保存する）。
+    /// 捨てても DB は変わらないので、再取得の作業はこの途中でやめられる（0027 §2）。
+    pub(super) async fn fetch_stage(
+        &self,
+        active: &Arc<Active>,
+        ids: &[String],
+        override_manual: bool,
+        force_refresh: bool,
+    ) -> Result<Fetched, AppError> {
         let owned: Vec<String> = ids.to_vec();
         let targets = self
             .db
@@ -569,27 +623,36 @@ impl MetadataState {
         let results = active.service.fetch_many(&requests).await;
 
         let mut fetched = results.into_iter();
-        let mut prepared: Vec<Prepared> = Vec::new();
-        let mut items: Vec<RefetchItem> = Vec::with_capacity(targets.len());
+        let mut out = Fetched {
+            ids: ids.to_vec(),
+            early: HashMap::new(),
+            prepared: Vec::new(),
+            refusals: Vec::new(),
+            attempted: 0,
+            offline: 0,
+        };
         for target in &targets {
             match target.eligibility {
                 Eligibility::Yes => {}
                 Eligibility::Missing => {
-                    items.push(
+                    out.early.insert(
+                        target.id.clone(),
                         RefetchItem::new(&target.id, RefetchOutcome::Skipped)
                             .with_message("本が見つかりません"),
                     );
                     continue;
                 }
                 Eligibility::Purged => {
-                    items.push(
+                    out.early.insert(
+                        target.id.clone(),
                         RefetchItem::new(&target.id, RefetchOutcome::Skipped)
                             .with_message("完全削除した本です"),
                     );
                     continue;
                 }
                 Eligibility::NoIsbn => {
-                    items.push(
+                    out.early.insert(
+                        target.id.clone(),
                         RefetchItem::new(&target.id, RefetchOutcome::Skipped)
                             .with_message("ISBN がないため、取得できません"),
                     );
@@ -601,8 +664,14 @@ impl MetadataState {
                     "取得の結果が依頼の数と合いません".to_owned(),
                 ));
             };
+            out.attempted += 1;
+            if let Some(refusal) = refusal_of(&result) {
+                out.refusals.push((target.id.clone(), refusal));
+            }
             if result.offline {
-                items.push(
+                out.offline += 1;
+                out.early.insert(
+                    target.id.clone(),
                     RefetchItem::new(&target.id, RefetchOutcome::Offline)
                         .with_message("通信できませんでした。あとで取り直します"),
                 );
@@ -625,7 +694,7 @@ impl MetadataState {
             {
                 stale.push(unusable_cover_clear(source));
             }
-            prepared.push(Prepared {
+            out.prepared.push(Prepared {
                 id: target.id.clone(),
                 plan: plan(
                     &draft,
@@ -638,7 +707,28 @@ impl MetadataState {
                 cover_saved: cover.hash.is_some(),
             });
         }
+        Ok(out)
+    }
 
+    /// `fetch_stage` で決めた内容を、本ごとのトランザクションで書き込む。`exclude` の本は書かず、結果にも含めない
+    /// （再取得の作業が、制限を返された本を未処理に残すため）。結果の一覧（渡した順）と、新しく保存した書影の数を返す。
+    /// 書いた本があれば `library-changed` を知らせる。
+    pub(super) async fn apply_stage(
+        &self,
+        fetched: Fetched,
+        override_manual: bool,
+        exclude: &HashSet<String>,
+    ) -> Result<(Vec<RefetchItem>, u32), AppError> {
+        let Fetched {
+            ids,
+            early,
+            prepared,
+            ..
+        } = fetched;
+        let prepared: Vec<Prepared> = prepared
+            .into_iter()
+            .filter(|p| !exclude.contains(&p.id))
+            .collect();
         let opts = UpdateOptions {
             override_manual,
             clear_stale: true,
@@ -647,26 +737,28 @@ impl MetadataState {
             .iter()
             .map(|p| (p.id.clone(), p.plan.clone()))
             .collect();
-        let applied = self
-            .db
-            .run(move |conn, _| {
-                let clock = SystemClock;
-                let env = Env::new(&clock);
-                Ok(to_apply
-                    .into_iter()
-                    .map(|(id, plan)| {
-                        let result = apply_one(conn, &env, &id, &plan, opts);
-                        (id, result)
-                    })
-                    .collect::<Vec<_>>())
-            })
-            .await?;
+        let applied = if to_apply.is_empty() {
+            Vec::new()
+        } else {
+            self.db
+                .run(move |conn, _| {
+                    let clock = SystemClock;
+                    let env = Env::new(&clock);
+                    Ok(to_apply
+                        .into_iter()
+                        .map(|(id, plan)| {
+                            let result = apply_one(conn, &env, &id, &plan, opts);
+                            (id, result)
+                        })
+                        .collect::<Vec<_>>())
+                })
+                .await?
+        };
 
         let mut changed_books = Vec::new();
         let mut series_touched = false;
         let mut covers_saved = 0;
-        let mut by_id: std::collections::HashMap<String, RefetchItem> =
-            std::collections::HashMap::new();
+        let mut by_id: HashMap<String, RefetchItem> = HashMap::new();
         for (p, (id, result)) in prepared.iter().zip(applied) {
             let item = match result {
                 Ok((report, touched)) => {
@@ -698,11 +790,13 @@ impl MetadataState {
             };
             by_id.insert(id, item);
         }
-        // 渡した順にそろえる（対象にならなかった本・オフラインの本は上で入れてある）
+        // 渡した順にそろえる（対象にならなかった本・オフラインの本は `early` に入れてある）
         let mut ordered = Vec::with_capacity(ids.len());
-        let mut early: std::collections::HashMap<String, RefetchItem> =
-            items.into_iter().map(|i| (i.id.clone(), i)).collect();
-        for id in ids {
+        let mut early = early;
+        for id in &ids {
+            if exclude.contains(id) {
+                continue;
+            }
             if let Some(item) = by_id.remove(id).or_else(|| early.remove(id)) {
                 ordered.push(item);
             }
@@ -719,7 +813,7 @@ impl MetadataState {
     async fn unusable_provider_covers(
         &self,
         targets: &[&Target],
-    ) -> Result<std::collections::HashMap<String, String>, AppError> {
+    ) -> Result<HashMap<String, String>, AppError> {
         let candidates: Vec<(String, String, String)> = targets
             .iter()
             .filter_map(|t| {
@@ -728,7 +822,7 @@ impl MetadataState {
             })
             .collect();
         if candidates.is_empty() {
-            return Ok(std::collections::HashMap::new());
+            return Ok(HashMap::new());
         }
         let covers = self.dirs.covers.clone();
         tauri::async_runtime::spawn_blocking(move || {

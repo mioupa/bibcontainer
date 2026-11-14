@@ -16,6 +16,14 @@ pub enum FetchError {
     Parse(String),
 }
 
+impl FetchError {
+    /// 取得元が制限・拒否を返した（HTTP 401・403・429。429 はリトライのあと）。
+    /// 同じ呼び出しの残りの ISBN は、この取得元に問い合わせない（0027 §4.4）。
+    pub fn is_refusal(&self) -> bool {
+        matches!(self, FetchError::Http { status, .. } if matches!(status, 401 | 403 | 429))
+    }
+}
+
 /// 生の応答を候補に直せなかった。
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[error("{0}")]

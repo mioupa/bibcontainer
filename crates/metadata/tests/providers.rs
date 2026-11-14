@@ -1014,6 +1014,10 @@ fn provider_infos_describe_auth_rate_limit_and_credits() {
         matches!(google.auth, ProviderAuth::Required { .. }),
         "キーなしは 429 で必ず失敗するので、キーは必須"
     );
+    assert!(
+        google.supports_batch,
+        "Dynamic Links を 10 冊ずつにまとめる（0027）"
+    );
     assert_eq!(google.rate_limit.min_interval_ms, 1000);
 
     let open_library = OpenLibrary::new().info();
@@ -1021,7 +1025,10 @@ fn provider_infos_describe_auth_rate_limit_and_credits() {
     assert_eq!(open_library.display_name, "Open Library");
     assert_eq!(open_library.auth, ProviderAuth::None, "API キーは要らない");
     assert!(open_library.needs_network);
-    assert!(!open_library.supports_batch);
+    assert!(
+        open_library.supports_batch,
+        "10 冊ずつの検索にまとめる（0027）"
+    );
     assert_eq!(open_library.rate_limit.group, "openlibrary");
     assert_eq!(open_library.rate_limit.min_interval_ms, 1000);
     assert_eq!(open_library.rate_limit.max_concurrent, 1);

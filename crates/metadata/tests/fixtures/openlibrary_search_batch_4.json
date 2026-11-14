@@ -1,0 +1,144 @@
+{
+    "numFound": 4,
+    "start": 0,
+    "numFoundExact": true,
+    "num_found": 4,
+    "documentation_url": "https://openlibrary.org/dev/docs/api/search",
+    "q": "isbn:(9780132350884 OR 9780141439518 OR 9784003101117 OR 9781493934362)",
+    "offset": null,
+    "docs": [
+        {
+            "author_name": [
+                "Jane Austen"
+            ],
+            "key": "/works/OL66554W",
+            "title": "Pride and Prejudice",
+            "editions": {
+                "numFound": 2,
+                "start": 0,
+                "numFoundExact": true,
+                "docs": [
+                    {
+                        "key": "/books/OL3700132M",
+                        "title": "Pride and Prejudice",
+                        "cover_i": 15261362,
+                        "language": [
+                            "eng"
+                        ],
+                        "author_name": [
+                            "Jane Austen"
+                        ],
+                        "publisher": [
+                            "Penguin Books"
+                        ],
+                        "publish_date": [
+                            "2003"
+                        ],
+                        "isbn": [
+                            "9780141439518",
+                            "0141439513"
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "author_name": [
+                "Robert C. Martin"
+            ],
+            "key": "/works/OL17618370W",
+            "title": "Clean Code",
+            "editions": {
+                "numFound": 2,
+                "start": 0,
+                "numFoundExact": true,
+                "docs": [
+                    {
+                        "key": "/books/OL26222911M",
+                        "title": "Clean Code",
+                        "subtitle": "A Handbook of Agile Software Craftsmanship",
+                        "cover_i": 15126503,
+                        "language": [
+                            "eng"
+                        ],
+                        "author_name": [
+                            "Robert C. Martin"
+                        ],
+                        "publisher": [
+                            "Prentice Hall"
+                        ],
+                        "publish_date": [
+                            "July 2008"
+                        ],
+                        "isbn": [
+                            "9780132350884",
+                            "0132350882"
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "author_name": [
+                "Gary S. Was"
+            ],
+            "key": "/works/OL8703809W",
+            "title": "Fundamentals of Radiation Materials Science",
+            "editions": {
+                "numFound": 1,
+                "start": 0,
+                "numFoundExact": true,
+                "docs": [
+                    {
+                        "key": "/books/OL34386079M",
+                        "title": "Fundamentals of Radiation Materials Science",
+                        "subtitle": "Metals and Alloys",
+                        "cover_i": 13817654,
+                        "language": [
+                            "eng"
+                        ],
+                        "author_name": [
+                            "Gary S. Was"
+                        ],
+                        "publisher": [
+                            "Springer"
+                        ],
+                        "publish_date": [
+                            "2016"
+                        ],
+                        "isbn": [
+                            "9781493934362",
+                            "1493934368"
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "key": "/works/OL46188220W",
+            "title": "The Earn2Trade Discount Code",
+            "editions": {
+                "numFound": 1,
+                "start": 0,
+                "numFoundExact": true,
+                "docs": [
+                    {
+                        "key": "/books/OL62721526M",
+                        "title": "The Earn2Trade Discount Code",
+                        "subtitle": "Earn2Trade Coupon Code \u201cBONUS99\u201d \u2013 Get 60% Off and Double Funding in 2026",
+                        "publisher": [
+                            "The Earn2Trade Discount Code"
+                        ],
+                        "publish_date": [
+                            "2026"
+                        ],
+                        "isbn": [
+                            "9780132350884",
+                            "0132350882"
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}

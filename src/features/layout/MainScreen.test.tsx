@@ -16,6 +16,8 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useTableStore } from "@/stores/tableStore";
 import { useViewStore } from "@/stores/viewStore";
 import { makeDetail } from "@/test/detail";
+import { makeJob } from "@/test/refetchJob";
+import { useRefetchJobStore } from "@/stores/refetchJobStore";
 import { makeRow } from "@/test/factories";
 import { stubElementSize } from "@/test/layout";
 
@@ -120,6 +122,7 @@ describe("メイン画面", () => {
     useScreenStore.setState({ screen: "main", handoff: null });
     useEditorStore.getState().close();
     useGroupStore.getState().reset();
+    useRefetchJobStore.getState().set(null);
     routeLibrary();
   });
 
@@ -663,19 +666,7 @@ describe("メイン画面", () => {
     });
 
     it("「書誌を再取得」は確認を出し、既定では手で直した項目を上書きしない（AT-16）", async () => {
-      routeLibrary({
-        refetch_books: {
-          requested: 1,
-          updated: 1,
-          unchanged: 0,
-          offline: 0,
-          skipped: 0,
-          failed: 0,
-          coversSaved: 0,
-          noActiveProviders: false,
-          items: [],
-        },
-      });
+      routeLibrary({ start_refetch: makeJob({ total: 1, remaining: 1 }) });
       renderMain();
       await screen.findByRole("grid");
       await rowsReady();
@@ -686,11 +677,74 @@ describe("メイン画面", () => {
         name: ja.list.refetchDialog.overrideLabel,
       });
       expect(checkbox).not.toBeChecked();
-      expect(calls("refetch_books")).toHaveLength(0);
+      expect(calls("start_refetch")).toHaveLength(0);
 
       fireEvent.click(screen.getByRole("button", { name: ja.list.refetchDialog.confirm }));
-      await waitFor(() => expect(calls("refetch_books")).toHaveLength(1));
-      expect(calls("refetch_books")[0]).toEqual({ ids: ["a"], overrideManual: false });
+      await waitFor(() => expect(calls("start_refetch")).toHaveLength(1));
+      expect(calls("start_refetch")[0]).toEqual({ ids: ["a"], overrideManual: false });
+    });
+  });
+
+  describe("表示中の本をまとめて再取得（0027 §1）", () => {
+    const shownButton = (count = 2) =>
+      screen.getByRole("button", { name: ja.list.refetchShown.aria(count) });
+
+    it("「再取得…」を押すと確認が開き、表示中の本の ID と overrideManual で作業を始める", async () => {
+      routeLibrary({ start_refetch: makeJob({ total: 2, remaining: 2 }) });
+      renderMain();
+      await screen.findByRole("grid");
+      await rowsReady();
+
+      expect(shownButton()).toBeEnabled();
+      expect(shownButton()).toHaveAttribute("title", ja.list.refetchShown.aria(2));
+      fireEvent.click(shownButton());
+      // 本 b は ISBN がないので、取得しない本として数える
+      expect(await screen.findByText(ja.list.refetchDialog.noIsbn(1))).toBeInTheDocument();
+      fireEvent.click(
+        await screen.findByRole("checkbox", { name: ja.list.refetchDialog.overrideLabel }),
+      );
+      fireEvent.click(screen.getByRole("button", { name: ja.list.refetchDialog.confirm }));
+      await waitFor(() => expect(calls("start_refetch")).toHaveLength(1));
+      expect(calls("start_refetch")[0]).toEqual({ ids: ["a", "b"], overrideManual: true });
+      // 始めたあとは、すぐ押せなくなる
+      await waitFor(() => expect(shownButton()).toBeDisabled());
+    });
+
+    it("再取得が動いている間は押せない。右クリックの「書誌を再取得…」と詳細ペインのボタンも押せない", async () => {
+      act(() => useRefetchJobStore.getState().set(makeJob()));
+      renderMain();
+      await screen.findByRole("grid");
+      await rowsReady();
+      expect(shownButton()).toBeDisabled();
+
+      fireEvent.click(rowEl("a")!);
+      expect(await screen.findByRole("button", { name: ja.detail.refetch })).toBeDisabled();
+
+      fireEvent.contextMenu(rowEl("a")!);
+      expect(
+        await screen.findByRole("menuitem", { name: ja.list.contextMenu.refetch }),
+      ).toHaveAttribute("aria-disabled", "true");
+    });
+
+    it("ゴミ箱を開いているときは押せない", async () => {
+      renderMain();
+      await screen.findByRole("grid");
+      await rowsReady();
+      act(() => useViewStore.getState().setLibrary("trash"));
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: /^表示中の .* 冊の書誌を再取得…$/ }),
+        ).toBeDisabled(),
+      );
+    });
+
+    it("0 冊のときは押せない", async () => {
+      routeLibrary({ list_books: [] });
+      renderMain();
+      await screen.findByRole("grid");
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: ja.list.refetchShown.aria(0) })).toBeDisabled(),
+      );
     });
   });
 });

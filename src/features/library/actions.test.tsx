@@ -5,11 +5,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type * as IpcModule from "@/lib/ipc";
 import { dateStamp, useLibraryActions } from "@/features/library/actions";
 import { libraryApi } from "@/features/library/api";
-import type { RefetchSummary } from "@/bindings/RefetchSummary";
 import { ja } from "@/i18n/ja";
 import { chooseSavePath } from "@/lib/dialog";
 import { IpcError, ipc } from "@/lib/ipc";
+import { resetRefetchJobSync } from "@/features/library/refetchJob";
+import { useRefetchJobStore } from "@/stores/refetchJobStore";
 import { useSelectionStore } from "@/stores/selectionStore";
+import { makeJob } from "@/test/refetchJob";
 
 const toast = vi.hoisted(() =>
   Object.assign(vi.fn(), { success: vi.fn(), info: vi.fn(), error: vi.fn() }),
@@ -24,7 +26,7 @@ vi.mock("@/features/library/api", () => ({
     setBooksField: vi.fn(),
     mergeWorks: vi.fn(),
     modifyTags: vi.fn(),
-    refetchBooks: vi.fn(),
+    startRefetch: vi.fn(),
     getRows: vi.fn().mockResolvedValue([]),
   },
   usingMockData: () => mock.value,
@@ -49,6 +51,7 @@ describe("useLibraryActions", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mock.value = false;
+    resetRefetchJobSync();
     api.getRows.mockResolvedValue([]);
   });
 
@@ -236,77 +239,31 @@ describe("useLibraryActions", () => {
     });
   });
 
-  describe("書誌の再取得（FR-META-13）", () => {
-    const summary = (patch: Partial<RefetchSummary> = {}): RefetchSummary => ({
-      requested: 2,
-      updated: 1,
-      unchanged: 1,
-      offline: 0,
-      skipped: 0,
-      failed: 0,
-      coversSaved: 0,
-      noActiveProviders: false,
-      items: [],
-      ...patch,
-    });
-
-    it("手で直した項目を上書きするかを、そのまま渡す（AT-16。既定の呼び出しは false）", async () => {
-      api.refetchBooks.mockResolvedValue(summary());
+  describe("書誌の再取得（FR-META-13、0027）", () => {
+    it("手で直した項目を上書きするかを、そのまま渡して作業を始める（AT-16。既定の呼び出しは false）", async () => {
+      api.startRefetch.mockResolvedValue(makeJob());
       const actions = setup();
       await actions.refetch(["a", "b"], false);
       await actions.refetch(["a"], true);
-      expect(api.refetchBooks.mock.calls).toEqual([
+      expect(api.startRefetch.mock.calls).toEqual([
         [["a", "b"], false],
         [["a"], true],
       ]);
     });
 
-    it("結果を通知する。手で直した項目を残した件数も出す", async () => {
-      api.refetchBooks.mockResolvedValue(
-        summary({
-          items: [
-            {
-              id: "a",
-              outcome: "updated",
-              metaStatus: "ok",
-              written: ["publisher"],
-              skippedManual: ["title"],
-              message: null,
-            },
-          ],
-        }),
-      );
+    it("始めた作業の状態をすぐ反映する（結果の通知は、作業が終わったときに別で出る）", async () => {
+      api.startRefetch.mockResolvedValue(makeJob({ jobId: 3, total: 2, remaining: 2 }));
       await setup().refetch(["a", "b"], false);
-      expect(toast.success).toHaveBeenCalledWith(
-        ja.toast.refetch.result({
-          updated: 1,
-          unchanged: 1,
-          offline: 0,
-          skipped: 0,
-          failed: 0,
-          keptManualFields: 1,
-        }),
-      );
+      expect(useRefetchJobStore.getState().job).toMatchObject({ jobId: 3, state: "running" });
+      expect(toast.success).not.toHaveBeenCalled();
     });
 
-    it("使える取得元がないとき・通信できないときは、その理由を出す", async () => {
-      api.refetchBooks.mockResolvedValueOnce(
-        summary({ noActiveProviders: true, updated: 0, unchanged: 0, skipped: 2 }),
-      );
-      api.refetchBooks.mockResolvedValueOnce(summary({ updated: 0, unchanged: 0, offline: 2 }));
-      const actions = setup();
-      await actions.refetch(["a", "b"], false);
-      expect(toast.error).toHaveBeenLastCalledWith(ja.toast.refetch.noProviders);
-      await actions.refetch(["a", "b"], false);
-      expect(toast.info).toHaveBeenLastCalledWith(ja.toast.refetch.offline);
-    });
-
-    it("失敗したら、Rust が用意した理由を通知する", async () => {
-      api.refetchBooks.mockRejectedValue(
-        new IpcError({ kind: "network", message: "つながりません" }),
+    it("始められなかったら（動いているときの conflict など）、Rust が用意した理由を通知する", async () => {
+      api.startRefetch.mockRejectedValue(
+        new IpcError({ kind: "conflict", message: "すでに動いています" }),
       );
       await setup().refetch(["a"], false);
-      expect(toast.error).toHaveBeenCalledWith("つながりません");
+      expect(toast.error).toHaveBeenCalledWith("すでに動いています");
     });
   });
 

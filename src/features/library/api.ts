@@ -13,17 +13,18 @@ import type { PriceSettings } from "@/bindings/PriceSettings";
 import type { ProviderId } from "@/bindings/ProviderId";
 import type { ProviderSearchResult } from "@/bindings/ProviderSearchResult";
 import type { ProviderStatus } from "@/bindings/ProviderStatus";
-import type { RefetchSummary } from "@/bindings/RefetchSummary";
+import type { RefetchJobStatus } from "@/bindings/RefetchJobStatus";
 import type { SearchHit } from "@/bindings/SearchHit";
 import type { SeriesInfo } from "@/bindings/SeriesInfo";
 import type { StoreCount } from "@/bindings/StoreCount";
 import type { TagInfo } from "@/bindings/TagInfo";
 import type { UpdateOptions } from "@/bindings/UpdateOptions";
 import { mockBackend } from "@/dev/mockBackend";
+import { mockRefetch } from "@/dev/mockRefetch";
 import { mockSearch } from "@/dev/mockSearch";
 import { DEFAULT_PRICE_SETTINGS } from "@/features/library/price";
 import { ja } from "@/i18n/ja";
-import { IpcError, ipc } from "@/lib/ipc";
+import { IpcError, ipc, onRefetchProgress } from "@/lib/ipc";
 import { inTauri } from "@/lib/runtime";
 import type {
   BookDetail,
@@ -104,11 +105,17 @@ export interface LibraryApi {
   /** 取得元のページ・クレジットの URL を、既定のブラウザで開く。 */
   openLink: (url: string) => Promise<null>;
 
+  // ---- 書誌の再取得の作業（0027。Tauri の外では、時間で進むモック。src/dev/mockRefetch.ts） ----
+  startRefetch: (ids: string[], overrideManual: boolean) => Promise<RefetchJobStatus>;
+  cancelRefetch: () => Promise<null>;
+  getRefetchJob: () => Promise<RefetchJobStatus | null>;
+  /** `refetch-progress` の購読。返した関数で購読をやめる。 */
+  onRefetchProgress: (handler: (status: RefetchJobStatus) => void) => Promise<() => void>;
+
   // ---- Rust が要る操作（Tauri の外のモックでは使えない） ----
   fetchMetadata: (isbn13: string, secondTier?: MetaSecondTier) => Promise<FetchMetadataResult>;
   /** 検索結果の 1 件から、`fetchMetadata` と同じ形の下書きを作る。 */
   fetchSearchHit: (hit: SearchHit) => Promise<FetchMetadataResult>;
-  refetchBooks: (ids: string[], overrideManual: boolean) => Promise<RefetchSummary>;
   importCoverFile: (path: string) => Promise<string>;
   importCoverBytes: (bytes: Uint8Array) => Promise<string>;
   importCoverUrl: (url: string) => Promise<string>;
@@ -155,7 +162,10 @@ const ipcApi: LibraryApi = {
   openLink: ipc.openLink,
   fetchMetadata: ipc.fetchMetadata,
   fetchSearchHit: ipc.fetchSearchHit,
-  refetchBooks: ipc.refetchBooks,
+  startRefetch: ipc.startRefetch,
+  cancelRefetch: ipc.cancelRefetch,
+  getRefetchJob: ipc.getRefetchJob,
+  onRefetchProgress,
   importCoverFile: ipc.importCoverFile,
   importCoverBytes: (bytes) => ipc.importCoverBytes(bytes),
   importCoverUrl: ipc.importCoverUrl,
@@ -195,9 +205,12 @@ const mockApi: LibraryApi = {
     window.open(url, "_blank", "noopener");
     return Promise.resolve(null);
   },
+  startRefetch: (ids, overrideManual) => mockRefetch.startRefetch(ids, overrideManual),
+  cancelRefetch: () => mockRefetch.cancelRefetch(),
+  getRefetchJob: () => mockRefetch.getRefetchJob(),
+  onRefetchProgress: (handler) => mockRefetch.onRefetchProgress(handler),
   fetchMetadata: mockUnavailable(),
   fetchSearchHit: mockUnavailable(),
-  refetchBooks: mockUnavailable(),
   importCoverFile: mockUnavailable(),
   importCoverBytes: mockUnavailable(),
   importCoverUrl: mockUnavailable(),
@@ -237,7 +250,10 @@ export const libraryApi: LibraryApi = {
   openLink: (url) => backend().openLink(url),
   fetchMetadata: (isbn13, secondTier) => backend().fetchMetadata(isbn13, secondTier),
   fetchSearchHit: (hit) => backend().fetchSearchHit(hit),
-  refetchBooks: (ids, overrideManual) => backend().refetchBooks(ids, overrideManual),
+  startRefetch: (ids, overrideManual) => backend().startRefetch(ids, overrideManual),
+  cancelRefetch: () => backend().cancelRefetch(),
+  getRefetchJob: () => backend().getRefetchJob(),
+  onRefetchProgress: (handler) => backend().onRefetchProgress(handler),
   importCoverFile: (path) => backend().importCoverFile(path),
   importCoverBytes: (bytes) => backend().importCoverBytes(bytes),
   importCoverUrl: (url) => backend().importCoverUrl(url),

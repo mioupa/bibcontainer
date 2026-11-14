@@ -7,8 +7,13 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Runtime};
 use ts_rs::TS;
 
+use crate::metadata::refetch_job::RefetchJobStatus;
+
 /// 蔵書の変更を知らせるイベントの名前。
 pub const LIBRARY_CHANGED: &str = "library-changed";
+
+/// 一括再取得の作業の進み具合を知らせるイベントの名前（0027 §5）。
+pub const REFETCH_PROGRESS: &str = "refetch-progress";
 
 /// 書影が手元に届いたことを知らせるイベントの名前。
 pub const COVERS_ARRIVED: &str = "covers-arrived";
@@ -70,6 +75,13 @@ pub fn emit_covers_arrived<R: Runtime>(app: &AppHandle<R>, hashes: Vec<String>) 
     }
 }
 
+/// 一括再取得の進み具合を `refetch-progress` で知らせる。送れなくても処理は止めず、ログに残す。
+pub fn emit_refetch_progress<R: Runtime>(app: &AppHandle<R>, status: &RefetchJobStatus) {
+    if let Err(err) = app.emit(REFETCH_PROGRESS, status) {
+        tracing::warn!(error = %err, "refetch-progress を送れませんでした");
+    }
+}
+
 fn send<R: Runtime>(app: &AppHandle<R>, books: Vec<String>, others: bool) {
     let payload = LibraryChanged { books, others };
     if let Err(err) = app.emit(LIBRARY_CHANGED, &payload) {
@@ -105,5 +117,6 @@ mod tests {
             serde_json::json!({ "hashes": ["ab".repeat(32)] })
         );
         assert_eq!(COVERS_ARRIVED, "covers-arrived");
+        assert_eq!(REFETCH_PROGRESS, "refetch-progress");
     }
 }

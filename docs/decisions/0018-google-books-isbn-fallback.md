@@ -28,6 +28,8 @@
 
 ### 1. 取得の流れ（`GoogleBooks::fetch_raw`）
 
+→ 0027 §4 で、2 冊以上をまとめて取るときは、Dynamic Links を、検索で該当なしだった本 10 冊ずつ 1 回（`bibkeys=ISBN:A,ISBN:B,…`）にした。
+
 1. これまでどおり `volumes?q=isbn:<ISBN>&key=…` を問い合わせる。HTTP エラーはこれまでどおり。書誌が取れた（`parse_google` が `Some`）か、解析できない応答なら、その応答を返す（回避策に進まない）。
 2. **該当なしのときだけ**、Dynamic Links に問い合わせる（キーは送らない）。JSONP の括弧の中を JSON として読み、`ISBN:<ISBN-13>` の項目（なければ唯一の項目）の `info_url`（なければ `preview_url`・`thumbnail_url`）から `id` を取る。ID は `^[A-Za-z0-9_-]{4,32}$` のものだけを URL に使う（それ以外は解析エラー）。`cb({});`（項目なし）なら該当なし。HTTP エラー（captcha の 429 などを含む）や JSONP でない応答は、Google の取得全体のエラーにする（キャッシュされない）。
 3. `volumes/<ID>?key=…` を取る。404 なら該当なし。ほかの HTTP エラーは、検索のエラーと同じに意味づけする（接続テストの「API キーが無効」などがそのまま働く）。200 なら、`volumeInfo.industryIdentifiers` にこの ISBN（ISBN-10 は 13 桁に直して比べる）があるか、識別子がまったくないときだけ採用する（検索の規則と同じ）。合わなければ該当なし。

@@ -20,16 +20,25 @@ export const DEFAULT_OVERRIDE_MANUAL = false;
 interface RefetchDialogProps {
   /** 再取得する本の ID。null なら閉じている。 */
   ids: string[] | null;
+  /** そのうち ISBN のない本の数（取得しない）。 */
+  noIsbnCount?: number;
   onCancel: () => void;
   onConfirm: (ids: string[], overrideManual: boolean) => void;
 }
 
-export function RefetchDialog({ ids, onCancel, onConfirm }: RefetchDialogProps) {
+export function RefetchDialog({ ids, noIsbnCount = 0, onCancel, onConfirm }: RefetchDialogProps) {
   useModalGuard(ids !== null);
   return (
     <Dialog open={ids !== null} onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="max-w-md">
-        {ids !== null && <RefetchForm ids={ids} onCancel={onCancel} onConfirm={onConfirm} />}
+        {ids !== null && (
+          <RefetchForm
+            ids={ids}
+            noIsbnCount={noIsbnCount}
+            onCancel={onCancel}
+            onConfirm={onConfirm}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -38,20 +47,35 @@ export function RefetchDialog({ ids, onCancel, onConfirm }: RefetchDialogProps) 
 /** 開くたびに作り直されるので、チェックは毎回既定（オフ）から始まる。 */
 function RefetchForm({
   ids,
+  noIsbnCount,
   onCancel,
   onConfirm,
 }: {
   ids: string[];
+  noIsbnCount: number;
   onCancel: () => void;
   onConfirm: RefetchDialogProps["onConfirm"];
 }) {
   const [overrideManual, setOverrideManual] = useState(DEFAULT_OVERRIDE_MANUAL);
+  const text = ja.list.refetchDialog;
+  // 取得するのは ISBN のある本だけ。時間の目安も、その冊数で出す（0027 §1）
+  const fetchCount = Math.max(0, ids.length - noIsbnCount);
   return (
     <>
       <DialogHeader>
         <DialogTitle>{ja.list.refetchDialog.title}</DialogTitle>
         <DialogDescription>{ja.list.refetchDialog.description(ids.length)}</DialogDescription>
       </DialogHeader>
+      <div className="flex flex-col gap-1 text-sm">
+        {noIsbnCount > 0 && <p>{text.noIsbn(noIsbnCount)}</p>}
+        {fetchCount >= 10 && (
+          <>
+            <p>{text.estimate(Math.ceil((fetchCount * 2) / 60))}</p>
+            <p className="text-xs text-muted-foreground">{text.progressHint}</p>
+          </>
+        )}
+        {fetchCount >= 300 && <p className="text-xs text-muted-foreground">{text.limitNote}</p>}
+      </div>
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <Checkbox

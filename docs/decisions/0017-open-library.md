@@ -48,6 +48,8 @@
 
 ### 2. 取得のしかた: 検索 API → 版の JSON の 2 回
 
+→ 0027 §4 で、2 冊以上をまとめて取るとき（再取得・取得待ちの自動再取得など）は、検索を `q=isbn:(A OR B …)` で 10 冊ずつ 1 回にした（ISBN ごとの応答の形に分けてキャッシュに入れるので、解析と結果は 1 冊のときと同じ）。
+
 1. `GET https://openlibrary.org/search.json?isbn=<ISBN-13>&fields=key,title,author_name,editions,editions.key,editions.title,editions.subtitle,editions.author_name,editions.publisher,editions.publish_date,editions.language,editions.cover_i,editions.isbn`
    - 該当なし（`docs` が空）なら、ここで終わる（1 回）。キャッシュには「該当なし」として残る（1 日）。和書の大半はこれ。
    - `docs[0].editions.docs` のうち、`isbn` にこの ISBN（13 桁か 10 桁）を含む版を選ぶ。なければ先頭の版。版がなければ「該当なし」。

@@ -44,4 +44,36 @@ describe("書誌の再取得の確認（AT-16）", () => {
       screen.getByRole("checkbox", { name: ja.list.refetchDialog.overrideLabel }),
     ).not.toBeChecked();
   });
+
+  describe("件数に応じた案内（0027 §1）", () => {
+    const manyIds = (count: number) => Array.from({ length: count }, (_, i) => `b${i}`);
+    const text = ja.list.refetchDialog;
+
+    it("少ない冊数では、ISBN のない本以外の案内を出さない", () => {
+      render(<RefetchDialog ids={manyIds(9)} onCancel={vi.fn()} onConfirm={vi.fn()} />);
+      expect(screen.queryByText(/ISBN のない/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/約 \d+ 分/)).not.toBeInTheDocument();
+      expect(screen.queryByText(text.limitNote)).not.toBeInTheDocument();
+    });
+
+    it("ISBN のない本の数を出す", () => {
+      render(
+        <RefetchDialog ids={manyIds(5)} noIsbnCount={2} onCancel={vi.fn()} onConfirm={vi.fn()} />,
+      );
+      expect(screen.getByText(text.noIsbn(2))).toBeInTheDocument();
+    });
+
+    it("10 冊以上は、時間の目安とステータスバーの案内を出す（300 冊未満では上限の注意なし）", () => {
+      render(<RefetchDialog ids={manyIds(100)} onCancel={vi.fn()} onConfirm={vi.fn()} />);
+      expect(screen.getByText("約 4 分（1 冊 2 秒ほど）")).toBeInTheDocument();
+      expect(screen.getByText(text.progressHint)).toBeInTheDocument();
+      expect(screen.queryByText(text.limitNote)).not.toBeInTheDocument();
+    });
+
+    it("300 冊以上は、取得元の 1 日の上限の注意を出す", () => {
+      render(<RefetchDialog ids={manyIds(300)} onCancel={vi.fn()} onConfirm={vi.fn()} />);
+      expect(screen.getByText("約 10 分（1 冊 2 秒ほど）")).toBeInTheDocument();
+      expect(screen.getByText(text.limitNote)).toBeInTheDocument();
+    });
+  });
 });

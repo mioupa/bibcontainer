@@ -1,7 +1,7 @@
 # フェーズ3 受け入れ確認（機能拡張）
 
 - 対象: 要件書 12 章フェーズ3。機能ごとに、実装の前に受け入れ基準の案を作って承認を得て、ここに足していく（`docs/decisions/0022` §3）
-- これまでの機能: グリッド表示と巻をまとめた表示（2026-10-17。`docs/decisions/0024`）、作品の手動のまとめ・外し（2026-10-18。`docs/decisions/0026`）、キーワード検索（2026-10-18。`docs/decisions/0025`）、汎用 CSV 取り込み（2026-11-14。`docs/decisions/0028`）
+- これまでの機能: グリッド表示と巻をまとめた表示（2026-10-17。`docs/decisions/0024`）、作品の手動のまとめ・外し（2026-10-18。`docs/decisions/0026`）、キーワード検索（2026-10-18。`docs/decisions/0025`）、一括再取得（2026-11-14。`docs/decisions/0027`）、汎用 CSV 取り込み（2026-11-14。`docs/decisions/0028`）
 
 ## 1. 受け入れ基準
 
@@ -35,6 +35,15 @@
 | AT-43 | ISBN のない結果（古い版など）を選ぶ | `BookEditorDialog.test.tsx`（項目が入り、保存する下書きに取得状態が付かない。ISBN を入れてあれば変えずに取得待ち）、`search_tests.rs`（候補の値だけで、由来はその取得元。書影は取れれば保存し、取れなくても続ける） | 自動で確認済み。実機は確認待ち |
 | AT-44 | 取得元の失敗・オフライン | `KeywordSearchDialog.test.tsx`（欄ごとの「通信できませんでした」「取得元がエラーを返しました（HTTP 503）」・エラーの文、ほかの欄は出る）、`search_tests.rs`（通信・HTTP・解析の失敗はエラーでなく状態、オフラインで選ぶと値が入ったまま `pending`）、`BookEditorDialog.test.tsx`（オフラインの知らせと `pending` での保存） | 自動で確認済み |
 | AT-45 | 語の扱いとキー操作 | `crates/metadata/tests/search.rs`（`"`・`\` を除く、`AND`・`OR`・`NOT` の語、NFKC、空・200 文字を超える条件は通信しない）、`KeywordSearchDialog.test.tsx`（両方空なら探さない、Enter で探す、↑↓・Home・End・Enter・ダブルクリック・「入れる」、日本語入力の確定の Enter を無視、古い検索の応答を捨てる）、`BookEditorDialog.test.tsx`（Esc は検索だけを閉じる、検索の中の Enter・⌘Enter はフォームに取られない、外側のクリックで閉じない、リンクは `open_link` を呼んで行を選ばない）、`system.rs`（`open_link` の URL の検査） | 自動で確認済み。実機（WKWebView・WebView2 の日本語入力）は確認待ち |
+
+### 一括再取得（AT-46〜AT-49）
+
+| ID | 確かめ方 | 確認した場所 | 状態 |
+|---|---|---|---|
+| AT-46 | 表示中の本をまとめて再取得する。確認のダイアログ、裏で進むこと、進み具合、結果、手で直した項目 | `refetch_job_tests.rs`（`at46_start_returns_at_once_and_progress_is_reported_per_chunk`: すぐ `running` で戻り、1・10・10…冊ごとに `refetch-progress`、最後に `finished` と件数、手で直した項目は書かず `keptManualFields` に数える。`start_with_no_usable_network_provider_stops_at_once`、`an_empty_job_finishes_at_once`）、`MainScreen.test.tsx`（帯の「再取得…」がゴミ箱・0 冊・実行中は押せない、確定で表示中の本の ID を `start_refetch` に渡す）、`RefetchDialog.test.tsx`（ISBN のない冊数、10 冊以上の目安、300 冊以上の注意）、`StatusBar.test.tsx`（「N / M 冊」、棒、残りの時間）、`refetch.test.ts`・`refetchJob.test.tsx`（終わりの通知は作業ごとに 1 回、画面を開き直しても出し直さない、すぐ終わった作業も通知する） | 自動で確認済み。実機は確認待ち |
+| AT-47 | 実行中にやめる。実行中の、ほかの再取得・自動再取得・登録の取得 | `refetch_job_tests.rs`（`at47_cancel_during_a_slow_fetch_stops_at_once_and_writes_nothing_for_that_chunk`、`at47_registration_fetch_and_pending_refetch_do_not_wait_for_the_job`、`a_job_waits_for_the_pending_refetch_that_holds_the_lock`、`cancel_while_waiting_for_the_lock_ends_the_job`、`cancel_without_a_job_does_nothing`。実行中の 2 つ目は `conflict`）、`StatusBar.test.tsx`（「やめる」で `cancel_refetch`）、`ListContextMenu`・`DetailPane` の再取得は実行中に押せない（`MainScreen.test.tsx`） | 自動で確認済み。実機は確認待ち |
+| AT-48 | 取得元の制限・拒否、1 日の上限、通信が切れる。もう一度実行したときの順番 | `refetch_job_tests.rs`（`at48_a_refusal_stops_the_job_and_leaves_the_refused_books_unwritten`（2 回目は取れなかった本から取る）、`at48_google_daily_quota_stops_the_job_with_its_message`、`at48_going_offline_stops_the_job_without_writing_that_chunk`、`the_pending_auto_refetch_still_writes_what_it_got_on_a_refusal`）、`refetch_job.rs`（`books_are_ordered_by_the_oldest_cache_row_with_missing_rows_first`、`ties_keep_the_given_order`）、`crates/metadata/tests/bulk_batch.rs`（制限を返した取得元に残りを問い合わせない: NDL の 429、Google の検索の 403・volume の 429、Open Library の 429、Dynamic Links の 429 では検索は続ける）、`refetch.test.ts`（止まった理由の文、1 日の上限の見分け、閉じるまで残る） | 自動で確認済み |
+| AT-49 | 洋書・和書 20 冊をまとめて取る（偽の通信） | `crates/metadata/tests/bulk_batch.rs`（`at49_twenty_isbns_are_batched_and_give_the_same_results_as_one_by_one`: Open Library の検索 2 回・Dynamic Links 2 回、結果とキャッシュは 1 冊ずつと同じ。実際の応答のフィクスチャでの ISBN ごとの分け方、`limit` で切れたときの取り直し、1 冊は今の流れ）。実際の通信: `crates/metadata/tests/live.rs` の `live_open_library_batch_search_equals_single_searches`・`live_google_dynamic_links_batch_equals_single_lookups` | 自動で確認済み。live テストは 2026-11-14 に通った |
 
 ### 汎用 CSV 取り込み（AT-50〜AT-57）
 
@@ -128,7 +137,7 @@
 cargo test --release -p bibcontainer-core --test csv_import -- --ignored --nocapture
 ```
 
-## 3. 実機確認チェックリスト（グリッド表示・巻をまとめた表示・作品の手動のまとめ・キーワード検索・CSV 取り込み）
+## 3. 実機確認チェックリスト（グリッド表示・巻をまとめた表示・作品の手動のまとめ・キーワード検索・一括再取得・CSV 取り込み）
 
 準備: 本物の蔵書で見てよい（表示を切り替えるだけで、データは変えない。ただし、右クリックの一括変更とゴミ箱は本物のデータを変える）。ダミーの蔵書で試すなら、`docs/acceptance/phase1.md` 5 章の手順で、`--works` を付けて作る。
 
@@ -202,9 +211,22 @@ env HOME=$DUMMY_HOME pnpm tauri dev
 - [ ] C8. ISBN 列に `9.78478E+12` のような値（Excel で数値になった ISBN）や、書名も ISBN もない行を混ぜると「取り込めない」になる。結果の画面の「取り込めなかった行を CSV に保存…」で保存したファイルを Excel で開くと、元の列と「取り込めなかった理由」が並ぶ。直して取り込むと、その行だけが入る。
 - [ ] C9. 保管場所 `自宅 > 書斎 > 2段目` のような値で、ない場所が親から作られる。登録日時の列のある CSV では、取り込んだ本の登録日が CSV の値になる（一覧を登録日で並べると、その日時の位置に入る）。
 
+### 一括再取得（0027）
+
+準備: 再取得は本物のデータ（取得元由来の項目）を書き換え、同期で他の端末にも届く。手で直した項目は書き換えない。気になるなら、上のダミーの蔵書で試す（ダミーの本の ISBN は取得元に問い合わせるので、通信は起きる）。
+
+- [ ] R1. サイドバーの「情報不足」（または「取得待ち」）を選び、一覧の上の帯の「再取得…」を押す。確認のダイアログに冊数と、ISBN のない冊数・時間の目安（10 冊以上のとき）が出る。「再取得」で閉じ、ステータスバーに「書誌を再取得中 N / M 冊・残り約 X 分」と細い棒、「やめる」が出る。
+- [ ] R2. 動いている間も、本を選ぶ・詳細を見る・編集する・スキャン登録の画面に行って戻る、ができる。戻ったときも進み具合が出ている。帯の「再取得…」、右クリックの「書誌を再取得…」、詳細ペインの「書誌を再取得」は押せない。
+- [ ] R3. 終わると通知に結果（更新・変化なし・飛ばした冊数など）が出る。書き換わった本の一覧の行・詳細が、開き直さなくても新しい値になる。手で直した項目（書名など）は変わっていない。
+- [ ] R4. もう一度始めて、すぐ「やめる」を押す。数秒以内に止まり、「再取得をやめました。N 冊済み・残り M 冊」と出る。同じ絞り込みでもう一度始めると、前に済まなかった本から進む（ステータスバーの冊数で分かる）。
+- [ ] R5. 動いている間に Wi-Fi を切る。少しして「通信できなくなりました」と残りの冊数の通知が出て止まり、閉じるまで残る。アプリは固まらない。
+- [ ] R6. 洋書が多い絞り込み（例: 自動分類の発行形態や出版社で洋書の出版社を選ぶ）で再取得し、1 冊あたり 2 秒前後で進む。途中で Google の制限（「Google Books の 1 日の上限に達しました」や「制限を返しました（HTTP 429）」）が出たら、そのときの冊数を教えてほしい。
+- [ ] R7. 「すべて」で数百冊を再取得してみてよければ、全部終わるまでの時間と、止まったならその理由を教えてほしい（Google の 1 日の割り当ての目安になる）。
+
 ### Windows
 
 - [ ] X1. Windows でも G1・G4・G6・W1・W2・W7 が同じに動く（WebView2）。
 - [ ] X2. Windows でも M1・M2・M7 が同じに動く。
 - [ ] X3. Windows でも K2・K4・K5・K7・K8 が同じに動く（WebView2。日本語入力は Microsoft IME）。
 - [ ] X4. Windows でも C1・C2・C6・C8 が同じに動く（Excel の Shift_JIS の CSV、保存のダイアログ）。
+- [ ] X5. Windows でも R1〜R5 が同じに動く（WebView2）。

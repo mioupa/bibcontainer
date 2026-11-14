@@ -10,7 +10,8 @@
 //! | `search` | キーワード検索（`search_metadata`）と、検索結果 1 件からの下書き（`fetch_search_hit`） |
 //! | `draft` | `BookDraft` への写像、取得状態（`meta_status`）の決め方 |
 //! | `register` | 下書きからの書籍の作成（`create_books_from_drafts`） |
-//! | `refetch` | 再取得と、取得待ちの自動再取得 |
+//! | `refetch` | 1 まとまりの再取得（取得 → 書き込み）と、取得待ちの自動再取得 |
+//! | `refetch_job` | 一括再取得の作業（裏で進む・やめられる・制限とオフラインで止まる。0027） |
 //! | `providers` | 取得元の一覧・接続テスト・API キーの操作 |
 //! | `covers` | 書影の取り込み（ファイル・バイト列・URL） |
 //! | `cover_protocol` | `cover` URI スキーム |
@@ -31,11 +32,14 @@ pub mod fetch;
 pub mod keychain;
 pub mod providers;
 pub mod refetch;
+pub mod refetch_job;
 pub mod register;
 pub mod search;
 pub mod settings;
 pub mod state;
 
+#[cfg(test)]
+mod refetch_job_tests;
 #[cfg(test)]
 mod search_tests;
 #[cfg(test)]
@@ -54,7 +58,7 @@ pub use state::MetadataState;
 use crate::database::Database;
 use crate::error::AppError;
 use keychain::OsKeyStore;
-use state::{CoverDirs, Notifier, TransportFactory};
+use state::{CoverDirs, Notifier, ProgressEmitter, TransportFactory};
 
 /// 書影の本体を置くフォルダの名前（`app_local_data_dir()` の直下）。
 pub const COVERS_DIR_NAME: &str = "covers";
@@ -92,6 +96,10 @@ pub fn setup(app: &AppHandle) -> Result<(), AppError> {
     let notifier: Notifier = Arc::new(move |books, others| {
         crate::events::emit_library_changed(&handle, books, others);
     });
+    let progress_handle = app.clone();
+    let progress: ProgressEmitter = Arc::new(move |status| {
+        crate::events::emit_refetch_progress(&progress_handle, status);
+    });
     let state = MetadataState::new(
         db,
         CoverDirs {
@@ -102,6 +110,7 @@ pub fn setup(app: &AppHandle) -> Result<(), AppError> {
         app.package_info().version.to_string(),
         production_transport_factory(),
         notifier,
+        progress,
     );
     state.start_background();
     app.manage(state);

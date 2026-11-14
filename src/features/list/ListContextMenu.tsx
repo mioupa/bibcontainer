@@ -18,6 +18,7 @@ import { expandToBookIds, type GroupedList } from "@/features/library/grouping";
 import { WORK_NONE } from "@/features/library/works";
 import type { BulkChange, ListAction, ListViewProps } from "@/features/list/listActions";
 import { ja } from "@/i18n/ja";
+import { useRefetchRunning } from "@/stores/refetchJobStore";
 import { useSelectionStore } from "@/stores/selectionStore";
 import type { ListRow, Ownership, ReadStatus } from "@/types/contracts";
 
@@ -81,6 +82,7 @@ export function ListContextMenuContent({
 }: ListContextMenuContentProps) {
   const selected = useSelectionStore((s) => s.selected);
   const focus = useSelectionStore((s) => s.focus);
+  const refetchRunning = useRefetchRunning();
 
   /** 選んでいる本の ID（表示の順。グループは全巻）。 */
   const selectedIds = (): string[] => expandToBookIds(selected, grouped);
@@ -170,7 +172,7 @@ export function ListContextMenuContent({
           {ja.list.contextMenu.markPurchased}
         </ContextMenuItem>
       )}
-      <ContextMenuItem onSelect={() => runAction("refetch")}>
+      <ContextMenuItem disabled={refetchRunning} onSelect={() => runAction("refetch")}>
         {ja.list.contextMenu.refetch}
       </ContextMenuItem>
       <ContextMenuItem onSelect={() => runAction("export")}>

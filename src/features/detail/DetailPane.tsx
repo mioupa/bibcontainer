@@ -14,6 +14,7 @@ import { DEFAULT_PRICE_SETTINGS, formatListPrice } from "@/features/library/pric
 import { ja } from "@/i18n/ja";
 import { cCodeFullLabel } from "@/lib/cCode";
 import { formatDateOnly, formatInteger, formatYen } from "@/lib/format";
+import { useRefetchRunning } from "@/stores/refetchJobStore";
 import type { BookDetail, CCodeTable, ListRow } from "@/types/contracts";
 
 interface DetailPaneProps {
@@ -44,6 +45,8 @@ export function DetailPane({
   onRefetch,
   onMarkPurchased,
 }: DetailPaneProps) {
+  // 再取得の作業が動いている間は、ほかの再取得の入口も押せない（0027）
+  const refetchRunning = useRefetchRunning();
   if (selectedCount > 1) {
     return (
       <div aria-label={ja.detail.ariaLabel} className="flex h-full flex-col gap-2 p-6 text-sm">
@@ -198,7 +201,12 @@ export function DetailPane({
         <Button size="sm" onClick={() => onEdit(row.id)}>
           {ja.detail.edit}
         </Button>
-        <Button size="sm" variant="outline" onClick={() => onRefetch(row.id)}>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={refetchRunning}
+          onClick={() => onRefetch(row.id)}
+        >
           {ja.detail.refetch}
         </Button>
         {row.ownership === "wanted" && onMarkPurchased && (

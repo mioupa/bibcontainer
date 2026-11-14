@@ -7,9 +7,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { applyLibraryChange } from "@/features/library/sync";
+import { applyRefetchStatus } from "@/features/library/refetchJob";
 import { libraryApi, usingMockData } from "@/features/library/api";
 import { manualGroupKey } from "@/features/library/grouping";
-import { describeRefetch } from "@/features/library/refetch";
 import type { WORK_NONE } from "@/features/library/works";
 import type { BulkChange } from "@/features/list/bulk";
 import { ja } from "@/i18n/ja";
@@ -227,9 +227,9 @@ export function useLibraryActions(): LibraryActions {
 
   const refetch = useCallback(async (ids: string[], overrideManual: boolean) => {
     try {
-      const summary = await libraryApi.refetchBooks(ids, overrideManual);
-      const notice = describeRefetch(summary);
-      toast[notice.level](notice.message);
+      // 作業は裏で進む。進み具合と終わりの通知は、`useRefetchJobSync`（App）が受け持つ
+      // 戻り値（running）をすぐ反映して、イベントが届く前にボタンが押せたままにならないようにする
+      applyRefetchStatus(await libraryApi.startRefetch(ids, overrideManual), { started: true });
     } catch (error) {
       toast.error(errorMessage(error));
     }

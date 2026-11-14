@@ -154,7 +154,14 @@ fn fixtures_handler() -> Handler {
             };
             return response(200, "application/json; charset=UTF-8", fixture(file));
         }
-        // Open Library: 検索（フィクスチャがなければ「該当なし」）と、版の JSON
+        // Open Library: まとめた検索（1 冊ずつのフィクスチャの docs をつなげる）、1 冊の検索（フィクスチャがなければ「該当なし」）と、版の JSON
+        if let Some(isbns) = common::open_library_batch_isbns(url) {
+            return response(
+                200,
+                "application/json",
+                common::open_library_batch_body(&isbns),
+            );
+        }
         if let Some(q) = url.split("openlibrary.org/search.json?isbn=").nth(1) {
             let isbn = q.split('&').next().unwrap();
             let path = common::fixture_path(&format!("openlibrary_search_{isbn}.json"));
@@ -864,8 +871,10 @@ async fn fetch_many_batches_openbd_and_paces_the_others() {
         "{}",
         openbd[0].1
     );
-    // NDL・Google・Open Library は 1 件ずつ、1 秒以上あけて
-    for host in ["ndlsearch.ndl.go.jp", "googleapis.com", "openlibrary.org"] {
+    // Open Library の検索は、3 冊を 1 回にまとめる（0027 §4.2。どれも収録がないので版の JSON は取らない）
+    assert_eq!(r.http.urls_containing("openlibrary.org").len(), 1);
+    // NDL・Google は 1 件ずつ、1 秒以上あけて。Google の検索が該当なしの本は Dynamic Links に回るが、1 回にまとめる
+    for host in ["ndlsearch.ndl.go.jp", "googleapis.com"] {
         let calls = r.http.urls_containing(host);
         assert_eq!(calls.len(), 3, "{host}");
         for w in calls.windows(2) {

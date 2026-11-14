@@ -132,10 +132,12 @@ describe("ipc", () => {
       ]);
     });
 
-    it("書誌の取得: 2段目は secondTier、再取得は overrideManual で渡す", async () => {
+    it("書誌の取得: 2段目は secondTier、再取得の開始は overrideManual で渡す", async () => {
       await ipc.fetchMetadata("9784780802047", { cCode: "0076", listPrice: 1500 });
       await ipc.fetchMetadata("9784780802047");
-      await ipc.refetchBooks(["a"], true);
+      await ipc.startRefetch(["a"], true);
+      await ipc.cancelRefetch();
+      await ipc.getRefetchJob();
       await ipc.setApiKey("google", "key");
       await ipc.testProvider("openbd");
       await ipc.createBooksFromDrafts([{ changes: [], seriesName: null }]);
@@ -145,7 +147,9 @@ describe("ipc", () => {
           { isbn13: "9784780802047", secondTier: { cCode: "0076", listPrice: 1500 } },
         ],
         ["fetch_metadata", { isbn13: "9784780802047", secondTier: undefined }],
-        ["refetch_books", { ids: ["a"], overrideManual: true }],
+        ["start_refetch", { ids: ["a"], overrideManual: true }],
+        ["cancel_refetch", undefined],
+        ["get_refetch_job", undefined],
         ["set_api_key", { provider: "google", key: "key" }],
         ["test_provider", { id: "openbd" }],
         ["create_books_from_drafts", { drafts: [{ changes: [], seriesName: null }] }],

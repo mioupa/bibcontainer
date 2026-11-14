@@ -323,3 +323,35 @@ async fn live_google_books_keyword_search() {
     assert!(r.hits.iter().any(|h| h.isbn13.is_some()));
     assert!(r.hits.iter().all(|h| h.candidate.title.is_some()));
 }
+
+/// 3 冊（洋書 2 冊、和書 1 冊）を、まとめて取った結果が、1 冊ずつ取った結果と同じ候補になる。
+async fn assert_batch_equals_single(p: &dyn Provider) {
+    let t = transport();
+    let isbns: Vec<String> = ["9780132350884", "9780141439518", "9784003101117"]
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect();
+    let batch = p.fetch_raw_batch(&t, &isbns).await;
+    assert_eq!(batch.len(), 3);
+    for (isbn, raw) in batch {
+        let batched = p.parse(&raw.unwrap()).unwrap();
+        let single = p.parse(&p.fetch_raw(&t, &isbn).await.unwrap()).unwrap();
+        assert_eq!(batched, single, "{isbn}");
+    }
+}
+
+#[tokio::test]
+#[ignore = "実際のネットワークを使う"]
+async fn live_open_library_batch_search_equals_single_searches() {
+    assert_batch_equals_single(&OpenLibrary::new()).await;
+}
+
+#[tokio::test]
+#[ignore = "実際のネットワークと API キーを使う"]
+async fn live_google_dynamic_links_batch_equals_single_lookups() {
+    let Some(key) = google_key() else {
+        eprintln!("GOOGLE_BOOKS_API_KEY がないので飛ばします");
+        return;
+    };
+    assert_batch_equals_single(&GoogleBooks::new(Some(key))).await;
+}

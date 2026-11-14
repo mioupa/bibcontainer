@@ -127,6 +127,27 @@ export const toast = {
       ];
       return parts.filter((part) => part !== null).join("、");
     },
+    /** 再取得がすでに動いているとき（モック。Rust の `conflict` と同じ意味）。 */
+    alreadyRunning: "書誌の再取得は、すでに動いています",
+    /** やめたとき。済んだ冊数と残りの冊数。要約を後ろに足す。 */
+    cancelled: (done: number, remaining: number) =>
+      `再取得をやめました。${n(done)} 冊済み・残り ${n(remaining)} 冊`,
+    /** 止まったとき。理由のあとに添える。 */
+    stoppedTail: (done: number, remaining: number) =>
+      `${n(done)} 冊済み・残り ${n(remaining)} 冊。もう一度実行すると、残りから進みます`,
+    /** 止まった理由。 */
+    stopReason: {
+      daily: (name: string) => `${name} の 1 日の上限に達しました`,
+      limited: (name: string, status: number) => `${name} が制限を返しました（HTTP ${status}）`,
+      offline: "通信できなくなりました",
+    },
+    /** 取得元の表示名（知らない ID はそのまま出す）。 */
+    providerNames: {
+      openbd: "openBD",
+      ndl: "NDL",
+      google: "Google Books",
+      openlibrary: "Open Library",
+    } as Readonly<Record<string, string>>,
   },
   /** ブラウザで開いた確認用の画面（Tauri の外）で、Rust が要る操作をしたとき。 */
   mockUnavailable: "この画面（モックデータ）では使えません。アプリ本体で操作してください",

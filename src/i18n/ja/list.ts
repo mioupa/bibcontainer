@@ -270,6 +270,20 @@ export const refetchDialog = {
   overrideHint: "オンにすると、手で直した項目と取り込んだ項目も取得元の値に置き換わります。",
   confirm: "再取得",
   cancel: "キャンセル",
+  /** ISBN のない本は取得しない（0027 §1）。 */
+  noIsbn: (count: number) => `うち ISBN のない ${n(count)} 冊は取得しません`,
+  /** 10 冊以上のときの時間の目安（1 冊 2 秒ほど）。 */
+  estimate: (minutes: number) => `約 ${n(minutes)} 分（1 冊 2 秒ほど）`,
+  progressHint: "進み具合は画面下のステータスバーに出ます。途中でやめることもできます。",
+  /** 300 冊以上のとき。 */
+  limitNote:
+    "取得元の 1 日の上限（Google など）に達すると、そこで止まります。もう一度実行すると、残りから進みます。",
+} as const;
+
+// 一覧の上の帯の「再取得…」ボタン（0027 §1）
+export const refetchShown = {
+  label: "再取得…",
+  aria: (count: number) => `表示中の ${n(count)} 冊の書誌を再取得…`,
 } as const;
 
 export const detail = {
@@ -355,7 +369,16 @@ export const statusBar = {
   shown: (total: number, shown: number) => `${n(total)} 冊中 ${n(shown)} 冊を表示`,
   selected: (count: number) => `${n(count)} 冊を選択`,
   mockData: "モックデータ",
+  /** 再取得の作業が動いている間（0027 §6）。 */
+  refetch: {
+    progress: (done: number, total: number) => `書誌を再取得中 ${n(done)} / ${n(total)} 冊`,
+    calculating: "残りを計算中",
+    underMinute: "残り 1 分未満",
+    remaining: (minutes: number) => `残り約 ${n(minutes)} 分`,
+    cancel: "やめる",
+    barLabel: "再取得の進み具合",
+  },
 } as const;
 
 // 一覧まわりの文言。検索欄の ISBN の確認、一括変更・再取得のダイアログは、ここにまとめる。
-export const list = { ...listBase, isbnSearch, bulkDialog, refetchDialog } as const;
+export const list = { ...listBase, isbnSearch, bulkDialog, refetchDialog, refetchShown } as const;

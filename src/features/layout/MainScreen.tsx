@@ -7,7 +7,7 @@
 //   巻をまとめた表示（FR-LIST-08）… useGroupedList。選択はグループの key も含み、操作の対象にするときに本の ID にする
 //   検索欄の ISBN（FR-SCAN-09）・メイン画面でのスキャン（FR-SCAN-10）… 登録済みなら選ぶ、未登録ならスキャン登録へ引き渡す
 //   一括変更・再取得・書き出し（選んだ本・表示中の絞り込み結果）・ゴミ箱・作品の手動のまとめ・外し（0026）… useLibraryActions
-import { DownloadIcon } from "lucide-react";
+import { DownloadIcon, RefreshCwIcon } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { StatusBar } from "@/components/layout/StatusBar";
@@ -47,6 +47,7 @@ import { ja } from "@/i18n/ja";
 import { useAnyModalOpen } from "@/lib/useModalGuard";
 import { useEditorStore } from "@/stores/editorStore";
 import { useLayoutStore } from "@/stores/layoutStore";
+import { useRefetchRunning } from "@/stores/refetchJobStore";
 import { useScreenStore } from "@/stores/screenStore";
 import { useSelectionStore } from "@/stores/selectionStore";
 import { useViewStore } from "@/stores/viewStore";
@@ -179,6 +180,16 @@ export function MainScreen() {
     void actions.exportCsv(grouped.bookIds);
   }, [actions, grouped.bookIds]);
 
+  // 表示中の本をまとめて再取得する（0027 §1）。ゴミ箱・0 冊・再取得が動いている間は押せない
+  const refetchRunning = useRefetchRunning();
+  const refetchShown = useCallback(() => setRefetchTarget(grouped.bookIds), [grouped.bookIds]);
+  // 確認のダイアログに出す、ISBN のない本の数（取得しない）
+  const noIsbnCount = useMemo(() => {
+    if (refetchTarget === null) return 0;
+    const wanted = new Set(refetchTarget);
+    return view.rows.filter((row) => wanted.has(row.id) && row.isbn13 === null).length;
+  }, [refetchTarget, view.rows]);
+
   // ⌘F（検索欄）と ⌘I（詳細ペイン）は、メイン画面だけで効く。⌘N・⇧⌘N・⌘, は、どの画面でも効くので App が受ける
   // （features/shortcuts/useGlobalShortcuts.ts）
   useShortcuts(modalOpen ? {} : { focusSearch, toggleDetail });
@@ -239,6 +250,17 @@ export function MainScreen() {
             <ViewSwitch />
             <GroupToggle />
             <div className="ml-auto flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="xs"
+                disabled={inTrash || shownCount === 0 || refetchRunning}
+                aria-label={ja.list.refetchShown.aria(shownCount)}
+                title={ja.list.refetchShown.aria(shownCount)}
+                onClick={refetchShown}
+              >
+                <RefreshCwIcon />
+                {ja.list.refetchShown.label}
+              </Button>
               <Button variant="ghost" size="xs" disabled={shownCount === 0} onClick={exportShown}>
                 <DownloadIcon />
                 {ja.list.exportShown.label(shownCount)}
@@ -287,6 +309,7 @@ export function MainScreen() {
       />
       <RefetchDialog
         ids={refetchTarget}
+        noIsbnCount={noIsbnCount}
         onCancel={() => setRefetchTarget(null)}
         onConfirm={(ids, overrideManual) => {
           setRefetchTarget(null);

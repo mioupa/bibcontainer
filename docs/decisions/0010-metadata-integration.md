@@ -136,6 +136,8 @@ type BookDraft = {
 
 **`refetch_books(ids, overrideManual)`**（FR-META-13）。キャッシュを使わず取り直す。戻り値は `RefetchSummary`（件数と、本ごとの `RefetchItem { id, outcome, metaStatus, written, skippedManual, message }`。`outcome` は `updated`・`unchanged`・`offline`・`skipped`・`error`）。
 
+→ 0027 で、手動の再取得は裏の作業（`start_refetch`・`cancel_refetch`・`get_refetch_job`、イベント `refetch-progress`）に改めた。`refetch_books` コマンドはなくした。10 冊ずつ取り、取得元が 401・403・429 を返したら止め、前回の取得が古い本から取る。
+
 1. 本の ISBN と、**2段目由来（`field_sources` が `barcode`）の Cコード・本体価格**を読む。後者は最優先の値として統合に渡すので、取得元の値に置き換わらない。取得元由来・手修正の値は渡さない（手修正の値は、下の 4 でコアが守る）。
 2. 取得する。最初の 1 冊で通信できるかを確かめ、全部通信エラーなら残りは試さずに `offline` とする（NDL・Google は 1 件ずつリトライしながら取るので、全冊を試すと長くかかる）。以降は 20 冊ずつ（進捗が DB に残る単位）。
 3. 書影がまだない本だけ、書影を取得する（→ 0021 §4 で、取得元由来の書影が使えない形のときも取り直すようにした。0021 §3 で、取得元が値を返さなくなった項目を消すようにした）。

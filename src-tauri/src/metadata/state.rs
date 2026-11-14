@@ -17,6 +17,7 @@ use bibcontainer_metadata::{
 
 use super::cache::DbRawCache;
 use super::keychain::{ApiKeys, KeyStore};
+use super::refetch_job::{JobSlot, RefetchJobStatus};
 use super::settings::{self, ProviderSettings};
 use crate::database::Database;
 use crate::error::AppError;
@@ -24,6 +25,9 @@ use crate::error::AppError;
 /// 蔵書が変わったことを知らせる関数（本の ID の一覧、本以外（シリーズなど）も変わったか）。
 /// 本番は `events::emit_library_changed`。
 pub type Notifier = Arc<dyn Fn(Vec<String>, bool) + Send + Sync>;
+
+/// 再取得の作業の進み具合を知らせる関数。本番は `events::emit_refetch_progress`。
+pub type ProgressEmitter = Arc<dyn Fn(&RefetchJobStatus) + Send + Sync>;
 
 /// User-Agent（`bibcontainer/<版> (+<連絡先>)`）から通信の層を作る関数。テストでは偽の HTTP に差し替える。
 pub type TransportFactory = Arc<dyn Fn(&str) -> Result<Arc<Transport>, AppError> + Send + Sync>;
@@ -87,10 +91,13 @@ pub struct MetadataState {
     app_version: String,
     transport_factory: TransportFactory,
     pub(super) notifier: Notifier,
+    pub(super) progress: ProgressEmitter,
     current: Mutex<Option<Arc<Active>>>,
     build_lock: tokio::sync::Mutex<()>,
     /// 再取得（手動・取得待ちの自動）が同時に 2 つ走らないようにする。
     pub(super) refetch_lock: tokio::sync::Mutex<()>,
+    /// 一括再取得の作業（同時に 1 つ）の取り消しの合図と状態。
+    pub(super) job: Mutex<JobSlot>,
     /// 取得待ちの自動再取得を最後に始めた時刻（`trigger` が間を空けるために見る）。
     pub(super) last_pass: Mutex<Option<Instant>>,
 }
@@ -103,6 +110,7 @@ impl MetadataState {
         app_version: String,
         transport_factory: TransportFactory,
         notifier: Notifier,
+        progress: ProgressEmitter,
     ) -> Arc<Self> {
         Arc::new(MetadataState {
             db,
@@ -111,9 +119,11 @@ impl MetadataState {
             app_version,
             transport_factory,
             notifier,
+            progress,
             current: Mutex::new(None),
             build_lock: tokio::sync::Mutex::new(()),
             refetch_lock: tokio::sync::Mutex::new(()),
+            job: Mutex::new(JobSlot::default()),
             last_pass: Mutex::new(None),
         })
     }

@@ -395,12 +395,23 @@ impl MetadataService {
                 if provider.info().supports_batch && missing.len() > 1 {
                     provider.fetch_raw_batch(&self.transport, &missing).await
                 } else {
+                    // 取得元が制限・拒否（401・403・429）を返したら、残りの ISBN には問い合わせず、同じ状態にする（0027 §4.4）
+                    let mut refused: Option<FetchError> = None;
                     let mut v = Vec::with_capacity(missing.len());
                     for isbn in &missing {
-                        v.push((
-                            isbn.clone(),
-                            provider.fetch_raw(&self.transport, isbn).await,
-                        ));
+                        let raw = match &refused {
+                            Some(e) => Err(e.clone()),
+                            None => {
+                                let raw = provider.fetch_raw(&self.transport, isbn).await;
+                                if let Err(e) = &raw
+                                    && e.is_refusal()
+                                {
+                                    refused = Some(e.clone());
+                                }
+                                raw
+                            }
+                        };
+                        v.push((isbn.clone(), raw));
                     }
                     v
                 };
