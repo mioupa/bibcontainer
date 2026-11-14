@@ -1,7 +1,7 @@
 # フェーズ3 受け入れ確認（機能拡張）
 
 - 対象: 要件書 12 章フェーズ3。機能ごとに、実装の前に受け入れ基準の案を作って承認を得て、ここに足していく（`docs/decisions/0022` §3）
-- これまでの機能: グリッド表示と巻をまとめた表示（2026-10-17。`docs/decisions/0024`）、作品の手動のまとめ・外し（2026-10-18。`docs/decisions/0026`）、キーワード検索（2026-10-18。`docs/decisions/0025`）
+- これまでの機能: グリッド表示と巻をまとめた表示（2026-10-17。`docs/decisions/0024`）、作品の手動のまとめ・外し（2026-10-18。`docs/decisions/0026`）、キーワード検索（2026-10-18。`docs/decisions/0025`）、汎用 CSV 取り込み（2026-11-14。`docs/decisions/0028`）
 
 ## 1. 受け入れ基準
 
@@ -35,6 +35,19 @@
 | AT-43 | ISBN のない結果（古い版など）を選ぶ | `BookEditorDialog.test.tsx`（項目が入り、保存する下書きに取得状態が付かない。ISBN を入れてあれば変えずに取得待ち）、`search_tests.rs`（候補の値だけで、由来はその取得元。書影は取れれば保存し、取れなくても続ける） | 自動で確認済み。実機は確認待ち |
 | AT-44 | 取得元の失敗・オフライン | `KeywordSearchDialog.test.tsx`（欄ごとの「通信できませんでした」「取得元がエラーを返しました（HTTP 503）」・エラーの文、ほかの欄は出る）、`search_tests.rs`（通信・HTTP・解析の失敗はエラーでなく状態、オフラインで選ぶと値が入ったまま `pending`）、`BookEditorDialog.test.tsx`（オフラインの知らせと `pending` での保存） | 自動で確認済み |
 | AT-45 | 語の扱いとキー操作 | `crates/metadata/tests/search.rs`（`"`・`\` を除く、`AND`・`OR`・`NOT` の語、NFKC、空・200 文字を超える条件は通信しない）、`KeywordSearchDialog.test.tsx`（両方空なら探さない、Enter で探す、↑↓・Home・End・Enter・ダブルクリック・「入れる」、日本語入力の確定の Enter を無視、古い検索の応答を捨てる）、`BookEditorDialog.test.tsx`（Esc は検索だけを閉じる、検索の中の Enter・⌘Enter はフォームに取られない、外側のクリックで閉じない、リンクは `open_link` を呼んで行を選ばない）、`system.rs`（`open_link` の URL の検査） | 自動で確認済み。実機（WKWebView・WebView2 の日本語入力）は確認待ち |
+
+### 汎用 CSV 取り込み（AT-50〜AT-57）
+
+| ID | 確かめ方 | 確認した場所 | 状態 |
+|---|---|---|---|
+| AT-50 | UTF-8（BOM の有無とも）と Shift_JIS（漢字・かな・①・髙）を開く。判定を手で変える | `csv_import/tests.rs`（`decodes_utf8_with_and_without_bom`、`decodes_shift_jis_including_extended_characters`、`auto_detection_errors_on_bytes_that_are_neither_utf8_nor_shift_jis`、`forced_encoding_is_used_even_if_the_bytes_do_not_fit`、`preview_reports_encoding_and_whether_it_was_detected`）、`tests/csv_import.rs`（`imports_shift_jis_files`）、`CsvImportDialog.test.tsx`（文字コードを選ぶと、その文字コードで開き直す） | 自動で確認済み。実機は確認待ち |
+| AT-51 | 書き出しの列名・別名の見出しの CSV を開き、対応を変える。「1 行目は見出し」を外す | `csv_import/tests.rs`（`suggests_every_header_of_the_exporter`、`suggests_aliases_ignoring_width_case_and_spaces`、`rejects_a_target_mapped_twice_or_a_column_out_of_range`、`without_header_the_first_record_is_data`）、`model.test.ts`（1 つの項目は 1 列だけ、全項目に名前と分類がちょうど 1 つ）、`CsvImportDialog.test.tsx`（対応の案と例、見出しを外すと「1 列目」、ISBN も書名もないと「次へ」が押せない） | 自動で確認済み。実機は確認待ち |
+| AT-52 | 確認の画面の件数・理由・作る保管場所とシリーズ。取り込むまで DB が変わらない | `tests/csv_import.rs`（`plan_does_not_write_to_the_database`、`classifies_rows_in_order_with_every_skip_kind`、`id_column_is_only_for_duplicate_detection_and_never_written`）、`ipc_tests.rs`（`csv_import_commands_open_check_run_and_save_rejected`: 確認では書かず、通知も出ない）、`CsvImportDialog.test.tsx`（件数（0 の内訳は出さない）、理由の全種類と Excel の注意、絞り込み、500 行で切る、0 冊なら取り込めない、「戻る」で対応が残る） | 自動で確認済み。実機は確認待ち |
+| AT-53 | ISBN のある行を取り込む。取得待ちの再取得のあと、手動の再取得、上書きを選んだ再取得 | `tests/csv_import.rs`（`execute_writes_import_origin_pending_status_ops_and_created_at`: 由来が `import`、ISBN のある本だけ `pending`、Op）、`metadata/tests.rs`（`a_csv_imported_book_keeps_its_values_when_the_pending_refetch_fills_the_rest`: CSV の書名・本体価格は残り、出版社は取得元から入り `ok` に。手動の再取得でも残り、上書きを選ぶと置き換わる、`trigger_now_ignores_the_minimum_gap`）、`refetch.rs`（`plan_keeps_values_imported_from_csv_unless_override_is_chosen`: 書名・巻次と並べ替え用の数値・シリーズ・Cコード）。オフラインのときは、取得待ちの本の扱い（AT-11、0010 §9）のまま | 自動で確認済み。書影が入ることと、オフラインで取り込んで復帰したあとは実機で確認待ち |
+| AT-54 | 著者・タグ・保管場所・シリーズ・列挙値・日付・金額・評価を取り込む | `csv_import/tests.rs`（`authors_split_on_semicolons_and_japanese_commas_not_ascii_commas`、`tags_split_on_all_separators`、`location_is_split_on_gt_with_nfkc_and_trimmed`、`enums_accept_keys_and_japanese_labels`、`dates_accept_many_forms_and_zero_pad`、`integers_accept_yen_commas_and_page_suffixes`、`rating_accepts_1_to_5_and_treats_zero_as_empty`、`volume_sort_work_id_and_id`、`trashed_column_values`、`created_at_formats`）、`tests/csv_import.rs`（`resolves_locations_by_path_unique_leaf_or_creates_the_missing_tail`、`series_are_matched_by_normalized_name_and_new_ones_are_deduplicated`） | 自動で確認済み |
+| AT-55 | アプリの書き出しを空の蔵書に取り込み、書き出し直す。同じ蔵書に取り込む | `tests/csv_import.rs`（`export_then_import_round_trips_into_an_empty_library`: ID・書影・取得状態の列を除いて一致（登録日時も）、`importing_an_export_into_its_own_library_skips_every_row`） | 自動で確認済み。実機は確認待ち |
+| AT-56 | 取り込めなかった行を保存し、直して取り込む | `tests/csv_import.rs`（`rejected_rows_file_has_header_reason_column_bom_and_crlf_and_can_be_fixed_and_reimported`、`rejected_rows_without_header_have_no_header_row`）、`ipc_tests.rs`（保存）、`CsvImportDialog.test.tsx`（既定の名前「<元の名前>-取り込めなかった行.csv」、取り消し、エラー、エラーがなければボタンを出さない） | 自動で確認済み。実機は確認待ち |
+| AT-57 | 5,000 行の確認と取り込みの速さ。途中で失敗させる。20 MB を超えるファイル | `tests/csv_import.rs`（`perf_5000_rows_plan_and_execute`（`#[ignore]`。2.4）、`a_failure_in_the_middle_rolls_everything_back`: 本・保管場所・シリーズのどれも残らない）、`ipc_tests.rs`（`csv_import_rejects_files_over_the_size_limit`）、`csv_import/tests.rs`（`rejects_input_over_the_size_limit`） | 自動で確認済み |
 
 ## 2. 性能
 
@@ -102,7 +115,20 @@
 
 **AT-35 の判定**: スクロールは、どの場面でも引っかからない（10.1 の 60fps の目安を満たす）。DOM の書影は、見えている段と前後の数段だけ（グリッドで最大 40 枚）。まとめる処理は 2 万冊で 50ms 未満（手元の Mac。最初の読み込みの 1 回だけは、CI の機械で最大 100ms。テストの上限は 300ms。0024）。メモリは、グリッドで最大が 300MB を数 MB 超えることがある（上のとおり許容）。
 
-## 3. 実機確認チェックリスト（グリッド表示・巻をまとめた表示・作品の手動のまとめ・キーワード検索）
+### 2.4 CSV 取り込み（`crates/core/tests/csv_import.rs` の `perf_5000_rows_plan_and_execute`。2026-11-14、開発機の Mac、release）
+
+5,000 行の CSV（既存 1,000 冊のファイルの DB、うち 500 行が登録済みの ISBN）。
+
+| 処理 | 目標 | 結果 |
+|---|---|---|
+| 確認（`plan`） | 2 秒未満 | 約 13ms |
+| 取り込み（`execute`。4,500 冊・保管場所 40・シリーズ 100 を作る） | 10 秒未満 | 約 0.9 秒 |
+
+```fish
+cargo test --release -p bibcontainer-core --test csv_import -- --ignored --nocapture
+```
+
+## 3. 実機確認チェックリスト（グリッド表示・巻をまとめた表示・作品の手動のまとめ・キーワード検索・CSV 取り込み）
 
 準備: 本物の蔵書で見てよい（表示を切り替えるだけで、データは変えない。ただし、右クリックの一括変更とゴミ箱は本物のデータを変える）。ダミーの蔵書で試すなら、`docs/acceptance/phase1.md` 5 章の手順で、`--works` を付けて作る。
 
@@ -162,8 +188,23 @@ env HOME=$DUMMY_HOME pnpm tauri dev
 - [ ] K8. 「このアプリについて」のクレジットの URL を押すと、既定のブラウザで開く。
 - [ ] K9. Wi-Fi を切って探すと、各欄に「通信できませんでした」が出る（アプリは固まらない）。
 
+### CSV 取り込み（0028）
+
+準備: 取り込みは本物のデータに本・保管場所・シリーズを足し、同期で他の端末にも届く。元に戻す操作はない（消すならゴミ箱へ）。上のダミーの蔵書（`env HOME=$DUMMY_HOME pnpm tauri dev`）か、空の蔵書で試すとよい。試す CSV は、アプリの書き出し（設定の「バックアップ」→「書き出し」→ CSV）と、Excel・Numbers で作ったもの（Excel は「CSV UTF-8」と「CSV（コンマ区切り）」＝ Shift_JIS の両方）。
+
+- [ ] C1. 設定の「バックアップ」に「取り込み」があり、「CSV から取り込む…」でファイルを選ぶとダイアログが開く。
+- [ ] C2. Excel で保存した Shift_JIS の CSV と UTF-8 の CSV で、見出しと例が化けない。文字コードの欄が「自動（Shift_JIS）」などになる。わざと違う文字コードを選ぶと化け、戻すと直る。
+- [ ] C3. アプリの書き出しを開くと、見出しから項目が自動で選ばれる（書影・取得状態は「取り込まない」）。列の項目を変えると、同じ項目だった列が「取り込まない」に戻る。
+- [ ] C4. 「次へ」で確認の画面になり、取り込む・飛ばす・取り込めない・値を読めなかった件数、作る保管場所とシリーズ、行番号つきの理由が出る。ここで閉じても、蔵書は変わっていない。
+- [ ] C5. 書き出しを同じ蔵書に取り込むと、全行が「飛ばす」（登録済みの ISBN・同じ ID の本・ゴミ箱の行）になり、取り込めない。
+- [ ] C6. ISBN のある本を取り込むと、すぐ一覧に出て「取得待ち」になり、しばらくすると書影と、CSV になかった項目（出版社など）が入る。CSV に書いた書名は変わらない。その本で「書誌を再取得」しても書名は残り、「手で直した項目・取り込んだ項目も上書きする」をオンにすると取得元の書名になる。
+- [ ] C7. Wi-Fi を切って取り込むと、取得待ちのまま登録される。Wi-Fi を戻すと（ウィンドウを前面にするか、5 分以内に）書誌と書影が入る。
+- [ ] C8. ISBN 列に `9.78478E+12` のような値（Excel で数値になった ISBN）や、書名も ISBN もない行を混ぜると「取り込めない」になる。結果の画面の「取り込めなかった行を CSV に保存…」で保存したファイルを Excel で開くと、元の列と「取り込めなかった理由」が並ぶ。直して取り込むと、その行だけが入る。
+- [ ] C9. 保管場所 `自宅 > 書斎 > 2段目` のような値で、ない場所が親から作られる。登録日時の列のある CSV では、取り込んだ本の登録日が CSV の値になる（一覧を登録日で並べると、その日時の位置に入る）。
+
 ### Windows
 
 - [ ] X1. Windows でも G1・G4・G6・W1・W2・W7 が同じに動く（WebView2）。
 - [ ] X2. Windows でも M1・M2・M7 が同じに動く。
 - [ ] X3. Windows でも K2・K4・K5・K7・K8 が同じに動く（WebView2。日本語入力は Microsoft IME）。
+- [ ] X4. Windows でも C1・C2・C6・C8 が同じに動く（Excel の Shift_JIS の CSV、保存のダイアログ）。
