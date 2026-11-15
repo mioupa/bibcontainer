@@ -2,6 +2,7 @@
 // 連続のときは共通値と、溜まった本の一覧。読み取りの流れは useScanFlow、確定した本の処理は flow.ts。
 import { ArrowLeftIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CameraPanel } from "@/features/scanScreen/camera/CameraPanel";
 import { LastReadCard } from "@/features/scanScreen/LastReadCard";
 import { ManualInput } from "@/features/scanScreen/ManualInput";
 import { useManualFocusHome } from "@/features/scanScreen/manualFocus";
@@ -55,6 +56,7 @@ export function ScanScreen() {
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
             <LastReadCard onRegisterSecond={flow.registerSecondCopy} />
             <div className="flex flex-col gap-4">
+              <CameraPanel listening={flow.listening} onDigits={flow.submitDigits} />
               <ManualInput
                 onSubmit={flow.submitDigits}
                 // フォームやダイアログを開いている間は、確定キーと同じく止める

@@ -1,5 +1,5 @@
 // スキャン登録画面の状態。画面を離れても、連続登録の一覧と共通値、取得結果を失わないよう、ストアに置く。
-// 「1 冊ずつ／連続」の選択だけを端末に保存する（連続登録の一覧は、保存するまでの一時的なもの）。
+// 「1 冊ずつ／連続」の選択と、カメラで読むときに選んだカメラ（0029）だけを端末に保存する（連続登録の一覧は、保存するまでの一時的なもの）。
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { IsbnMatch } from "@/bindings/IsbnMatch";
@@ -39,6 +39,8 @@ export interface WantedPrompt {
 
 interface ScanSessionState {
   mode: ScanMode;
+  /** カメラで読むときに選んだカメラの deviceId。null は既定のカメラ。オン・オフは保存しない。 */
+  cameraDeviceId: string | null;
   presets: BatchPresets;
   rows: BatchRow[];
   /** 次の行の識別子。 */
@@ -50,6 +52,7 @@ interface ScanSessionState {
   prompt: WantedPrompt | null;
 
   setMode: (mode: ScanMode) => void;
+  setCameraDeviceId: (deviceId: string | null) => void;
   setPresets: (patch: Partial<BatchPresets>) => void;
   /** 行を足して、足した行を返す。 */
   addRow: (book: ConfirmedBook, duplicate: RowDuplicate | null) => BatchRow;
@@ -82,8 +85,10 @@ export const useScanSessionStore = create<ScanSessionState>()(
   persist(
     (set, get) => ({
       mode: "single",
+      cameraDeviceId: null,
       ...INITIAL,
       setMode: (mode) => set({ mode }),
+      setCameraDeviceId: (cameraDeviceId) => set({ cameraDeviceId }),
       setPresets: (patch) => set((s) => ({ presets: { ...s.presets, ...patch } })),
       addRow: (book, duplicate) => {
         const row = createRow(`row-${get().nextKey}`, book, duplicate);
@@ -124,10 +129,18 @@ export const useScanSessionStore = create<ScanSessionState>()(
       version: 1,
       // localStorage を使えない環境（プライベートウィンドウなど）では、何も保存しない
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ mode: s.mode }),
+      partialize: (s) => ({ mode: s.mode, cameraDeviceId: s.cameraDeviceId }),
+      // 0029 より前の保存（mode だけ）も読める。足した項目がなければ初期値のまま（version は上げない）
       merge: (persisted, current) => {
-        const mode = (persisted as { mode?: unknown } | null | undefined)?.mode;
-        return { ...current, mode: mode === "batch" || mode === "single" ? mode : current.mode };
+        const saved = persisted as { mode?: unknown; cameraDeviceId?: unknown } | null | undefined;
+        const mode = saved?.mode;
+        const deviceId = saved?.cameraDeviceId;
+        return {
+          ...current,
+          mode: mode === "batch" || mode === "single" ? mode : current.mode,
+          cameraDeviceId:
+            typeof deviceId === "string" && deviceId !== "" ? deviceId : current.cameraDeviceId,
+        };
       },
     },
   ),
